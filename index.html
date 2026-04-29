@@ -552,7 +552,7 @@ function shareDoc(){
 }
 
 // ── 起動 ────────────────────────────────────
-window.onload=()=>{initQuote();loadFromGAS();};
+window.onload=()=>{initQuote();document.getElementById('loading').style.display='none';document.getElementById('app').style.display='block';renderAll();};
 </script>
 </body>
 </html>
