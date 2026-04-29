@@ -552,7 +552,7 @@ function shareDoc(){
 }
 
 // ── 起動 ────────────────────────────────────
-window.onload=()=>{initQuote();document.getElementById('loading').style.display='none';document.getElementById('app').style.display='block';renderAll();};
+window.onload=()=>{try{const d=localStorage.getItem('agri_db');if(d)DB=JSON.parse(d);}catch(e){}initQuote();document.getElementById('loading').style.display='none';document.getElementById('app').style.display='block';renderAll();};
 </script>
 </body>
 </html>
