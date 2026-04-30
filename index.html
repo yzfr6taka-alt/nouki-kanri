@@ -799,18 +799,138 @@ function buildEstHTML(){
   const subject = document.getElementById("subject").value||"";
   const note = document.getElementById("note").value||"";
   let sub = 0;
+
   const rowsHTML = qItems.map((item,i)=>{
     const qty = Number(item.qty)||0, price = Number(item.price)||0, amt = qty*price;
     sub += amt;
-    return `<tr><td style="text-align:center;border:1px solid #000;padding:3px;font-size:11px;">${i+1}</td><td style="border:1px solid #000;padding:3px 6px;font-size:11px;">${escH(item.name)}</td><td style="text-align:center;border:1px solid #000;padding:3px;font-size:11px;">${escH(item.brand)}</td><td style="text-align:center;border:1px solid #000;padding:3px;font-size:11px;">${escH(item.model)}</td><td style="text-align:center;border:1px solid #000;padding:3px;font-size:11px;">${qty||""}</td><td style="text-align:right;border:1px solid #000;padding:3px 6px;font-size:11px;">${price?price.toLocaleString():""}</td><td style="text-align:right;border:1px solid #000;padding:3px 6px;font-size:11px;">${amt?amt.toLocaleString():""}</td><td style="border:1px solid #000;padding:3px 6px;font-size:11px;">${escH(item.note)}</td></tr>`;
+    const isEmpty = !item.name && !item.brand && !item.model && !qty && !price;
+    if(isEmpty){
+      // 空白行：斜線付き
+      return `<tr style="height:26px;">
+        <td style="text-align:center;border:1px solid #000;font-size:11px;padding:2px;">${i+1}</td>
+        <td colspan="6" style="border:1px solid #000;position:relative;overflow:hidden;">
+          <div style="position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(to bottom right,transparent calc(50% - 0.5px),#000 calc(50% - 0.5px),#000 calc(50% + 0.5px),transparent calc(50% + 0.5px));"></div>
+        </td>
+        <td style="border:1px solid #000;"></td>
+      </tr>`;
+    }
+    return `<tr style="height:26px;">
+      <td style="text-align:center;border:1px solid #000;padding:3px 2px;font-size:11px;">${i+1}</td>
+      <td style="border:1px solid #000;padding:3px 6px;font-size:11px;">${escH(item.name)}</td>
+      <td style="text-align:center;border:1px solid #000;padding:3px 3px;font-size:11px;">${escH(item.brand)}</td>
+      <td style="text-align:center;border:1px solid #000;padding:3px 3px;font-size:11px;">${escH(item.model)}</td>
+      <td style="text-align:center;border:1px solid #000;padding:3px 2px;font-size:11px;">${qty||""}</td>
+      <td style="text-align:right;border:1px solid #000;padding:3px 6px;font-size:11px;">${price?price.toLocaleString():""}</td>
+      <td style="text-align:right;border:1px solid #000;padding:3px 6px;font-size:11px;">${amt?amt.toLocaleString():""}</td>
+      <td style="border:1px solid #000;padding:3px 6px;font-size:11px;">${escH(item.note)}</td>
+    </tr>`;
   }).join('');
+
   const tax = Math.floor(sub*0.1), total = sub+tax;
-  return `<div style="width:794px;min-height:1123px;padding:28px 35px;background:#fff;font-family:'Hiragino Sans','MS PGothic',sans-serif;font-size:12px;color:#000;">${no?`<div style="text-align:right;font-size:11px;margin-bottom:4px;">見積番号：${escH(no)}</div>`:''}<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;"><div style="font-size:26px;font-weight:900;letter-spacing:14px;flex:1;text-align:center;">見　積　書</div><div style="font-size:12px;white-space:nowrap;padding-top:6px;">${fmtDate(date)}</div></div><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;"><div style="flex:1;"><div style="margin-bottom:8px;display:flex;align-items:flex-end;max-width:260px;"><span style="font-size:15px;font-weight:700;border-bottom:1px solid #000;flex:1;padding-bottom:3px;">${escH(toName)}</span><span style="font-size:15px;font-weight:700;margin-left:6px;white-space:nowrap;">　様</span></div><div style="font-size:12px;margin-bottom:10px;">下　記　の　通　り　御　見　積　致　し　ま　す　。</div><table style="border-collapse:collapse;font-size:11px;"><tr><td style="padding-right:12px;padding-bottom:4px;">納入期日</td><td style="border-bottom:1px solid #000;min-width:160px;padding-bottom:2px;">${fmtDate(delivDate)}</td></tr><tr><td style="padding-right:12px;padding-bottom:4px;">納入場所</td><td style="border-bottom:1px solid #000;padding-bottom:2px;">${escH(delivPlace)}</td></tr><tr><td style="padding-right:12px;">取引方法</td><td style="border-bottom:1px solid #000;padding-bottom:2px;">${escH(payMethod)}</td></tr></table></div><div style="text-align:left;font-size:11px;line-height:1.8;margin-left:20px;padding-top:10px;">鹿児島県曽於市大隅町岩川5591番地<br>そ　お　鹿　児　島　農　業　協　同　組　合<br>代表理事組合長　　竹　内　和　久<br><strong style="font-size:12px;">財部農機センター</strong></div></div><div style="margin-bottom:10px;"><div style="border:1.5px solid #000;display:inline-block;padding:6px 20px;font-size:13px;font-weight:900;">合計金額　¥　<span style="font-size:16px;">${total.toLocaleString()}</span>　円也<span style="font-size:11px;font-weight:400;margin-left:12px;">（内消費税　${tax.toLocaleString()}　円）</span></div></div>${subject?`<div style="margin-bottom:8px;font-size:12px;">件名：${escH(subject)}</div>`:''}<table style="width:100%;border-collapse:collapse;margin-bottom:0;"><tr><th style="border:1px solid #000;padding:5px 3px;text-align:center;font-size:11px;background:#f0f0f0;width:30px;">No.</th><th style="border:1px solid #000;padding:5px 3px;text-align:center;font-size:11px;background:#f0f0f0;">品　　名</th><th style="border:1px solid #000;padding:5px 3px;text-align:center;font-size:11px;background:#f0f0f0;width:70px;">銘　柄</th><th style="border:1px solid #000;padding:5px 3px;text-align:center;font-size:11px;background:#f0f0f0;width:90px;">型　　式</th><th style="border:1px solid #000;padding:5px 3px;text-align:center;font-size:11px;background:#f0f0f0;width:40px;">数量</th><th style="border:1px solid #000;padding:5px 3px;text-align:center;font-size:11px;background:#f0f0f0;width:75px;">単　価</th><th style="border:1px solid #000;padding:5px 3px;text-align:center;font-size:11px;background:#f0f0f0;width:80px;">金　額</th><th style="border:1px solid #000;padding:5px 3px;text-align:center;font-size:11px;background:#f0f0f0;">備　考</th></tr>${rowsHTML}<tr><td colspan="5" style="border:1px solid #000;border-right:none;padding:6px;text-align:center;font-size:12px;font-weight:700;">小　　計</td><td colspan="2" style="border:1px solid #000;border-left:none;padding:6px;text-align:right;font-size:12px;font-weight:700;">${sub.toLocaleString()}</td><td style="border:1px solid #000;"></td></tr><tr><td colspan="5" style="border:1px solid #000;border-right:none;padding:6px;text-align:center;font-size:12px;font-weight:700;">消費税（10%）</td><td colspan="2" style="border:1px solid #000;border-left:none;padding:6px;text-align:right;font-size:12px;font-weight:700;">${tax.toLocaleString()}</td><td style="border:1px solid #000;"></td></tr><tr><td colspan="5" style="border:1px solid #000;border-right:none;padding:6px;text-align:center;font-size:13px;font-weight:900;">合　　計</td><td colspan="2" style="border:1px solid #000;border-left:none;padding:6px;text-align:right;font-size:13px;font-weight:900;">${total.toLocaleString()}</td><td style="border:1px solid #000;"></td></tr></table>${note?`<div style="margin-top:12px;font-size:11px;border:1px solid #ccc;padding:8px;border-radius:4px;"><strong>備考：</strong>${escH(note)}</div>`:''}${expDate?`<div style="margin-top:8px;font-size:11px;color:#555;">有効期限：${fmtDate(expDate)}</div>`:''}</div>`;
+
+  return `
+<div style="width:210mm;min-height:297mm;padding:14mm 12mm 10mm 12mm;background:#fff;font-family:'Hiragino Sans','MS PGothic','Yu Gothic',sans-serif;font-size:12px;color:#000;box-sizing:border-box;">
+
+  <!-- 見積書タイトル -->
+  <div style="text-align:center;font-size:28px;font-weight:900;letter-spacing:20px;margin-bottom:6mm;">見　積　書</div>
+
+  <!-- 日付・見積番号 -->
+  <div style="display:flex;justify-content:flex-end;margin-bottom:3mm;">
+    <div style="font-size:12px;">${fmtDate(date)}${no?'　見積番号：'+escH(no):''}</div>
+  </div>
+
+  <!-- お客様名 -->
+  <div style="margin-bottom:3mm;">
+    <span style="font-size:14px;font-weight:700;border-bottom:1.5px solid #000;padding-bottom:2px;padding-right:30px;">${escH(toName)}</span>
+    <span style="font-size:14px;font-weight:700;margin-left:4px;">　様</span>
+  </div>
+
+  <!-- 下記の通り -->
+  <div style="font-size:12px;letter-spacing:2px;margin-bottom:3mm;">下　記　の　通　り　御　見　積　致　し　ま　す　。</div>
+
+  <!-- 納入情報 ＋ 会社情報 -->
+  <div style="display:flex;justify-content:space-between;margin-bottom:4mm;">
+    <div>
+      <table style="border-collapse:collapse;font-size:12px;">
+        <tr><td style="padding:1px 8px 1px 0;white-space:nowrap;">納入期日</td><td style="border-bottom:1px solid #000;min-width:160px;padding:1px 4px;">${fmtDate(delivDate)}</td></tr>
+        <tr><td style="padding:1px 8px 1px 0;white-space:nowrap;">納入場所</td><td style="border-bottom:1px solid #000;padding:1px 4px;">${escH(delivPlace)}</td></tr>
+        <tr><td style="padding:1px 8px 1px 0;white-space:nowrap;">取引方法</td><td style="border-bottom:1px solid #000;padding:1px 4px;">${escH(payMethod)}</td></tr>
+      </table>
+    </div>
+    <div style="font-size:11px;line-height:1.9;text-align:left;">
+      鹿児島県曽於市大隅町岩川5591番地<br>
+      そ　お　鹿　児　島　農　業　協　同　組　合<br>
+      代　表　理　事　組　合　長　　竹　内　和　久<br>
+      <strong style="font-size:12px;">財部農機センター</strong>
+    </div>
+  </div>
+
+  <!-- 合計金額 -->
+  <div style="margin-bottom:3mm;">
+    <span style="font-size:13px;font-weight:900;border:1.5px solid #000;padding:5px 18px;">
+      合計金額　¥　<span style="font-size:17px;">${total.toLocaleString()}</span>　円也
+    </span>
+    <span style="font-size:11px;margin-left:12px;">（内消費税　${tax.toLocaleString()}　円）</span>
+  </div>
+
+  ${subject?`<div style="margin-bottom:2mm;font-size:11px;">件名：${escH(subject)}</div>`:''}
+
+  <!-- 明細テーブル -->
+  <table style="width:100%;border-collapse:collapse;">
+    <colgroup>
+      <col style="width:30px">
+      <col style="width:auto">
+      <col style="width:68px">
+      <col style="width:95px">
+      <col style="width:40px">
+      <col style="width:85px">
+      <col style="width:85px">
+      <col style="width:90px">
+    </colgroup>
+    <tr style="height:24px;">
+      <th style="border:1px solid #000;padding:4px 2px;text-align:center;font-size:11px;font-weight:700;background:#fff;">No.</th>
+      <th style="border:1px solid #000;padding:4px;text-align:center;font-size:11px;font-weight:700;background:#fff;">品　　名</th>
+      <th style="border:1px solid #000;padding:4px;text-align:center;font-size:11px;font-weight:700;background:#fff;">銘　柄</th>
+      <th style="border:1px solid #000;padding:4px;text-align:center;font-size:11px;font-weight:700;background:#fff;">型　　式</th>
+      <th style="border:1px solid #000;padding:4px 2px;text-align:center;font-size:11px;font-weight:700;background:#fff;">数量</th>
+      <th style="border:1px solid #000;padding:4px;text-align:center;font-size:11px;font-weight:700;background:#fff;">単　価</th>
+      <th style="border:1px solid #000;padding:4px;text-align:center;font-size:11px;font-weight:700;background:#fff;">金　額</th>
+      <th style="border:1px solid #000;padding:4px;text-align:center;font-size:11px;font-weight:700;background:#fff;">備　考</th>
+    </tr>
+    ${rowsHTML}
+    <!-- 小　計 -->
+    <tr style="height:24px;">
+      <td colspan="2" style="border:1px solid #000;text-align:center;font-size:12px;font-weight:700;">小</td>
+      <td colspan="3" style="border:1px solid #000;text-align:center;font-size:12px;font-weight:700;">計</td>
+      <td colspan="2" style="border:1px solid #000;padding:4px 8px;text-align:right;font-size:12px;font-weight:700;">${sub.toLocaleString()}</td>
+      <td style="border:1px solid #000;"></td>
+    </tr>
+    <!-- 消費税 -->
+    <tr style="height:24px;">
+      <td colspan="1" style="border:1px solid #000;text-align:center;font-size:12px;font-weight:700;">消</td>
+      <td colspan="2" style="border:1px solid #000;text-align:center;font-size:12px;font-weight:700;">費</td>
+      <td colspan="2" style="border:1px solid #000;text-align:center;font-size:12px;font-weight:700;">税</td>
+      <td colspan="2" style="border:1px solid #000;padding:4px 8px;text-align:right;font-size:12px;font-weight:700;">${tax.toLocaleString()}</td>
+      <td style="border:1px solid #000;"></td>
+    </tr>
+    <!-- 合　計 -->
+    <tr style="height:24px;">
+      <td colspan="2" style="border:1px solid #000;text-align:center;font-size:12px;font-weight:700;">合</td>
+      <td colspan="3" style="border:1px solid #000;text-align:center;font-size:12px;font-weight:700;">計</td>
+      <td colspan="2" style="border:1px solid #000;padding:4px 8px;text-align:right;font-size:13px;font-weight:900;">${total.toLocaleString()}</td>
+      <td style="border:1px solid #000;"></td>
+    </tr>
+  </table>
+
+  ${note?`<div style="margin-top:4mm;font-size:11px;border:1px solid #ccc;padding:6px 10px;"><strong>備考：</strong>${escH(note)}</div>`:''}
+  ${expDate?`<div style="margin-top:3mm;font-size:11px;">有効期限：${fmtDate(expDate)}</div>`:''}
+</div>`;
+}
 }
 
 function showPreview(){ document.getElementById("preview-inner").innerHTML = buildEstHTML(); document.getElementById("preview-modal").style.display = "block"; }
 function closePreview(){ document.getElementById("preview-modal").style.display = "none"; }
-function getStyles(){ return `*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Hiragino Sans','MS PGothic',sans-serif;}@page{size:A4 portrait;margin:10mm;}`; }
+function getStyles(){ return `*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Hiragino Sans','MS PGothic','Yu Gothic',sans-serif;}@page{size:A4 portrait;margin:0;}@media print{body{margin:0;padding:0;}}`; }
 function printDoc(){ const win = window.open('','_blank'); win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`); win.document.close(); setTimeout(()=>{win.print();},600); }
 function savePDF(){ alert("① 次の印刷画面で\n② 送信先を「PDFに保存」に変更\n③ 保存→Sharpdesk Mobileで印刷できます"); printDoc(); }
 function shareDoc(){
