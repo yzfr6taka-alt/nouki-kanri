@@ -436,7 +436,7 @@
       </div>
       <textarea id="smartText" placeholder="ここをタップして🎤で話す、または入力..." rows="4" class="field-textarea"></textarea>
       <button onclick="runSmartAI()" id="smartBtn" class="save-btn" style="width:100%;background:#e67e22;margin-bottom:10px;">🤖 AI自動振り分け・登録</button>
-      <div id="smartStatus" style="font-size:12px;margin-top:8px;display:none;padding:10px;border-radius:8px;"></div>
+      <div id="smartStatus" style="font-size:12px;margin-top:8px;display:none;padding:10px;border-radius:8px;line-height:2.2;"></div>
     </div>
   </div>
 </div>
@@ -509,6 +509,21 @@ function openApiKey() { document.getElementById('apiKeyInput').value = apiKey; d
 function closeApiKey() { document.getElementById('apiKeyModal').style.display = 'none'; }
 function saveApiKey() { apiKey = document.getElementById('apiKeyInput').value.trim(); try { localStorage.setItem('agri_api_key', apiKey); } catch(e) {} closeApiKey(); alert('APIキーを保存しました'); }
 
+// ── カレンダーURL生成ヘルパー ────────────────────────
+function buildCalUrl(title, dateVal, details) {
+  let dt = dateVal;
+  if (!dt) {
+     // 日付が未入力の場合は今日の日付をセット
+     dt = new Date().toISOString().slice(0, 10);
+  }
+  const d = dt.replace(/-/g, "");
+  const startDate = new Date(dt);
+  const endDate = new Date(startDate);
+  endDate.setDate(startDate.getDate() + 1); // 終日予定のため翌日を指定
+  const dEnd = endDate.toISOString().slice(0,10).replace(/-/g, "");
+  return `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${d}/${dEnd}&details=${encodeURIComponent(details)}`;
+}
+
 // ── AI機能 ────────────────────────
 async function callAI(prompt) {
   const cleanKey = apiKey.trim();
@@ -554,19 +569,23 @@ async function runSmartAI() {
     }
     if(result.hasRepair && result.repair && result.repair.customerName) {
       DB.repairs.push({ id: "ID_" + (Date.now() + 1), customerName: result.repair.customerName, machine: result.repair.machine || "", maker: result.repair.maker || "", model: result.repair.model || "", attachment: result.repair.attachment || "", hourMeter: result.repair.hourMeter || "", issue: result.repair.issue || "", status: result.repair.status || "修理依頼", dueDate: result.repair.dueDate || "", date: today, usedParts: [] });
-      msgs.push("🔧 修理依頼登録");
+      let url = buildCalUrl(`【修理納期】${result.repair.customerName} 様 ${result.repair.machine||""}`, result.repair.dueDate, `メーカー: ${result.repair.maker||""}\n型式: ${result.repair.model||""}\n内容: ${result.repair.issue||""}`);
+      msgs.push(`🔧 修理依頼登録 <a href="${url}" target="_blank" style="margin-left:8px;background:#4285f4;color:#fff;padding:4px 8px;border-radius:6px;text-decoration:none;font-size:11px;display:inline-block;">📅 カレンダーに登録</a>`);
     }
     if(result.hasDemo && result.demo && result.demo.customerName) {
       DB.demos.push({ id: "ID_" + (Date.now() + 2), customerName: result.demo.customerName, targetMachine: result.demo.targetMachine || "", maker: result.demo.maker || "", model: result.demo.model || "", date: result.demo.date || "", status: result.demo.status || "実演予定" });
-      msgs.push("🌾 実演登録");
+      let url = buildCalUrl(`【実演予定】${result.demo.customerName} 様 ${result.demo.targetMachine||""}`, result.demo.date, `メーカー: ${result.demo.maker||""}\n型式: ${result.demo.model||""}`);
+      msgs.push(`🌾 実演登録 <a href="${url}" target="_blank" style="margin-left:8px;background:#4285f4;color:#fff;padding:4px 8px;border-radius:6px;text-decoration:none;font-size:11px;display:inline-block;">📅 カレンダーに登録</a>`);
     }
     if(result.hasPart && result.part && result.part.name) {
       DB.parts.push({ id: "ID_" + (Date.now() + 3), customerName: result.part.customerName || "", name: result.part.name, maker: result.part.maker || "", partNo: result.part.partNo || "", qty: Number(result.part.qty) || 0, status: result.part.status || "発注前", orderDate: result.part.orderDate || "" });
-      msgs.push("⚙️ 部品登録");
+      let url = buildCalUrl(`【部品発注】${result.part.customerName||""} 様 ${result.part.name}`, result.part.orderDate, `メーカー: ${result.part.maker||""}\n品番: ${result.part.partNo||""}\n数量: ${result.part.qty||""}`);
+      msgs.push(`⚙️ 部品登録 <a href="${url}" target="_blank" style="margin-left:8px;background:#4285f4;color:#fff;padding:4px 8px;border-radius:6px;text-decoration:none;font-size:11px;display:inline-block;">📅 カレンダーに登録</a>`);
     }
     if(result.hasProduct && result.product && result.product.productName) {
       DB.products.push({ id: "ID_" + (Date.now() + 4), productName: result.product.productName, maker: result.product.maker || "", model: result.product.model || "", customer: result.product.customer || "", status: result.product.status || "受注", deliveryDate: result.product.deliveryDate || "" });
-      msgs.push("🚜 製品登録");
+      let url = buildCalUrl(`【製品納品】${result.product.customer||""} 様 ${result.product.productName}`, result.product.deliveryDate, `メーカー: ${result.product.maker||""}\n型式: ${result.product.model||""}`);
+      msgs.push(`🚜 製品登録 <a href="${url}" target="_blank" style="margin-left:8px;background:#4285f4;color:#fff;padding:4px 8px;border-radius:6px;text-decoration:none;font-size:11px;display:inline-block;">📅 カレンダーに登録</a>`);
     }
     
     saveDB();
@@ -677,7 +696,6 @@ function renderCustomers() {
   return html;
 }
 
-// 機械名の表示を整えるヘルパー関数
 function buildMachineStr(name, maker, model) {
   if(!name && !maker && !model) return "";
   let s = "";
@@ -777,6 +795,40 @@ function renderQuotesList() {
   return html;
 }
 
+// ── Googleカレンダー手動登録（モーダル内ボタン用） ────────────────────────
+function regToCalendar(type) {
+  const cName = document.getElementById("f_customerName")?.value || document.getElementById("f_customer")?.value || "";
+  let title = "", dateVal = "", details = "";
+
+  if(type === 'repair') {
+    const machine = document.getElementById("f_machine")?.value || "";
+    title = `【修理納期】${cName} 様 ${machine}`;
+    dateVal = document.getElementById("f_dueDate")?.value;
+    const maker = document.getElementById("f_maker")?.value || "";
+    const model = document.getElementById("f_model")?.value || "";
+    const issue = document.getElementById("f_issue")?.value || "";
+    details = `メーカー: ${maker}\n型式: ${model}\n内容: ${issue}`;
+  } else if(type === 'demo') {
+    const machine = document.getElementById("f_targetMachine")?.value || "";
+    title = `【実演予定】${cName} 様 ${machine}`;
+    dateVal = document.getElementById("f_date")?.value;
+    details = `実演機1: ${machine} ${document.getElementById("f_model")?.value || ""}\n実演機2: ${document.getElementById("f_targetMachine2")?.value || ""} ${document.getElementById("f_model2")?.value || ""}\n実演機3: ${document.getElementById("f_targetMachine3")?.value || ""} ${document.getElementById("f_model3")?.value || ""}`;
+  } else if(type === 'part') {
+    const pName = document.getElementById("f_name")?.value || "";
+    title = `【部品発注】${cName} 様 ${pName}`;
+    dateVal = document.getElementById("f_orderDate")?.value;
+    details = `メーカー: ${document.getElementById("f_maker")?.value || ""}\n品番: ${document.getElementById("f_partNo")?.value || ""}\n数量: ${document.getElementById("f_qty")?.value || ""}`;
+  } else if(type === 'product') {
+    const pName = document.getElementById("f_productName")?.value || "";
+    title = `【製品納品】${cName} 様 ${pName}`;
+    dateVal = document.getElementById("f_deliveryDate")?.value;
+    details = `メーカー: ${document.getElementById("f_maker")?.value || ""}\n型式: ${document.getElementById("f_model")?.value || ""}\n販売額: ${document.getElementById("f_price")?.value || ""}`;
+  }
+
+  const url = buildCalUrl(title, dateVal, details);
+  window.open(url, '_blank');
+}
+
 // ── 編集モーダル ────────────────────────
 let modalState = null;
 
@@ -809,24 +861,24 @@ function showModal() {
     form += `<div class="fl"><div class="fg">` + inp("attachment", "アタッチメント", it.attachment) + `</div><div class="fg">` + inp("hourMeter", "稼働時間(h)", it.hourMeter, "number") + `</div></div>`;
     form += `<label class="field-label">不具合内容・依頼事項</label><textarea id="f_issue" class="field-textarea" rows="2">${esc(it.issue)}</textarea>`;
     form += `<div class="fl"><div class="fg">` + sel("status", "ステータス", ["修理依頼", "見積中", "部品待ち", "修理中", "完了(未請求)", "請求済"], it.status) + `</div><div class="fg">` + inp("dueDate", "納期・予定日", it.dueDate, "date") + `</div></div>`;
+    form += `<button onclick="regToCalendar('repair')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに納期を登録</button>`;
     form += `<button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 見積書を作成</button>`;
   } 
   else if (modalState.tab === 3) { 
     form += inp("customerName", "対象顧客", it.customerName);
     
-    // 実演機1
     form += `<div style="padding:10px; background:var(--input-bg); border-radius:10px; margin-bottom:12px;">`;
     form += `<div style="font-size:12px; font-weight:bold; color:var(--text); margin-bottom:8px;">🚜 実演機 1</div>`;
     form += inp("targetMachine", "対象機械 (品名)", it.targetMachine);
     form += `<div class="fl" style="margin-bottom:0;"><div class="fg">` + inp("maker", "メーカー", it.maker) + `</div><div class="fg">` + inp("model", "型式", it.model) + `</div></div>`;
     form += `</div>`;
-    // 実演機2
+    
     form += `<div style="padding:10px; background:var(--input-bg); border-radius:10px; margin-bottom:12px;">`;
     form += `<div style="font-size:12px; font-weight:bold; color:var(--text-sub); margin-bottom:8px;">🚜 実演機 2 (任意)</div>`;
     form += inp("targetMachine2", "対象機械 (品名)", it.targetMachine2);
     form += `<div class="fl" style="margin-bottom:0;"><div class="fg">` + inp("maker2", "メーカー", it.maker2) + `</div><div class="fg">` + inp("model2", "型式", it.model2) + `</div></div>`;
     form += `</div>`;
-    // 実演機3
+    
     form += `<div style="padding:10px; background:var(--input-bg); border-radius:10px; margin-bottom:12px;">`;
     form += `<div style="font-size:12px; font-weight:bold; color:var(--text-sub); margin-bottom:8px;">🚜 実演機 3 (任意)</div>`;
     form += inp("targetMachine3", "対象機械 (品名)", it.targetMachine3);
@@ -834,6 +886,7 @@ function showModal() {
     form += `</div>`;
 
     form += `<div class="fl"><div class="fg">` + sel("status", "ステータス", ["実演予定", "実施済", "見積提示中", "成約"], it.status) + `</div><div class="fg">` + inp("date", "予定日/実施日", it.date, "date") + `</div></div>`;
+    form += `<button onclick="regToCalendar('demo')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに予定を登録</button>`;
     form += `<button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 見積書を作成</button>`;
   } 
   else if (modalState.tab === 4) { 
@@ -842,6 +895,7 @@ function showModal() {
     form += `<div class="fl"><div class="fg">` + inp("maker", "メーカー", it.maker) + `</div><div class="fg">` + inp("partNo", "品番・型式", it.partNo) + `</div></div>`;
     form += `<div class="fl"><div class="fg">` + inp("qty", "数量", it.qty, "number") + `</div><div class="fg">` + inp("price", "仕入・販売単価", it.price, "number") + `</div></div>`;
     form += `<div class="fl"><div class="fg">` + sel("status", "ステータス", ["発注前", "発注済", "入荷済"], it.status) + `</div><div class="fg">` + inp("orderDate", "発注日", it.orderDate, "date") + `</div></div>`;
+    form += `<button onclick="regToCalendar('part')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに発注日を登録</button>`;
     form += `<button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 この部品で見積書を作成</button>`;
   } 
   else if (modalState.tab === 5) { 
@@ -850,6 +904,7 @@ function showModal() {
     form += `<div class="fl"><div class="fg">` + inp("maker", "メーカー", it.maker) + `</div><div class="fg">` + inp("model", "型式", it.model) + `</div></div>`;
     form += `<div class="fl"><div class="fg">` + sel("status", "ステータス", ["商談中", "受注", "納品済"], it.status) + `</div><div class="fg">` + inp("deliveryDate", "納品予定日", it.deliveryDate, "date") + `</div></div>`;
     form += inp("price", "販売額", it.price, "number");
+    form += `<button onclick="regToCalendar('product')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに納品予定を登録</button>`;
     form += `<button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 この製品で見積書を作成</button>`;
   }
 
