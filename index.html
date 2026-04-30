@@ -1209,9 +1209,10 @@ function buildEstHTML() {
   <div style="text-align:right;font-size:10px;margin-bottom:4mm;">${fmtDate(date)}</div>
 
   <div style="margin-bottom:4mm; text-align:left;">
-    <div style="display:inline-flex; align-items:flex-end; border-bottom:1.5px solid #000; padding-bottom:1px; width:45mm; margin-bottom:2mm;">
-      <div style="font-size:16px; font-weight:bold; flex:1; text-align:right; letter-spacing:3px;">${escH(tN)}</div>
-      <div style="font-size:16px; font-weight:bold; margin-left:1mm;">様</div>
+    <div style="display:inline-flex; align-items:flex-end; border-bottom:1.5px solid #000; padding-bottom:1px; margin-bottom:2mm; min-width:45mm; white-space:nowrap;">
+      <div style="flex:1;"></div>
+      <div style="font-size:16px; font-weight:bold; text-align:justify; text-align-last:justify; text-justify:inter-character; min-width:25mm;">${escH(tN)}</div>
+      <div style="font-size:16px; font-weight:bold; margin-left:1.5mm;">様</div>
     </div>
     <div style="font-size:11px;letter-spacing:2px;">下　記　の　通　り　御　見　積　致　し　ま　す　。</div>
   </div>
@@ -1237,7 +1238,7 @@ function buildEstHTML() {
       </table>
     </div>
     <div style="font-size:10px;line-height:1.6; text-align:left;">
-      鹿児島県曽於市大隅町岩川5591番地<br>そ お 鹿 児 島 農 業 協 同 組 合<br>代表理事組合長　　竹 内　和 久<br><div style="text-align:right;margin-top:1mm;">財部農機センター</div>
+      鹿児島県曽於市大隅町岩川5591番地<br>そ お 鹿 児 加 農業 協 同 組 合<br>代表理事組合長　　竹 内　和 久<br><div style="text-align:right;margin-top:1mm;">財部農機センター</div>
     </div>
   </div>
 
