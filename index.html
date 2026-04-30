@@ -756,7 +756,7 @@ function renderQuotesList() {
   return html;
 }
 
-// ── 編集モーダル（復活版） ────────────────────────
+// ── 編集モーダル ────────────────────────
 let modalState = null;
 
 function openNew(tab) {
@@ -777,43 +777,36 @@ function showModal() {
   let form = "";
   const it = modalState.item;
 
-  if (modalState.tab === 1) { // 顧客
+  if (modalState.tab === 1) { 
     form += inp("name", "顧客名", it.name) + inp("phone", "電話番号", it.phone) + inp("address", "住所", it.address);
-    // 備考欄も追加しておきます
     form += `<label class="field-label">メモ・備考</label><textarea id="f_memo" class="field-textarea" rows="2">${esc(it.memo)}</textarea>`;
   } 
-  else if (modalState.tab === 2) { // 修理
+  else if (modalState.tab === 2) { 
     form += inp("customerName", "顧客名", it.customerName);
     form += `<div class="fl"><div class="fg">` + inp("machine", "機械名", it.machine) + `</div><div class="fg">` + inp("model", "型式", it.model) + `</div></div>`;
-    // ★復活：アタッチメント、アワーメーター、不具合内容
     form += `<div class="fl"><div class="fg">` + inp("attachment", "アタッチメント", it.attachment) + `</div><div class="fg">` + inp("hourMeter", "アワーメーター(h)", it.hourMeter, "number") + `</div></div>`;
     form += `<label class="field-label">不具合内容・依頼事項</label><textarea id="f_issue" class="field-textarea" rows="2">${esc(it.issue)}</textarea>`;
-    
-    // ★復活：納期
     form += `<div class="fl"><div class="fg">` + sel("status", "ステータス", ["修理依頼", "見積中", "部品待ち", "修理中", "完了(未請求)", "請求済"], it.status) + `</div><div class="fg">` + inp("dueDate", "納期・予定日", it.dueDate, "date") + `</div></div>`;
     form += `<button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 見積書を作成</button>`;
   } 
-  else if (modalState.tab === 3) { // 実演
+  else if (modalState.tab === 3) { 
     form += inp("customerName", "対象顧客", it.customerName);
     form += `<div class="fl"><div class="fg">` + inp("targetMachine", "対象機械", it.targetMachine) + `</div><div class="fg">` + inp("model", "型式", it.model) + `</div></div>`;
-    // ★復活：日付
     form += `<div class="fl"><div class="fg">` + sel("status", "ステータス", ["実演予定", "実施済", "見積提示中", "成約"], it.status) + `</div><div class="fg">` + inp("date", "予定日/実施日", it.date, "date") + `</div></div>`;
     form += `<button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 見積書を作成</button>`;
   } 
-  else if (modalState.tab === 4) { // 部品
+  else if (modalState.tab === 4) { 
     form += inp("customerName", "顧客名（任意）", it.customerName);
     form += inp("name", "部品名", it.name);
     form += `<div class="fl"><div class="fg">` + inp("partNo", "品番・型式", it.partNo) + `</div><div class="fg">` + inp("qty", "数量", it.qty, "number") + `</div></div>`;
-    // ★復活：発注日とステータス
     form += `<div class="fl"><div class="fg">` + sel("status", "ステータス", ["発注前", "発注済", "入荷済"], it.status) + `</div><div class="fg">` + inp("orderDate", "発注日", it.orderDate, "date") + `</div></div>`;
     form += inp("price", "仕入・販売単価", it.price, "number");
     form += `<button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 この部品で見積書を作成</button>`;
   } 
-  else if (modalState.tab === 5) { // 製品
+  else if (modalState.tab === 5) { 
     form += inp("customer", "顧客名", it.customer);
     form += inp("productName", "製品名", it.productName);
     form += `<div class="fl"><div class="fg">` + inp("maker", "メーカー", it.maker) + `</div><div class="fg">` + inp("model", "型式", it.model) + `</div></div>`;
-    // ★復活：納品日とステータス
     form += `<div class="fl"><div class="fg">` + sel("status", "ステータス", ["商談中", "受注", "納品済"], it.status) + `</div><div class="fg">` + inp("deliveryDate", "納品予定日", it.deliveryDate, "date") + `</div></div>`;
     form += inp("price", "販売額", it.price, "number");
     form += `<button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 この製品で見積書を作成</button>`;
@@ -830,7 +823,6 @@ function showModal() {
   document.getElementById("modalOverlay").style.display = "flex";
 }
 
-// type引数を追加して日付や数値を綺麗に入力できるようにしました
 function inp(id, label, val, type="text") { 
   return `<label class="field-label">${label}</label><input type="${type}" id="f_${id}" class="field-input" value="${esc(val || '')}">`; 
 }
@@ -853,7 +845,6 @@ function saveItem() {
   const dbKey = keys[modalState.tab];
   let item = { id: modalState.mode === "new" ? "ID_" + Date.now() : modalState.item.id };
 
-  // textareaも保存対象に含めるように修正しました
   const inputs = document.querySelectorAll("#modalBody input, #modalBody select, #modalBody textarea");
   for (let i = 0; i < inputs.length; i++) {
     const el = inputs[i];
@@ -1043,7 +1034,7 @@ function calcTotal() {
   if(document.getElementById("total")) document.getElementById("total").textContent = "¥" + (sub + tax).toLocaleString();
 }
 
-// ── プレビュー生成 ────────────────
+// ── プレビュー生成（レイアウト改善版） ────────────────
 function getStyles() { 
   return `* { box-sizing: border-box; margin: 0; padding: 0; } body { font-family: 'MS Mincho', 'Hiragino Mincho Pro', serif; } @page { size: A4 portrait; margin: 0; } @media print { body { margin: 0; padding: 0; -webkit-print-color-adjust: exact; color-adjust: exact; } }`; 
 }
@@ -1108,22 +1099,35 @@ function buildEstHTML() {
   <div style="text-align:center;font-size:24px;letter-spacing:15mm;margin-bottom:8mm;padding-left:15mm;">見　積　書</div>
   <div style="text-align:right;font-size:10px;margin-bottom:4mm;">${fmtDate(date)}</div>
 
-  <div style="margin-bottom:4mm;">
-    <div style="font-size:16px;font-weight:bold;border-bottom:1px solid #000;display:inline-block;padding-bottom:1px;min-width:40mm;text-align:left;margin-bottom:2mm;">
-      ${escH(tN)}　様
+  <div style="margin-bottom:4mm; text-align:left;">
+    <div style="display:inline-flex; align-items:flex-end; border-bottom:1.5px solid #000; padding-bottom:1px; width:75mm; margin-bottom:2mm;">
+      <div style="font-size:16px; font-weight:bold; text-align:left; letter-spacing:4px; flex:1;">${escH(tN)}</div>
+      <div style="font-size:16px; font-weight:bold; margin-left:4mm;">様</div>
     </div>
     <div style="font-size:11px;letter-spacing:2px;">下　記　の　通　り　御　見　積　致　し　ま　す　。</div>
   </div>
 
   <div style="display:flex;justify-content:space-between;margin-bottom:6mm;">
     <div>
-      <table style="font-size:10px;border-collapse:collapse;">
-        <tr><td style="padding:1px 0;">納入期日</td><td style="border-bottom:1px solid #000;width:35mm;padding:1px 4px;text-align:left;">${fmtDate(dD)}</td></tr>
-        <tr><td style="padding:1px 0;">納入場所</td><td style="border-bottom:1px solid #000;width:35mm;padding:1px 4px;text-align:left;">${escH(dP)}</td></tr>
-        <tr><td style="padding:1px 0;">取引方法</td><td style="border-bottom:1px solid #000;width:35mm;padding:1px 4px;text-align:left;">${escH(pM)}</td></tr>
+      <table style="font-size:10px;border-collapse:collapse; text-align:left;">
+        <tr>
+          <td style="padding:1.5px 0; width:15mm; text-align:justify; text-align-last:justify;">納入期日</td>
+          <td style="padding:1.5px 2px;">：</td>
+          <td style="border-bottom:1px solid #000; width:45mm; padding:1.5px 4px; text-align:left;">${fmtDate(dD)}</td>
+        </tr>
+        <tr>
+          <td style="padding:1.5px 0; text-align:justify; text-align-last:justify;">納入場所</td>
+          <td style="padding:1.5px 2px;">：</td>
+          <td style="border-bottom:1px solid #000; padding:1.5px 4px; text-align:left;">${escH(dP)}</td>
+        </tr>
+        <tr>
+          <td style="padding:1.5px 0; text-align:justify; text-align-last:justify;">取引方法</td>
+          <td style="padding:1.5px 2px;">：</td>
+          <td style="border-bottom:1px solid #000; padding:1.5px 4px; text-align:left;">${escH(pM)}</td>
+        </tr>
       </table>
     </div>
-    <div style="font-size:10px;line-height:1.6;">
+    <div style="font-size:10px;line-height:1.6; text-align:left;">
       鹿児島県曽於市大隅町岩川5591番地<br>そ お 鹿 児 島 農 業 協 同 組 合<br>代表理事組合長　　竹 内　和 久<br><div style="text-align:right;margin-top:1mm;">財部農機センター</div>
     </div>
   </div>
