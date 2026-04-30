@@ -926,7 +926,6 @@ function buildEstHTML(){
   ${expDate?`<div style="margin-top:3mm;font-size:11px;">有効期限：${fmtDate(expDate)}</div>`:''}
 </div>`;
 }
-}
 
 function showPreview(){ document.getElementById("preview-inner").innerHTML = buildEstHTML(); document.getElementById("preview-modal").style.display = "block"; }
 function closePreview(){ document.getElementById("preview-modal").style.display = "none"; }
