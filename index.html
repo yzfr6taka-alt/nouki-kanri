@@ -414,8 +414,10 @@ function renderDemos(){
   let html = `<button onclick="openNew(3)" class="save-btn" style="margin-bottom:15px;width:100%">＋ 実演を新規登録</button>`;
   if(DB.demos.length===0) html += `<div style="text-align:center;color:var(--text-sub);padding:40px 0">実演が登録されていません</div>`;
   DB.demos.forEach(item=>{
+    const machineText = item.machines&&item.machines.length>0 ? item.machines.map(m=>m.name+(m.model?' '+m.model:'')).join('、') : (item.targetMachine||'機械未入力');
     html += `<div class="card" onclick="openEdit('${item.id}',3)" style="border-left:4px solid ${STATUS_COLORS[item.status]||'#95a5a6'}">
-      <div style="font-weight:bold;font-size:15px;margin-bottom:4px">${item.customerName} - ${item.targetMachine||'機械未入力'}</div>
+      <div style="font-weight:bold;font-size:15px;margin-bottom:4px">${item.customerName}</div>
+      <div style="font-size:12px;color:var(--text-sub)">🚜 ${machineText}</div>
       ${item.date?`<div style="font-size:12px;color:var(--text-sub)">予定日: ${item.date}</div>`:''}
       <span class="badge" style="background:${STATUS_COLORS[item.status]||'#95a5a6'};margin-top:6px;display:inline-block">${item.status}</span>
     </div>`;
@@ -474,8 +476,10 @@ function renderProducts(){
 
 // ── モーダル ─────────────────────────────────
 let modalState = null;
-// 修理モーダル用の使用部品リスト
-let tempUsedParts = [];
+let tempUsedParts = [];      // 修理：使用部品
+let tempLinkedProducts = []; // 修理・部品：関連製品
+let tempLinkedParts = [];    // 製品：関連部品
+let tempDemoMachines = [];   // 実演：複数機械
 
 function openNew(tab){ modalState={tab,mode:"new",item:{}}; showModal(); }
 function openEdit(id,tab){
@@ -499,42 +503,72 @@ function showModal(){
   else if(modalState.tab===2){
     // 修理
     tempUsedParts = it.usedParts ? JSON.parse(JSON.stringify(it.usedParts)) : [];
+    tempLinkedProducts = it.linkedProducts ? JSON.parse(JSON.stringify(it.linkedProducts)) : [];
     form = inp("customerName","顧客名",it.customerName) + inp("machine","機械・型式",it.machine);
+    form += `<div class="fl">` + inp("serialNo","製造番号",it.serialNo) + inp("hourMeter","アワーメーター(h)",it.hourMeter) + `</div>`;
     form += inp("attachment","アタッチメント(作業機)",it.attachment,"","RMR8-PRJ など");
-    form += `<div class="fl">` + inp("hourMeter","アワーメーター(h)",it.hourMeter) + sel("status","ステータス",["修理依頼","見積中","部品待ち","修理中","完了(未請求)","請求済"],it.status) + `</div>`;
+    form += `<div class="fl">` + sel("status","ステータス",["修理依頼","見積中","部品待ち","修理中","完了(未請求)","請求済"],it.status) + `</div>`;
     form += `<label class="field-label">症状・内容</label><textarea id="f_issue" class="field-textarea" rows="2">${it.issue||''}</textarea>`;
     form += `<div class="fl"><div class="fg"><label class="field-label">受付日</label><input type="date" id="f_date" class="field-input" value="${it.date||''}"></div><div class="fg"><label class="field-label">納期</label><input type="date" id="f_dueDate" class="field-input" value="${it.dueDate||''}"></div></div>`;
-    // スマート農機
     form += `<div class="section-box"><div style="font-size:12px;font-weight:bold;color:#e67e22;margin-bottom:6px">📡 スマート農機設定</div>` + inp("smartSystem","システム名",it.smartSystem,"","CHCNAV等") + `<div class="fl">` + inp("ntripInfo","Ntrip ID/PW",it.ntripInfo) + inp("antenna","アンテナ高",it.antenna) + `</div></div>`;
-    // 使用部品セクション
+    // 使用部品
     form += `<div class="section-box">
       <div style="font-size:12px;font-weight:bold;color:#2980b9;margin-bottom:8px">🔩 使用部品・交換部品</div>
       <div id="usedPartsList">${renderUsedPartsList()}</div>
       <button type="button" class="add-parts-btn" onclick="addUsedPart()">＋ 部品を追加</button>
     </div>`;
-    // SNS
+    // 関連製品
+    form += `<div class="section-box">
+      <div style="font-size:12px;font-weight:bold;color:#27ae60;margin-bottom:8px">🚜 関連製品（販売・検討）</div>
+      <div id="linkedProductsList">${renderLinkedProductsList()}</div>
+      <button type="button" class="add-parts-btn" onclick="addLinkedProduct()">＋ 製品を追加</button>
+    </div>`;
     form += `<div class="section-box"><label class="chk-label"><input type="checkbox" id="f_sns_ok" ${it.sns_ok?'checked':''}> 📷 掲載許可済・インスタネタ</label><textarea id="f_sns_memo" class="field-textarea" rows="2">${it.sns_memo||''}</textarea></div>`;
     form += `<button onclick="jumpToQuote()" style="width:100%;background:#8e44ad;color:#fff;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:11px;">📄 見積書を作成</button>`;
     form += `<label class="field-label">メモ</label><textarea id="f_memo" class="field-textarea" rows="2">${it.memo||''}</textarea>`;
   }
   else if(modalState.tab===3){
-    // 実演
+    // 実演（複数機械対応）
+    tempDemoMachines = it.machines ? JSON.parse(JSON.stringify(it.machines)) : (it.targetMachine ? [{name:it.targetMachine,maker:'',model:''}] : []);
     form = inp("customerName","対象顧客・見込み客",it.customerName) + inp("mapUrl","実演場所URL",it.mapUrl);
     form += `<div class="fl">` + inp("date","実施予定日",it.date,"date") + sel("status","ステータス",["実演予定","実施済","見積提示中","成約"],it.status) + `</div>`;
-    form += inp("targetMachine","実演対象機械",it.targetMachine);
+    // 複数機械
+    form += `<div class="section-box">
+      <div style="font-size:12px;font-weight:bold;color:#2980b9;margin-bottom:8px">🚜 実演機械（複数追加可）</div>
+      <div id="demoMachinesList">${renderDemoMachinesList()}</div>
+      <button type="button" class="add-parts-btn" onclick="addDemoMachine()">＋ 機械を追加</button>
+    </div>`;
     form += `<label class="field-label">フィードバック・反応</label><textarea id="f_reaction" class="field-textarea" rows="2">${it.reaction||''}</textarea>`;
     form += `<div class="section-box"><div style="font-size:12px;font-weight:bold;color:#27ae60;margin-bottom:6px">♻️ 下取り査定メモ</div>` + inp("tradeInMachine","下取り機 型式",it.tradeInMachine) + `<div class="fl">` + inp("tradeInHour","アワー(h)",it.tradeInHour) + inp("tradeInPrice","概算査定額(円)",it.tradeInPrice) + `</div><label class="field-label">外観メモ</label><textarea id="f_tradeInMemo" class="field-textarea" rows="2">${it.tradeInMemo||''}</textarea></div>`;
     form += `<button onclick="jumpToQuote()" style="width:100%;background:#8e44ad;color:#fff;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:11px;">📄 この案件の見積書を作成</button>`;
+    form += `<label class="field-label">メモ</label><textarea id="f_memo" class="field-textarea" rows="2">${it.memo||''}</textarea>`;
   }
   else if(modalState.tab===4){
     // 部品
-    form = inp("name","部品名",it.name) + `<div class="fl">` + inp("partNo","品番",it.partNo) + inp("qty","在庫数",it.qty) + `</div>` + inp("price","仕入単価(円)",it.price) + sel("status","ステータス",["発注前","発注済","入荷済"],it.status) + inp("orderDate","発注日",it.orderDate,"date") + inp("supplier","仕入先",it.supplier);
+    tempLinkedProducts = it.linkedProducts ? JSON.parse(JSON.stringify(it.linkedProducts)) : [];
+    form = inp("name","部品名",it.name) + `<div class="fl">` + inp("partNo","品番",it.partNo) + inp("qty","在庫数",it.qty) + `</div>`;
+    form += inp("price","仕入単価(円)",it.price) + sel("status","ステータス",["発注前","発注済","入荷済"],it.status) + inp("orderDate","発注日",it.orderDate,"date") + inp("supplier","仕入先",it.supplier);
+    // 関連製品
+    form += `<div class="section-box">
+      <div style="font-size:12px;font-weight:bold;color:#27ae60;margin-bottom:8px">🚜 この部品を使う製品・機械</div>
+      <div id="linkedProductsList">${renderLinkedProductsList()}</div>
+      <button type="button" class="add-parts-btn" onclick="addLinkedProduct()">＋ 製品を追加</button>
+    </div>`;
     form += `<label class="field-label">メモ</label><textarea id="f_memo" class="field-textarea" rows="2">${it.memo||''}</textarea>`;
   }
   else if(modalState.tab===5){
     // 製品
-    form = inp("productName","販売製品名",it.productName) + `<div class="fl">` + inp("maker","メーカー",it.maker) + inp("price","販売額(円)",it.price) + `</div>` + inp("customer","顧客名",it.customer) + sel("status","ステータス",["商談中","受注","納品済"],it.status) + inp("deliveryDate","納期",it.deliveryDate,"date");
-    form += inp("serialNo","シリアル番号",it.serialNo) + `<label class="field-label">備考</label><textarea id="f_memo" class="field-textarea" rows="2">${it.memo||''}</textarea>`;
+    tempLinkedParts = it.linkedParts ? JSON.parse(JSON.stringify(it.linkedParts)) : [];
+    form = inp("productName","販売製品名",it.productName) + `<div class="fl">` + inp("maker","メーカー",it.maker) + inp("price","販売額(円)",it.price) + `</div>`;
+    form += inp("customer","顧客名",it.customer) + sel("status","ステータス",["商談中","受注","納品済"],it.status) + inp("deliveryDate","納期",it.deliveryDate,"date");
+    form += inp("serialNo","製造番号・シリアル番号",it.serialNo);
+    // 関連部品
+    form += `<div class="section-box">
+      <div style="font-size:12px;font-weight:bold;color:#2980b9;margin-bottom:8px">🔩 関連部品・付属品</div>
+      <div id="linkedPartsList">${renderLinkedPartsList()}</div>
+      <button type="button" class="add-parts-btn" onclick="addLinkedPart()">＋ 部品を追加</button>
+    </div>`;
+    form += `<label class="field-label">備考</label><textarea id="f_memo" class="field-textarea" rows="2">${it.memo||''}</textarea>`;
   }
 
   form += `<div class="fl" style="margin-top:15px"><button id="saveItemBtn" class="save-btn" onclick="saveItem()">💾 保存する</button>${modalState.mode==='edit'?'<button class="save-btn" style="background:#e74c3c" onclick="delItem()">削除</button>':''}</div>`;
@@ -553,16 +587,50 @@ function renderUsedPartsList(){
       <button class="del-btn" onclick="removeUsedPart(${i})">✕</button>
     </div>`).join('');
 }
+function addUsedPart(){ tempUsedParts.push({name:'',partNo:'',qty:1}); document.getElementById('usedPartsList').innerHTML=renderUsedPartsList(); }
+function removeUsedPart(i){ tempUsedParts.splice(i,1); document.getElementById('usedPartsList').innerHTML=renderUsedPartsList(); }
 
-function addUsedPart(){
-  tempUsedParts.push({name:'',partNo:'',qty:1});
-  document.getElementById('usedPartsList').innerHTML = renderUsedPartsList();
+// ── 関連製品（修理・部品タブ用）─────────────────
+function renderLinkedProductsList(){
+  if(tempLinkedProducts.length===0) return '<div style="font-size:12px;color:var(--text-sub);margin-bottom:8px">関連製品なし</div>';
+  return tempLinkedProducts.map((p,i)=>`
+    <div class="parts-row">
+      <input placeholder="製品名" value="${esc(p.name||'')}" onchange="tempLinkedProducts[${i}].name=this.value">
+      <input placeholder="型式" value="${esc(p.model||'')}" onchange="tempLinkedProducts[${i}].model=this.value" style="max-width:100px;">
+      <input placeholder="製造番号" value="${esc(p.serialNo||'')}" onchange="tempLinkedProducts[${i}].serialNo=this.value" style="max-width:100px;">
+      <button class="del-btn" onclick="removeLinkedProduct(${i})">✕</button>
+    </div>`).join('');
 }
+function addLinkedProduct(){ tempLinkedProducts.push({name:'',model:'',serialNo:''}); document.getElementById('linkedProductsList').innerHTML=renderLinkedProductsList(); }
+function removeLinkedProduct(i){ tempLinkedProducts.splice(i,1); document.getElementById('linkedProductsList').innerHTML=renderLinkedProductsList(); }
 
-function removeUsedPart(i){
-  tempUsedParts.splice(i,1);
-  document.getElementById('usedPartsList').innerHTML = renderUsedPartsList();
+// ── 関連部品（製品タブ用）────────────────────────
+function renderLinkedPartsList(){
+  if(tempLinkedParts.length===0) return '<div style="font-size:12px;color:var(--text-sub);margin-bottom:8px">関連部品なし</div>';
+  return tempLinkedParts.map((p,i)=>`
+    <div class="parts-row">
+      <input placeholder="部品名" value="${esc(p.name||'')}" onchange="tempLinkedParts[${i}].name=this.value">
+      <input placeholder="品番" value="${esc(p.partNo||'')}" onchange="tempLinkedParts[${i}].partNo=this.value" style="max-width:100px;">
+      <input placeholder="数量" type="number" value="${p.qty||''}" onchange="tempLinkedParts[${i}].qty=this.value" style="max-width:60px;">
+      <button class="del-btn" onclick="removeLinkedPart(${i})">✕</button>
+    </div>`).join('');
 }
+function addLinkedPart(){ tempLinkedParts.push({name:'',partNo:'',qty:1}); document.getElementById('linkedPartsList').innerHTML=renderLinkedPartsList(); }
+function removeLinkedPart(i){ tempLinkedParts.splice(i,1); document.getElementById('linkedPartsList').innerHTML=renderLinkedPartsList(); }
+
+// ── 実演：複数機械────────────────────────────────
+function renderDemoMachinesList(){
+  if(tempDemoMachines.length===0) return '<div style="font-size:12px;color:var(--text-sub);margin-bottom:8px">機械未登録</div>';
+  return tempDemoMachines.map((m,i)=>`
+    <div class="parts-row">
+      <input placeholder="製品名・機械名" value="${esc(m.name||'')}" onchange="tempDemoMachines[${i}].name=this.value">
+      <input placeholder="型式" value="${esc(m.model||'')}" onchange="tempDemoMachines[${i}].model=this.value" style="max-width:100px;">
+      <input placeholder="メーカー" value="${esc(m.maker||'')}" onchange="tempDemoMachines[${i}].maker=this.value" style="max-width:90px;">
+      <button class="del-btn" onclick="removeDemoMachine(${i})">✕</button>
+    </div>`).join('');
+}
+function addDemoMachine(){ tempDemoMachines.push({name:'',model:'',maker:''}); document.getElementById('demoMachinesList').innerHTML=renderDemoMachinesList(); }
+function removeDemoMachine(i){ tempDemoMachines.splice(i,1); document.getElementById('demoMachinesList').innerHTML=renderDemoMachinesList(); }
 
 // ── フォームヘルパー ──────────────────────────
 function inp(id,label,val,type="text",placeholder=""){
@@ -587,9 +655,23 @@ function saveItem(){
   const cb = document.getElementById("f_sns_ok");
   if(cb) item.sns_ok = cb.checked;
 
-  // 修理の場合は使用部品を保存
+  // 修理の場合は使用部品・関連製品を保存
   if(modalState.tab === 2){
     item.usedParts = tempUsedParts.filter(p=>p.name);
+    item.linkedProducts = tempLinkedProducts.filter(p=>p.name);
+  }
+  // 実演の場合は複数機械を保存
+  if(modalState.tab === 3){
+    item.machines = tempDemoMachines.filter(m=>m.name);
+    item.targetMachine = tempDemoMachines.filter(m=>m.name).map(m=>m.name+(m.model?' '+m.model:'')).join('、');
+  }
+  // 部品の場合は関連製品を保存
+  if(modalState.tab === 4){
+    item.linkedProducts = tempLinkedProducts.filter(p=>p.name);
+  }
+  // 製品の場合は関連部品を保存
+  if(modalState.tab === 5){
+    item.linkedParts = tempLinkedParts.filter(p=>p.name);
   }
 
   if(modalState.mode==="new") DB[dbKey].push(item);
