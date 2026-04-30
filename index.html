@@ -513,13 +513,12 @@ function saveApiKey() { apiKey = document.getElementById('apiKeyInput').value.tr
 function buildCalUrl(title, dateVal, details) {
   let dt = dateVal;
   if (!dt) {
-     // 日付が未入力の場合は今日の日付をセット
      dt = new Date().toISOString().slice(0, 10);
   }
   const d = dt.replace(/-/g, "");
   const startDate = new Date(dt);
   const endDate = new Date(startDate);
-  endDate.setDate(startDate.getDate() + 1); // 終日予定のため翌日を指定
+  endDate.setDate(startDate.getDate() + 1);
   const dEnd = endDate.toISOString().slice(0,10).replace(/-/g, "");
   return `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${d}/${dEnd}&details=${encodeURIComponent(details)}`;
 }
@@ -530,7 +529,7 @@ async function callAI(prompt) {
   if(!cleanKey) throw new Error("APIキーが設定されていません。🔑ボタンから設定してください。");
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST", headers: { "Content-Type": "application/json", "x-api-key": cleanKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-    body: JSON.stringify({ model: "claude-3-haiku-20240307", max_tokens: 1200, messages: [{role: "user", content: prompt}] })
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1200, messages: [{role: "user", content: prompt}] })
   });
   const data = await res.json();
   if(data.error) throw new Error(data.error.message);
@@ -795,7 +794,7 @@ function renderQuotesList() {
   return html;
 }
 
-// ── Googleカレンダー手動登録（モーダル内ボタン用） ────────────────────────
+// ── Googleカレンダー手動登録 ──
 function regToCalendar(type) {
   const cName = document.getElementById("f_customerName")?.value || document.getElementById("f_customer")?.value || "";
   let title = "", dateVal = "", details = "";
@@ -1090,7 +1089,7 @@ function saveCurrentQuote() {
     DB.quotes = DB.quotes.map(q => q.id === quoteData.id ? quoteData : q);
   }
   saveDB();
-  alert("見積書を保存しました！\n（一覧画面からいつでも確認・再編集できます）");
+  alert("見積書を保存しました！");
 }
 
 function deleteCurrentQuote() {
@@ -1143,7 +1142,7 @@ function calcTotal() {
   if(document.getElementById("total")) document.getElementById("total").textContent = "¥" + (sub + tax).toLocaleString();
 }
 
-// ── プレビュー生成（レイアウト改善版） ────────────────
+// ── プレビュー生成 ────────────────
 function getStyles() { 
   return `* { box-sizing: border-box; margin: 0; padding: 0; } body { font-family: 'MS Mincho', 'Hiragino Mincho Pro', serif; } @page { size: A4 portrait; margin: 0; } @media print { body { margin: 0; padding: 0; -webkit-print-color-adjust: exact; color-adjust: exact; } }`; 
 }
@@ -1286,7 +1285,7 @@ function showPreview() { document.getElementById("preview-inner").innerHTML = bu
 function closePreview() { document.getElementById("preview-modal").style.display = "none"; }
 function printDoc() { const win = window.open('', '_blank'); win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`); win.document.close(); setTimeout(() => { win.print(); }, 600); }
 function savePDF() { printDoc(); }
-function shareDoc() { alert("LINEで共有する機能（実装例）"); }
+function shareDoc() { alert("共有機能"); }
 
 // ── 起動処理 ──────────────────────────────────
 window.onload = function() {
