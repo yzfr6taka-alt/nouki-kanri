@@ -78,11 +78,18 @@ table.items td input:focus{border-bottom:2px solid #3498db;outline:none;box-shad
   </div>
 
   <div style="padding:16px 13px 40px" id="content_main"></div>
+  
   <div style="padding:16px 13px 40px;display:none;" id="content_quote">
     <div class="section">
       <div class="section-title">📋 基本情報</div>
-      <div class="fl"><div class="fg"><label class="field-label">見積番号</label><input class="field-input" id="estNo" placeholder="例: 2026-001"></div><div class="fg"><label class="field-label">発行日</label><input class="field-input" id="estDate" type="date"></div></div>
-      <div class="fl"><div class="fg"><label class="field-label">有効期限</label><input class="field-input" id="expDate" type="date"></div><div class="fg"><label class="field-label">納入期日</label><input class="field-input" id="delivDate" type="date"></div></div>
+      <div class="fl">
+        <div class="fg"><label class="field-label">見積番号</label><input class="field-input" id="estNo" placeholder="例: 2026-001"></div>
+        <div class="fg"><label class="field-label">発行日</label><input class="field-input" id="estDate" type="date"></div>
+      </div>
+      <div class="fl">
+        <div class="fg"><label class="field-label">有効期限</label><input class="field-input" id="expDate" type="date"></div>
+        <div class="fg"><label class="field-label">納入期日</label><input class="field-input" id="delivDate" type="date"></div>
+      </div>
       <label class="field-label">納入場所</label><input class="field-input" id="delivPlace" placeholder="例: お客様敷地内">
       <label class="field-label">取引方法</label><input class="field-input" id="payMethod" placeholder="例: 現金・振込">
     </div>
@@ -112,7 +119,7 @@ table.items td input:focus{border-bottom:2px solid #3498db;outline:none;box-shad
 </div>
 
 <div id="preview-modal">
-  <div style="background:#1a252f;padding:12px 16px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:10;">
+  <div style="background:#1a252f;padding:12px 16px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:1001;">
     <button onclick="closePreview()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer;">← 戻る</button>
     <span style="color:#fff;font-weight:800;font-size:15px;flex:1;">見積書プレビュー</span>
   </div>
@@ -145,7 +152,7 @@ table.items td input:focus{border-bottom:2px solid #3498db;outline:none;box-shad
     <div class="smart-inner">
       <div style="background:#fff8e1;border:1.5px solid #ffe082;border-radius:12px;padding:12px;margin-bottom:12px;">
         <div style="font-size:12px;color:#f57f17;font-weight:800;margin-bottom:4px;">💡 使い方</div>
-        <div style="font-size:12px;color:#555;line-height:1.7;">キーボードの🎤で話す or テキスト入力<br>→ AIが顧客・修理・実演・部品・製品に自動振り分け！<br><span style="color:#888;">例：「曽於市の田中さん、クボタトラクターKL34のエンジンオイル交換、アワー1200h、エレメント2個発注」</span></div>
+        <div style="font-size:12px;color:#555;line-height:1.7;">キーボードの🎤で話す or テキスト入力<br>→ AIが顧客・修理・実演・部品・製品に自動振り分け！</div>
       </div>
       <textarea id="smartText" placeholder="ここをタップして🎤で話す、またはキーボードで入力..." rows="4" class="field-textarea"></textarea>
       <button onclick="runSmartAI()" id="smartBtn" class="save-btn" style="width:100%;background:#e67e22;margin-bottom:10px;">🤖 AI自動振り分け・登録</button>
@@ -161,7 +168,7 @@ table.items td input:focus{border-bottom:2px solid #3498db;outline:none;box-shad
       <button onclick="closeApiKey()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text)">×</button>
     </div>
     <div style="padding:16px 18px 40px">
-      <div style="font-size:12px;color:var(--text-sub);margin-bottom:12px;">AI一括入力機能を使うにはAnthropicのAPIキーが必要です。</div>
+      <div style="font-size:12px;color:var(--text-sub);margin-bottom:12px;">AI一括入力機能を使うにはAPIキーが必要です。</div>
       <label class="field-label">APIキー</label>
       <input type="password" id="apiKeyInput" class="field-input" placeholder="sk-ant-...">
       <button onclick="saveApiKey()" class="save-btn" style="width:100%">保存する</button>
@@ -208,12 +215,14 @@ function loadDB(){
   }catch(e){}
 }
 
-// ── APIキー ───────────────────────────────────
+// ── APIキー設定 ──────────────────────────────
 function openApiKey(){
   document.getElementById('apiKeyInput').value = apiKey;
   document.getElementById('apiKeyModal').style.display = 'flex';
 }
-function closeApiKey(){ document.getElementById('apiKeyModal').style.display = 'none'; }
+function closeApiKey(){
+  document.getElementById('apiKeyModal').style.display = 'none';
+}
 function saveApiKey(){
   apiKey = document.getElementById('apiKeyInput').value.trim();
   try{ localStorage.setItem('agri_api_key', apiKey); }catch(e){}
@@ -221,14 +230,14 @@ function saveApiKey(){
   alert('APIキーを保存しました');
 }
 
-// ── AI解析 ────────────────────────────────────
+// ── AI機能 ──────────────────────────────────
 async function callAI(prompt){
   const cleanKey = apiKey.trim();
   if(!cleanKey) throw new Error("APIキーが設定されていません。🔑ボタンから設定してください。");
   const res = await fetch("https://api.anthropic.com/v1/messages",{
     method:"POST",
     headers:{"Content-Type":"application/json","x-api-key":cleanKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-    body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:1200,messages:[{role:"user",content:prompt}]})
+    body:JSON.stringify({model:"claude-3-haiku-20240307",max_tokens:1200,messages:[{role:"user",content:prompt}]})
   });
   const data = await res.json();
   if(data.error) throw new Error(data.error.message);
@@ -248,45 +257,32 @@ async function runSmartAI(){
   statusEl.textContent = "AIが内容を解析して振り分けています...";
 
   const today = new Date().toISOString().slice(0,10);
-  const customerNames = DB.customers.map(c=>c.name).join("、");
-
   const prompt = `農業機械販売修理会社の業務管理。以下のテキストを解析してJSONで返してください。
-今日:${today} 既存顧客:${customerNames}
 テキスト:「${text}」
-
 以下のJSON形式で返してください:
-{"customer":{"name":"","phone":"","address":""},"repair":{"customerName":"","machine":"","attachment":"","hourMeter":"","issue":"","status":"修理依頼","dueDate":""},"demo":{"customerName":"","targetMachine":"","date":"","status":"実演予定"},"part":{"name":"","partNo":"","qty":0,"status":"発注前","orderDate":""},"product":{"productName":"","maker":"","customer":"","status":"受注","deliveryDate":""},"hasCustomer":false,"hasRepair":false,"hasDemo":false,"hasPart":false,"hasProduct":false}
-ルール:顧客名があればhasCustomer:true、修理・点検等があればhasRepair:true、実演・デモがあればhasDemo:true、部品・消耗品発注があればhasPart:true、製品販売・受注があればhasProduct:true、日付はYYYY-MM-DD形式、JSONのみ返答`;
+{"customer":{"name":"","phone":"","address":""},"repair":{"customerName":"","machine":"","attachment":"","hourMeter":"","issue":"","status":"修理依頼","dueDate":""},"demo":{"customerName":"","targetMachine":"","date":"","status":"実演予定"},"part":{"name":"","partNo":"","qty":0,"status":"発注前","orderDate":""},"product":{"productName":"","maker":"","customer":"","status":"受注","deliveryDate":""},"hasCustomer":false,"hasRepair":false,"hasDemo":false,"hasPart":false,"hasProduct":false}`;
 
   try{
     const result = await callAI(prompt);
     const msgs = [];
     if(result.hasCustomer && result.customer?.name){
-      const exists = DB.customers.find(c=>c.name===result.customer.name);
-      if(!exists){
-        const item = {id:"ID_"+Date.now(),name:result.customer.name,phone:result.customer.phone||"",address:result.customer.address||""};
-        DB.customers.push(item);
-        msgs.push("👥 顧客「"+result.customer.name+"」登録");
-      }else msgs.push("👥 顧客「"+result.customer.name+"」既存");
+      DB.customers.push({id:"ID_"+Date.now(), name:result.customer.name, phone:result.customer.phone||"", address:result.customer.address||""});
+      msgs.push("👥 顧客登録");
     }
     if(result.hasRepair && result.repair?.customerName){
-      const item = {id:"ID_"+(Date.now()+1),customerName:result.repair.customerName,machine:result.repair.machine||"",attachment:result.repair.attachment||"",hourMeter:result.repair.hourMeter||"",issue:result.repair.issue||"",status:result.repair.status||"修理依頼",dueDate:result.repair.dueDate||"",date:today,usedParts:[]};
-      DB.repairs.push(item);
+      DB.repairs.push({id:"ID_"+(Date.now()+1), customerName:result.repair.customerName, machine:result.repair.machine||"", attachment:result.repair.attachment||"", hourMeter:result.repair.hourMeter||"", issue:result.repair.issue||"", status:result.repair.status||"修理依頼", dueDate:result.repair.dueDate||"", date:today, usedParts:[]});
       msgs.push("🔧 修理依頼登録");
     }
     if(result.hasDemo && result.demo?.customerName){
-      const item = {id:"ID_"+(Date.now()+2),customerName:result.demo.customerName,targetMachine:result.demo.targetMachine||"",date:result.demo.date||"",status:result.demo.status||"実演予定"};
-      DB.demos.push(item);
+      DB.demos.push({id:"ID_"+(Date.now()+2), customerName:result.demo.customerName, targetMachine:result.demo.targetMachine||"", date:result.demo.date||"", status:result.demo.status||"実演予定"});
       msgs.push("🌾 実演登録");
     }
     if(result.hasPart && result.part?.name){
-      const item = {id:"ID_"+(Date.now()+3),name:result.part.name,partNo:result.part.partNo||"",qty:Number(result.part.qty)||0,status:result.part.status||"発注前",orderDate:result.part.orderDate||""};
-      DB.parts.push(item);
+      DB.parts.push({id:"ID_"+(Date.now()+3), name:result.part.name, partNo:result.part.partNo||"", qty:Number(result.part.qty)||0, status:result.part.status||"発注前", orderDate:result.part.orderDate||""});
       msgs.push("⚙️ 部品登録");
     }
     if(result.hasProduct && result.product?.productName){
-      const item = {id:"ID_"+(Date.now()+4),productName:result.product.productName,maker:result.product.maker||"",customer:result.product.customer||"",status:result.product.status||"受注",deliveryDate:result.product.deliveryDate||""};
-      DB.products.push(item);
+      DB.products.push({id:"ID_"+(Date.now()+4), productName:result.product.productName, maker:result.product.maker||"", customer:result.product.customer||"", status:result.product.status||"受注", deliveryDate:result.product.deliveryDate||""});
       msgs.push("🚜 製品登録");
     }
     saveDB();
@@ -306,7 +302,7 @@ async function runSmartAI(){
   btn.textContent = "🤖 AI自動振り分け・登録"; btn.disabled = false;
 }
 
-// ── UI ───────────────────────────────────────
+// ── UI描画関連 ──────────────────────────────
 function toggleDark(){ document.body.classList.toggle("dark"); }
 function openSmartModal(){ document.getElementById("smartModal").style.display="flex"; document.getElementById("smartStatus").style.display="none"; }
 function closeSmartOnBg(e){ if(e.target.id==="smartModal") document.getElementById("smartModal").style.display="none"; }
@@ -317,10 +313,13 @@ function renderAll(){
   ).join('');
   const main = document.getElementById("content_main");
   const quote = document.getElementById("content_quote");
+  
   if(currentTab === 6){
-    main.style.display = "none"; quote.style.display = "block";
+    main.style.display = "none";
+    quote.style.display = "block";
   }else{
-    quote.style.display = "none"; main.style.display = "block";
+    quote.style.display = "none";
+    main.style.display = "block";
     if(currentTab===0) main.innerHTML = renderHome();
     else if(currentTab===1) main.innerHTML = renderCustomers();
     else if(currentTab===2) main.innerHTML = renderRepairs();
@@ -329,76 +328,59 @@ function renderAll(){
     else if(currentTab===5) main.innerHTML = renderProducts();
   }
 }
-function changeTab(i){ currentTab=i; renderAll(); }
+
+function changeTab(i){
+  currentTab = i;
+  renderAll();
+}
 
 function renderHome(){
   const target = Number(DB.settings[0]?.targetSales||10000000);
   const current = Number(DB.settings[0]?.currentSales||0);
   const progress = Math.min((current/target)*100,100)||0;
   const alerts = DB.repairs.filter(r=>r.status==="修理依頼"||r.status==="部品待ち"||r.status==="修理中");
-  const demoAlerts = DB.demos.filter(d=>d.status==="実演予定");
-  return`<div class="dash-card">
+  
+  let html = `<div class="dash-card">
     <div style="font-size:12px;opacity:0.8;margin-bottom:5px">事業目標：年間売上 ${(target/10000).toLocaleString()}万円</div>
     <div style="font-size:24px;font-weight:900;margin-bottom:10px">現在: ¥${current.toLocaleString()}</div>
-    <div style="background:rgba(255,255,255,0.2);height:8px;border-radius:4px;overflow:hidden"><div style="background:#f1c40f;width:${progress}%;height:100%;transition:width 0.5s"></div></div>
+    <div style="background:rgba(255,255,255,0.2);height:8px;border-radius:4px;overflow:hidden">
+      <div style="background:#f1c40f;width:${progress}%;height:100%;transition:width 0.5s"></div>
+    </div>
     <div style="font-size:10px;text-align:right;margin-top:4px">達成率: ${progress.toFixed(1)}%</div>
     <div style="margin-top:10px;font-size:11px;opacity:0.8;">
       目標変更: <input type="number" value="${target}" onchange="DB.settings[0].targetSales=Number(this.value);saveDB();renderAll()" style="width:120px;background:rgba(255,255,255,0.2);border:none;border-bottom:1px solid rgba(255,255,255,0.5);color:#fff;padding:2px 4px;font-size:11px;">円
     </div>
-  </div>
-  ${alerts.length>0?`<h4 style="margin-bottom:10px;color:var(--text)">🔔 修理 要対応 (${alerts.length}件)</h4>`:''}
-  ${alerts.map(a=>`<div class="card" style="border-left:4px solid #e74c3c" onclick="openEdit('${a.id}',2)">
-    <div style="font-weight:bold;font-size:14px">${a.customerName} - ${a.machine||''}</div>
-    <div style="font-size:12px;color:var(--text-sub);margin-top:3px">${a.issue||''} ${a.hourMeter?'/ '+a.hourMeter+'h':''}</div>
-    <span class="badge" style="background:${STATUS_COLORS[a.status]||'#95a5a6'};margin-top:6px;display:inline-block">${a.status}</span>
-  </div>`).join('')}
-  ${demoAlerts.length>0?`<h4 style="margin:10px 0;color:var(--text)">🌾 実演予定 (${demoAlerts.length}件)</h4>`:''}
-  ${demoAlerts.map(d=>`<div class="card" style="border-left:4px solid #f39c12" onclick="openEdit('${d.id}',3)">
-    <div style="font-weight:bold;font-size:14px">${d.customerName} - ${d.targetMachine||''}</div>
-    <div style="font-size:12px;color:var(--text-sub);margin-top:3px">予定日: ${d.date||'未定'}</div>
-  </div>`).join('')}
-  <div style="margin-top:10px;display:flex;gap:8px;">
-    <button onclick="changeTab(2)" class="save-btn" style="font-size:12px;padding:10px 0">🔧 修理 ${DB.repairs.length}件</button>
-    <button onclick="changeTab(3)" class="save-btn" style="background:#f39c12;font-size:12px;padding:10px 0">🌾 実演 ${DB.demos.length}件</button>
-    <button onclick="changeTab(5)" class="save-btn" style="background:#27ae60;font-size:12px;padding:10px 0">🚜 製品 ${DB.products.length}件</button>
   </div>`;
+  
+  if(alerts.length>0){
+    html += `<h4 style="margin-bottom:10px;color:var(--text)">🔔 修理 要対応 (${alerts.length}件)</h4>`;
+    alerts.forEach(a=>{
+      html += `<div class="card" style="border-left:4px solid #e74c3c" onclick="openEdit('${a.id}',2)">
+        <div style="font-weight:bold;font-size:14px">${a.customerName} - ${a.machine||''}</div>
+        <div style="font-size:12px;color:var(--text-sub);margin-top:3px">${a.issue||''} ${a.hourMeter?'/ '+a.hourMeter+'h':''}</div>
+        <span class="badge" style="background:${STATUS_COLORS[a.status]||'#95a5a6'};margin-top:6px;display:inline-block">${a.status}</span>
+      </div>`;
+    });
+  }
+  return html;
 }
 
 function renderCustomers(){
   let html = `<button onclick="openNew(1)" class="save-btn" style="margin-bottom:15px;width:100%">＋ 顧客を新規登録</button>`;
-  if(DB.customers.length===0) html += `<div style="text-align:center;color:var(--text-sub);padding:40px 0">顧客が登録されていません</div>`;
   DB.customers.forEach(item=>{
-    const repairCount = DB.repairs.filter(r=>r.customerName===item.name).length;
     html += `<div class="card" onclick="openEdit('${item.id}',1)">
       <div style="font-weight:bold;font-size:15px;margin-bottom:4px">${item.name}　様</div>
       ${item.phone?`<div style="font-size:12px;color:var(--text-sub)">📞 ${item.phone}</div>`:''}
-      ${item.address?`<div style="font-size:12px;color:var(--text-sub)">📍 ${item.address}</div>`:''}
-      <div style="font-size:11px;color:var(--text-sub);margin-top:4px">修理履歴: ${repairCount}件</div>
     </div>`;
   });
   return html;
 }
 
 function renderRepairs(){
-  const statuses = ["全て","修理依頼","見積中","部品待ち","修理中","完了(未請求)","請求済"];
-  const filter = window._repairFilter||"全て";
-  let filtered = filter==="全て" ? DB.repairs : DB.repairs.filter(r=>r.status===filter);
   let html = `<button onclick="openNew(2)" class="save-btn" style="margin-bottom:10px;width:100%">＋ 修理依頼を新規登録</button>`;
-  html += `<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:10px;">`;
-  statuses.forEach(s=>{
-    const active = filter===s;
-    html += `<button onclick="window._repairFilter='${s}';renderAll()" style="white-space:nowrap;padding:5px 10px;border-radius:20px;border:1.5px solid ${active?'#2980b9':'var(--border)'};background:${active?'#2980b9':'var(--card-bg)'};color:${active?'#fff':'var(--text)'};font-size:11px;font-weight:700;cursor:pointer;">${s}</button>`;
-  });
-  html += `</div>`;
-  if(filtered.length===0) html += `<div style="text-align:center;color:var(--text-sub);padding:40px 0">該当する修理依頼はありません</div>`;
-  filtered.forEach(item=>{
+  DB.repairs.forEach(item=>{
     html += `<div class="card" onclick="openEdit('${item.id}',2)" style="border-left:4px solid ${STATUS_COLORS[item.status]||'#95a5a6'}">
       <div style="font-weight:bold;font-size:15px;margin-bottom:4px">${item.customerName} - ${item.machine||'機械未入力'}</div>
-      ${item.attachment?`<div style="font-size:12px;color:var(--text-sub)">作業機: ${item.attachment}</div>`:''}
-      ${item.issue?`<div style="font-size:12px;color:var(--text-sub)">${item.issue}</div>`:''}
-      ${item.hourMeter?`<div style="font-size:12px;color:var(--text-sub)">アワー: ${item.hourMeter}h</div>`:''}
-      ${item.dueDate?`<div style="font-size:12px;color:var(--text-sub)">納期: ${item.dueDate}</div>`:''}
-      ${item.usedParts&&item.usedParts.length>0?`<div style="font-size:11px;color:var(--text-sub);margin-top:3px">使用部品: ${item.usedParts.map(p=>p.name).filter(Boolean).join('、')}</div>`:''}
       <span class="badge" style="background:${STATUS_COLORS[item.status]||'#95a5a6'};margin-top:6px;display:inline-block">${item.status}</span>
     </div>`;
   });
@@ -407,212 +389,115 @@ function renderRepairs(){
 
 function renderDemos(){
   let html = `<button onclick="openNew(3)" class="save-btn" style="margin-bottom:15px;width:100%">＋ 実演を新規登録</button>`;
-  if(DB.demos.length===0) html += `<div style="text-align:center;color:var(--text-sub);padding:40px 0">実演が登録されていません</div>`;
   DB.demos.forEach(item=>{
-    const machineText = item.machines&&item.machines.length>0 ? item.machines.map(m=>m.name+(m.model?' '+m.model:'')).join('、') : (item.targetMachine||'機械未入力');
     html += `<div class="card" onclick="openEdit('${item.id}',3)" style="border-left:4px solid ${STATUS_COLORS[item.status]||'#95a5a6'}">
       <div style="font-weight:bold;font-size:15px;margin-bottom:4px">${item.customerName}</div>
-      <div style="font-size:12px;color:var(--text-sub)">🚜 ${machineText}</div>
-      ${item.date?`<div style="font-size:12px;color:var(--text-sub)">予定日: ${item.date}</div>`:''}
-      <span class="badge" style="background:${STATUS_COLORS[item.status]||'#95a5a6'};margin-top:6px;display:inline-block">${item.status}</span>
+      <div style="font-size:12px;color:var(--text-sub)">🚜 ${item.targetMachine||'未定'}</div>
     </div>`;
   });
   return html;
 }
 
 function renderPartsTab(){
-  const statuses = ["全て","発注前","発注済","入荷済"];
-  const filter = window._partsFilter||"全て";
-  let filtered = filter==="全て" ? DB.parts : DB.parts.filter(p=>p.status===filter);
   let html = `<button onclick="openNew(4)" class="save-btn" style="margin-bottom:10px;width:100%">＋ 部品を新規登録</button>`;
-  html += `<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:10px;">`;
-  statuses.forEach(s=>{
-    const active = filter===s;
-    html += `<button onclick="window._partsFilter='${s}';renderAll()" style="white-space:nowrap;padding:5px 10px;border-radius:20px;border:1.5px solid ${active?'#2980b9':'var(--border)'};background:${active?'#2980b9':'var(--card-bg)'};color:${active?'#fff':'var(--text)'};font-size:11px;font-weight:700;cursor:pointer;">${s}</button>`;
-  });
-  html += `</div>`;
-  if(filtered.length===0) html += `<div style="text-align:center;color:var(--text-sub);padding:40px 0">部品が登録されていません</div>`;
-  filtered.forEach(item=>{
+  DB.parts.forEach(item=>{
     html += `<div class="card" onclick="openEdit('${item.id}',4)" style="border-left:4px solid ${STATUS_COLORS[item.status]||'#95a5a6'}">
       <div style="font-weight:bold;font-size:15px;margin-bottom:4px">${item.name}</div>
-      ${item.partNo?`<div style="font-size:12px;color:var(--text-sub)">品番: ${item.partNo}</div>`:''}
       <div style="font-size:12px;color:var(--text-sub)">在庫: ${item.qty||0}個</div>
-      ${item.orderDate?`<div style="font-size:12px;color:var(--text-sub)">発注日: ${item.orderDate}</div>`:''}
-      <span class="badge" style="background:${STATUS_COLORS[item.status]||'#95a5a6'};margin-top:6px;display:inline-block">${item.status}</span>
     </div>`;
   });
   return html;
 }
 
 function renderProducts(){
-  const statuses = ["全て","商談中","受注","納品済"];
-  const filter = window._productsFilter||"全て";
-  let filtered = filter==="全て" ? DB.products : DB.products.filter(p=>p.status===filter);
   let html = `<button onclick="openNew(5)" class="save-btn" style="margin-bottom:10px;width:100%">＋ 製品を新規登録</button>`;
-  html += `<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:10px;">`;
-  statuses.forEach(s=>{
-    const active = filter===s;
-    html += `<button onclick="window._productsFilter='${s}';renderAll()" style="white-space:nowrap;padding:5px 10px;border-radius:20px;border:1.5px solid ${active?'#2980b9':'var(--border)'};background:${active?'#2980b9':'var(--card-bg)'};color:${active?'#fff':'var(--text)'};font-size:11px;font-weight:700;cursor:pointer;">${s}</button>`;
-  });
-  html += `</div>`;
-  if(filtered.length===0) html += `<div style="text-align:center;color:var(--text-sub);padding:40px 0">製品が登録されていません</div>`;
-  filtered.forEach(item=>{
+  DB.products.forEach(item=>{
     html += `<div class="card" onclick="openEdit('${item.id}',5)" style="border-left:4px solid ${STATUS_COLORS[item.status]||'#95a5a6'}">
       <div style="font-weight:bold;font-size:15px;margin-bottom:4px">${item.productName}</div>
-      ${item.maker?`<div style="font-size:12px;color:var(--text-sub)">メーカー: ${item.maker}</div>`:''}
-      ${item.customer?`<div style="font-size:12px;color:var(--text-sub)">顧客: ${item.customer}</div>`:''}
-      ${item.price?`<div style="font-size:12px;color:var(--text-sub)">販売額: ¥${Number(item.price).toLocaleString()}</div>`:''}
-      ${item.deliveryDate?`<div style="font-size:12px;color:var(--text-sub)">納期: ${item.deliveryDate}</div>`:''}
-      <span class="badge" style="background:${STATUS_COLORS[item.status]||'#95a5a6'};margin-top:6px;display:inline-block">${item.status}</span>
+      <div style="font-size:12px;color:var(--text-sub)">販売額: ¥${Number(item.price||0).toLocaleString()}</div>
     </div>`;
   });
   return html;
 }
 
-// ── モーダル ─────────────────────────────────
-let modalState = null;
-let tempUsedParts = [];      
-let tempLinkedProducts = []; 
-let tempLinkedParts = [];    
-let tempDemoMachines = [];   
 
-function openNew(tab){ modalState={tab,mode:"new",item:{}}; showModal(); }
-function openEdit(id,tab){
-  const keys = ["","customers","repairs","demos","parts","products"];
-  const item = DB[keys[tab]].find(x=>String(x.id)===String(id));
+// ── 編集・登録モーダル機能 ────────────────────────
+let modalState = null;
+
+function openNew(tab){
+  modalState = {tab, mode:"new", item:{}};
+  showModal();
+}
+
+function openEdit(id, tab){
+  const keys = ["", "customers", "repairs", "demos", "parts", "products"];
+  const item = DB[keys[tab]].find(x => String(x.id) === String(id));
   if(!item) return;
-  modalState = {tab,mode:"edit",item:{...item}};
+  modalState = {tab, mode:"edit", item:{...item}};
   showModal();
 }
 
 function showModal(){
-  document.getElementById("modalTitle").innerText = TABS[modalState.tab]+" 詳細";
+  document.getElementById("modalTitle").innerText = TABS[modalState.tab] + " 詳細";
   let form = "";
   const it = modalState.item;
 
   if(modalState.tab===1){
-    // 顧客
-    form = inp("name","顧客名",it.name) + inp("phone","電話番号",it.phone) + inp("address","住所",it.address);
-    form += `<label class="field-label">メモ</label><textarea id="f_memo" class="field-textarea" rows="2">${it.memo||''}</textarea>`;
+    form += inp("name","顧客名",it.name) + inp("phone","電話番号",it.phone) + inp("address","住所",it.address);
   }
   else if(modalState.tab===2){
-    // 修理
-    tempUsedParts = it.usedParts ? JSON.parse(JSON.stringify(it.usedParts)) : [];
-    tempLinkedProducts = it.linkedProducts ? JSON.parse(JSON.stringify(it.linkedProducts)) : [];
-    form = inp("customerName","顧客名",it.customerName) + inp("machine","機械・型式",it.machine);
-    form += `<div class="fl">` + inp("serialNo","製造番号",it.serialNo) + inp("hourMeter","アワーメーター(h)",it.hourMeter) + `</div>`;
-    form += inp("attachment","アタッチメント(作業機)",it.attachment,"","RMR8-PRJ など");
-    form += `<div class="fl">` + sel("status","ステータス",["修理依頼","見積中","部品待ち","修理中","完了(未請求)","請求済"],it.status) + `</div>`;
-    form += `<label class="field-label">症状・内容</label><textarea id="f_issue" class="field-textarea" rows="2">${it.issue||''}</textarea>`;
-    form += `<div class="fl"><div class="fg"><label class="field-label">受付日</label><input type="date" id="f_date" class="field-input" value="${it.date||''}"></div><div class="fg"><label class="field-label">納期</label><input type="date" id="f_dueDate" class="field-input" value="${it.dueDate||''}"></div></div>`;
-    form += `<div class="section-box"><div style="font-size:12px;font-weight:bold;color:#e67e22;margin-bottom:6px">📡 スマート農機設定</div>` + inp("smartSystem","システム名",it.smartSystem,"","CHCNAV等") + `<div class="fl">` + inp("ntripInfo","Ntrip ID/PW",it.ntripInfo) + inp("antenna","アンテナ高",it.antenna) + `</div></div>`;
-    form += `<div class="section-box"><div style="font-size:12px;font-weight:bold;color:#2980b9;margin-bottom:8px">🔩 使用部品・交換部品</div><div id="usedPartsList">${renderUsedPartsList()}</div><button type="button" class="add-parts-btn" onclick="addUsedPart()">＋ 部品を追加</button></div>`;
-    form += `<div class="section-box"><div style="font-size:12px;font-weight:bold;color:#27ae60;margin-bottom:8px">🚜 関連製品（販売・検討）</div><div id="linkedProductsList">${renderLinkedProductsList()}</div><button type="button" class="add-parts-btn" onclick="addLinkedProduct()">＋ 製品を追加</button></div>`;
-    form += `<div class="section-box"><label class="chk-label"><input type="checkbox" id="f_sns_ok" ${it.sns_ok?'checked':''}> 📷 掲載許可済・インスタネタ</label><textarea id="f_sns_memo" class="field-textarea" rows="2">${it.sns_memo||''}</textarea></div>`;
-    form += `<button onclick="jumpToQuote()" style="width:100%;background:#8e44ad;color:#fff;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:11px;">📄 見積書を作成</button>`;
-    form += `<label class="field-label">メモ</label><textarea id="f_memo" class="field-textarea" rows="2">${it.memo||''}</textarea>`;
+    form += inp("customerName","顧客名",it.customerName) + inp("machine","機械・型式",it.machine);
+    form += sel("status","ステータス",["修理依頼","見積中","部品待ち","修理中","完了(未請求)","請求済"],it.status);
+    form += `<button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 見積書を作成</button>`;
   }
   else if(modalState.tab===3){
-    // 実演
-    tempDemoMachines = it.machines ? JSON.parse(JSON.stringify(it.machines)) : (it.targetMachine ? [{name:it.targetMachine,maker:'',model:''}] : []);
-    form = inp("customerName","対象顧客・見込み客",it.customerName) + inp("mapUrl","実演場所URL",it.mapUrl);
-    form += `<div class="fl">` + inp("date","実施予定日",it.date,"date") + sel("status","ステータス",["実演予定","実施済","見積提示中","成約"],it.status) + `</div>`;
-    form += `<div class="section-box"><div style="font-size:12px;font-weight:bold;color:#2980b9;margin-bottom:8px">🚜 実演機械（複数追加可）</div><div id="demoMachinesList">${renderDemoMachinesList()}</div><button type="button" class="add-parts-btn" onclick="addDemoMachine()">＋ 機械を追加</button></div>`;
-    form += `<label class="field-label">フィードバック・反応</label><textarea id="f_reaction" class="field-textarea" rows="2">${it.reaction||''}</textarea>`;
-    form += `<div class="section-box"><div style="font-size:12px;font-weight:bold;color:#27ae60;margin-bottom:6px">♻️ 下取り査定メモ</div>` + inp("tradeInMachine","下取り機 型式",it.tradeInMachine) + `<div class="fl">` + inp("tradeInHour","アワー(h)",it.tradeInHour) + inp("tradeInPrice","概算査定額(円)",it.tradeInPrice) + `</div><label class="field-label">外観メモ</label><textarea id="f_tradeInMemo" class="field-textarea" rows="2">${it.tradeInMemo||''}</textarea></div>`;
-    form += `<button onclick="jumpToQuote()" style="width:100%;background:#8e44ad;color:#fff;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:11px;">📄 この案件の見積書を作成</button>`;
-    form += `<label class="field-label">メモ</label><textarea id="f_memo" class="field-textarea" rows="2">${it.memo||''}</textarea>`;
+    form += inp("customerName","対象顧客",it.customerName) + inp("targetMachine","対象機械",it.targetMachine);
+    form += sel("status","ステータス",["実演予定","実施済","見積提示中","成約"],it.status);
+    form += `<button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 見積書を作成</button>`;
   }
   else if(modalState.tab===4){
-    // 部品
-    tempLinkedProducts = it.linkedProducts ? JSON.parse(JSON.stringify(it.linkedProducts)) : [];
-    form = inp("name","部品名",it.name) + `<div class="fl">` + inp("partNo","品番",it.partNo) + inp("qty","在庫数",it.qty) + `</div>`;
-    form += inp("price","仕入単価(円)",it.price) + sel("status","ステータス",["発注前","発注済","入荷済"],it.status) + inp("orderDate","発注日",it.orderDate,"date") + inp("supplier","仕入先",it.supplier);
-    form += `<div class="section-box"><div style="font-size:12px;font-weight:bold;color:#27ae60;margin-bottom:8px">🚜 この部品を使う製品・機械</div><div id="linkedProductsList">${renderLinkedProductsList()}</div><button type="button" class="add-parts-btn" onclick="addLinkedProduct()">＋ 製品を追加</button></div>`;
-    
-    // ★部品画面用の見積書作成ボタンを追加
-    form += `<button onclick="jumpToQuote()" style="width:100%;background:#8e44ad;color:#fff;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:11px;">📄 この部品で見積書を作成</button>`;
-    
-    form += `<label class="field-label">メモ</label><textarea id="f_memo" class="field-textarea" rows="2">${it.memo||''}</textarea>`;
+    form += inp("name","部品名",it.name) + inp("partNo","品番",it.partNo) + inp("price","仕入・販売単価",it.price) + inp("qty","数量",it.qty);
+    form += `<button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 この部品で見積書を作成</button>`;
   }
   else if(modalState.tab===5){
-    // 製品
-    tempLinkedParts = it.linkedParts ? JSON.parse(JSON.stringify(it.linkedParts)) : [];
-    form = inp("productName","販売製品名",it.productName) + `<div class="fl">` + inp("maker","メーカー",it.maker) + inp("price","販売額(円)",it.price) + `</div>`;
-    form += inp("customer","顧客名",it.customer) + sel("status","ステータス",["商談中","受注","納品済"],it.status) + inp("deliveryDate","納期",it.deliveryDate,"date");
-    form += inp("serialNo","製造番号・シリアル番号",it.serialNo);
-    form += `<div class="section-box"><div style="font-size:12px;font-weight:bold;color:#2980b9;margin-bottom:8px">🔩 関連部品・付属品</div><div id="linkedPartsList">${renderLinkedPartsList()}</div><button type="button" class="add-parts-btn" onclick="addLinkedPart()">＋ 部品を追加</button></div>`;
-    
-    // ★製品画面用の見積書作成ボタンを追加
-    form += `<button onclick="jumpToQuote()" style="width:100%;background:#8e44ad;color:#fff;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:11px;">📄 この製品で見積書を作成</button>`;
-    
-    form += `<label class="field-label">備考</label><textarea id="f_memo" class="field-textarea" rows="2">${it.memo||''}</textarea>`;
+    form += inp("productName","製品名",it.productName) + inp("maker","メーカー",it.maker) + inp("price","販売額",it.price);
+    form += `<button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 この製品で見積書を作成</button>`;
   }
 
-  form += `<div class="fl" style="margin-top:15px"><button id="saveItemBtn" class="save-btn" onclick="saveItem()">💾 保存する</button>${modalState.mode==='edit'?'<button class="save-btn" style="background:#e74c3c" onclick="delItem()">削除</button>':''}</div>`;
+  form += `<div class="fl" style="margin-top:15px">
+    <button class="save-btn" onclick="saveItem()">💾 保存する</button>
+    ${modalState.mode==='edit' ? `<button class="save-btn" style="background:#e74c3c" onclick="delItem()">削除</button>` : ''}
+  </div>`;
+  
   document.getElementById("modalBody").innerHTML = form;
   document.getElementById("modalOverlay").style.display = "flex";
 }
 
-// ── リスト描画関連 ────────────────────────────
-function renderUsedPartsList(){
-  if(tempUsedParts.length===0) return '<div style="font-size:12px;color:var(--text-sub);margin-bottom:8px">使用部品なし</div>';
-  return tempUsedParts.map((p,i)=>`<div class="parts-row"><input placeholder="部品名" value="${esc(p.name||'')}" onchange="tempUsedParts[${i}].name=this.value"><input placeholder="品番" value="${esc(p.partNo||'')}" onchange="tempUsedParts[${i}].partNo=this.value" style="max-width:90px;"><input placeholder="数量" type="number" value="${p.qty||''}" onchange="tempUsedParts[${i}].qty=this.value" style="max-width:60px;"><button class="del-btn" onclick="removeUsedPart(${i})">✕</button></div>`).join('');
+function inp(id, label, val){
+  return `<label class="field-label">${label}</label><input type="text" id="f_${id}" class="field-input" value="${esc(val||'')}">`;
 }
-function addUsedPart(){ tempUsedParts.push({name:'',partNo:'',qty:1}); document.getElementById('usedPartsList').innerHTML=renderUsedPartsList(); }
-function removeUsedPart(i){ tempUsedParts.splice(i,1); document.getElementById('usedPartsList').innerHTML=renderUsedPartsList(); }
-
-function renderLinkedProductsList(){
-  if(tempLinkedProducts.length===0) return '<div style="font-size:12px;color:var(--text-sub);margin-bottom:8px">関連製品なし</div>';
-  return tempLinkedProducts.map((p,i)=>`<div class="parts-row"><input placeholder="製品名" value="${esc(p.name||'')}" onchange="tempLinkedProducts[${i}].name=this.value"><input placeholder="型式" value="${esc(p.model||'')}" onchange="tempLinkedProducts[${i}].model=this.value" style="max-width:100px;"><input placeholder="製造番号" value="${esc(p.serialNo||'')}" onchange="tempLinkedProducts[${i}].serialNo=this.value" style="max-width:100px;"><button class="del-btn" onclick="removeLinkedProduct(${i})">✕</button></div>`).join('');
+function sel(id, label, options, currentVal){
+  return `<label class="field-label">${label}</label><select id="f_${id}" class="field-select">
+    ${options.map(o=>`<option value="${o}" ${currentVal===o?'selected':''}>${o}</option>`).join('')}
+  </select>`;
 }
-function addLinkedProduct(){ tempLinkedProducts.push({name:'',model:'',serialNo:''}); document.getElementById('linkedProductsList').innerHTML=renderLinkedProductsList(); }
-function removeLinkedProduct(i){ tempLinkedProducts.splice(i,1); document.getElementById('linkedProductsList').innerHTML=renderLinkedProductsList(); }
+function esc(s){ return String(s||"").replace(/"/g,"&quot;"); }
 
-function renderLinkedPartsList(){
-  if(tempLinkedParts.length===0) return '<div style="font-size:12px;color:var(--text-sub);margin-bottom:8px">関連部品なし</div>';
-  return tempLinkedParts.map((p,i)=>`<div class="parts-row"><input placeholder="部品名" value="${esc(p.name||'')}" onchange="tempLinkedParts[${i}].name=this.value"><input placeholder="品番" value="${esc(p.partNo||'')}" onchange="tempLinkedParts[${i}].partNo=this.value" style="max-width:100px;"><input placeholder="数量" type="number" value="${p.qty||''}" onchange="tempLinkedParts[${i}].qty=this.value" style="max-width:60px;"><button class="del-btn" onclick="removeLinkedPart(${i})">✕</button></div>`).join('');
-}
-function addLinkedPart(){ tempLinkedParts.push({name:'',partNo:'',qty:1}); document.getElementById('linkedPartsList').innerHTML=renderLinkedPartsList(); }
-function removeLinkedPart(i){ tempLinkedParts.splice(i,1); document.getElementById('linkedPartsList').innerHTML=renderLinkedPartsList(); }
+function closeModal(){ document.getElementById("modalOverlay").style.display="none"; }
+function closeModalOnBg(e){ if(e.target.id==="modalOverlay") closeModal(); }
 
-function renderDemoMachinesList(){
-  if(tempDemoMachines.length===0) return '<div style="font-size:12px;color:var(--text-sub);margin-bottom:8px">機械未登録</div>';
-  return tempDemoMachines.map((m,i)=>`<div class="parts-row"><input placeholder="製品名・機械名" value="${esc(m.name||'')}" onchange="tempDemoMachines[${i}].name=this.value"><input placeholder="型式" value="${esc(m.model||'')}" onchange="tempDemoMachines[${i}].model=this.value" style="max-width:100px;"><input placeholder="メーカー" value="${esc(m.maker||'')}" onchange="tempDemoMachines[${i}].maker=this.value" style="max-width:90px;"><button class="del-btn" onclick="removeDemoMachine(${i})">✕</button></div>`).join('');
-}
-function addDemoMachine(){ tempDemoMachines.push({name:'',model:'',maker:''}); document.getElementById('demoMachinesList').innerHTML=renderDemoMachinesList(); }
-function removeDemoMachine(i){ tempDemoMachines.splice(i,1); document.getElementById('demoMachinesList').innerHTML=renderDemoMachinesList(); }
-
-// ── フォームヘルパー ──────────────────────────
-function inp(id,label,val,type="text",placeholder=""){ return `<label class="field-label">${label}</label><input type="${type}" id="f_${id}" class="field-input" value="${esc(val||'')}" placeholder="${placeholder}">`; }
-function sel(id,label,options,currentVal){ return `<div class="fg"><label class="field-label">${label}</label><select id="f_${id}" class="field-select">${options.map(o=>`<option value="${o}" ${currentVal===o?'selected':''}>${o}</option>`).join('')}</select></div>`; }
-
-// ── 保存・削除 ────────────────────────────────
 function saveItem(){
-  const btn = document.getElementById("saveItemBtn");
-  btn.textContent = "保存中..."; btn.disabled = true;
-  const keys = ["","customers","repairs","demos","parts","products"];
+  const keys = ["", "customers", "repairs", "demos", "parts", "products"];
   const dbKey = keys[modalState.tab];
   let item = {id: modalState.mode==="new" ? "ID_"+Date.now() : modalState.item.id};
 
-  document.querySelectorAll("#modalBody input:not([type='checkbox']),#modalBody textarea,#modalBody select").forEach(el=>{
+  document.querySelectorAll("#modalBody input, #modalBody select").forEach(el=>{
     const key = el.id.replace("f_","");
-    if(key && !['usedPartsList'].includes(key)) item[key] = el.value;
+    if(key) item[key] = el.value;
   });
-  const cb = document.getElementById("f_sns_ok");
-  if(cb) item.sns_ok = cb.checked;
-
-  if(modalState.tab === 2){ item.usedParts = tempUsedParts.filter(p=>p.name); item.linkedProducts = tempLinkedProducts.filter(p=>p.name); }
-  if(modalState.tab === 3){ item.machines = tempDemoMachines.filter(m=>m.name); item.targetMachine = tempDemoMachines.filter(m=>m.name).map(m=>m.name+(m.model?' '+m.model:'')).join('、'); }
-  if(modalState.tab === 4){ item.linkedProducts = tempLinkedProducts.filter(p=>p.name); }
-  if(modalState.tab === 5){ item.linkedParts = tempLinkedParts.filter(p=>p.name); }
 
   if(modalState.mode==="new") DB[dbKey].push(item);
   else DB[dbKey] = DB[dbKey].map(x=>String(x.id)===String(item.id)?item:x);
-
-  if(dbKey==="products" && item.status==="納品済" && modalState.item.status!=="納品済"){
-    DB.settings[0].currentSales = (Number(DB.settings[0].currentSales)||0) + Number(item.price||0);
-  }
 
   saveDB();
   closeModal();
@@ -621,7 +506,7 @@ function saveItem(){
 
 function delItem(){
   if(!confirm("削除しますか？")) return;
-  const keys = ["","customers","repairs","demos","parts","products"];
+  const keys = ["", "customers", "repairs", "demos", "parts", "products"];
   const dbKey = keys[modalState.tab];
   DB[dbKey] = DB[dbKey].filter(x=>String(x.id)!==String(modalState.item.id));
   saveDB();
@@ -629,80 +514,45 @@ function delItem(){
   renderAll();
 }
 
-function closeModal(){ document.getElementById("modalOverlay").style.display="none"; }
-function closeModalOnBg(e){ if(e.target.id==="modalOverlay") closeModal(); }
 
-// ★見積書への連携機能（自動転記ロジック強化版）
+// ── 見積書作成連携（各タブからの自動転記） ──────────────
 function jumpToQuote(){
   const it = modalState.item;
   const tab = modalState.tab;
 
-  // 1. 宛名の自動入力
-  let cName = "";
-  if(tab === 2 || tab === 3) cName = it.customerName || "";
-  if(tab === 5) cName = it.customer || "";
-  document.getElementById("toName").value = cName;
+  // 宛名と件名の転記
+  if(tab === 2 || tab === 3) document.getElementById("toName").value = it.customerName || "";
+  if(tab === 5) document.getElementById("toName").value = it.customer || "";
 
-  // 2. 件名の自動入力
-  let sub = "";
-  if(tab === 2) {
-    sub = (it.machine||it.targetMachine||"");
-    if(it.attachment) sub += " "+it.attachment;
-    sub += " 修理";
-  } else if(tab === 3) {
-    sub = (it.targetMachine||"") + " 導入検討";
-  } else if(tab === 4) {
-    sub = (it.name || "") + " 御見積"; // 部品タブから
-  } else if(tab === 5) {
-    sub = (it.productName || "") + " 御見積"; // 製品タブから
+  // 明細リセット
+  qItems = Array.from({length:ROWS},()=>({name:"",brand:"",model:"",qty:"",price:"",note:""}));
+
+  // 部品・製品からの明細自動入力
+  if(tab === 4){
+    qItems[0] = {name: it.name||"", model: it.partNo||"", qty: 1, price: it.price||"", brand:"", note:""};
   }
-  document.getElementById("subject").value = sub;
-
-  // 3. 備考欄（下取りなど）
-  if(tab === 3 && it.tradeInMachine && it.tradeInPrice) {
-    document.getElementById("note").value = `※下取り予定機: ${it.tradeInMachine} (概算充当額: -${it.tradeInPrice}円)`;
-  } else {
-    document.getElementById("note").value = "";
-  }
-
-  // 4. 品目の1行目に自動転記（部品・製品タブの場合）
-  if(tab === 4 || tab === 5){
-    // 見積明細を一旦まっさらにする
-    qItems = Array.from({length:ROWS},()=>({name:"",brand:"",model:"",qty:"",price:"",note:""}));
-    
-    if(tab === 4){
-      qItems[0].name = it.name || "";
-      qItems[0].model = it.partNo || "";
-      qItems[0].qty = 1;
-      qItems[0].price = it.price || ""; // 登録してある単価を自動入力
-    } else if(tab === 5){
-      qItems[0].name = it.productName || "";
-      qItems[0].brand = it.maker || "";
-      qItems[0].qty = 1;
-      qItems[0].price = it.price || ""; // 販売額を自動入力
-    }
+  else if(tab === 5){
+    qItems[0] = {name: it.productName||"", brand: it.maker||"", qty: 1, price: it.price||"", model:"", note:""};
   }
 
   closeModal();
-  changeTab(6);
-  window.scrollTo(0,0);
-  buildTable(); // テーブルを再描画して金額を自動計算させる
+  changeTab(6); // 見積書タブへ移動
+  buildTable();
 }
 
-// ── 見積書 ───────────────────────────────────
+
+// ── 見積書テーブルロジック ────────────────────────
 const ROWS = 20;
 let qItems = Array.from({length:ROWS},()=>({name:"",brand:"",model:"",qty:"",price:"",note:""}));
 
 function initQuote(){
   document.getElementById("estDate").value = new Date().toISOString().slice(0,10);
-  const exp = new Date(); exp.setMonth(exp.getMonth()+1);
-  document.getElementById("expDate").value = exp.toISOString().slice(0,10);
   buildTable();
 }
 
 function clearQuote(){
-  if(!confirm("クリアしますか？")) return;
-  ["toName","subject","estNo","note","delivPlace","payMethod"].forEach(id=>document.getElementById(id).value="");
+  if(!confirm("内容をクリアしますか？")) return;
+  ["toName","subject","estNo","note"].forEach(id=>document.getElementById(id).value="");
   qItems = Array.from({length:ROWS},()=>({name:"",brand:"",model:"",qty:"",price:"",note:""}));
   buildTable();
 }
@@ -710,15 +560,16 @@ function clearQuote(){
 function buildTable(){
   const tbody = document.getElementById("itemsTable");
   while(tbody.rows.length>1) tbody.deleteRow(1);
+  
   for(let i=0;i<ROWS;i++){
     const tr = tbody.insertRow();
-    tr.innerHTML = `<td class="tc" style="font-size:11px;color:var(--text-sub);padding:4px 2px;">${i+1}</td>
+    tr.innerHTML = `<td class="tc" style="font-size:10px;padding:4px 2px;">${i+1}</td>
     <td><input value="${esc(qItems[i].name)}" onchange="qItems[${i}].name=this.value" placeholder="品名"></td>
     <td><input value="${esc(qItems[i].brand)}" onchange="qItems[${i}].brand=this.value" placeholder="銘柄"></td>
     <td><input value="${esc(qItems[i].model)}" onchange="qItems[${i}].model=this.value" placeholder="型式"></td>
     <td><input type="number" class="tr" value="${qItems[i].qty}" onchange="qItems[${i}].qty=this.value;calcTotal()" min="0"></td>
     <td><input type="number" class="tr" value="${qItems[i].price}" onchange="qItems[${i}].price=this.value;calcTotal()" min="0"></td>
-    <td class="tr" id="amt_${i}" style="padding:5px 6px;font-size:12px;font-weight:600;color:var(--text);">—</td>
+    <td class="tr" id="amt_${i}" style="padding:5px;font-size:12px;font-weight:bold;">—</td>
     <td><input value="${esc(qItems[i].note)}" onchange="qItems[${i}].note=this.value" placeholder="備考"></td>`;
   }
   calcTotal();
@@ -727,106 +578,121 @@ function buildTable(){
 function calcTotal(){
   let sub = 0;
   for(let i=0;i<ROWS;i++){
-    const qty = Number(qItems[i].qty)||0, price = Number(qItems[i].price)||0, amt = qty*price;
-    const el = document.getElementById("amt_"+i);
-    if(el) el.textContent = (qty&&price) ? "¥"+amt.toLocaleString() : "—";
+    const qty = Number(qItems[i].qty)||0;
+    const price = Number(qItems[i].price)||0;
+    const amt = qty * price;
+    document.getElementById("amt_"+i).textContent = amt ? "¥"+amt.toLocaleString() : "—";
     sub += amt;
   }
-  const tax = Math.floor(sub*0.1);
-  document.getElementById("subtotal").textContent = "¥"+sub.toLocaleString();
-  document.getElementById("tax").textContent = "¥"+tax.toLocaleString();
-  document.getElementById("total").textContent = "¥"+(sub+tax).toLocaleString();
+  const tax = Math.floor(sub * 0.1);
+  document.getElementById("subtotal").textContent = "¥" + sub.toLocaleString();
+  document.getElementById("tax").textContent = "¥" + tax.toLocaleString();
+  document.getElementById("total").textContent = "¥" + (sub + tax).toLocaleString();
 }
 
-function esc(s){ return String(s||"").replace(/"/g,"&quot;"); }
-function escH(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
-function fmtDate(d){ if(!d) return ""; const dt = new Date(d); return `令和${dt.getFullYear()-2018}年${dt.getMonth()+1}月${dt.getDate()}日`; }
 
+// ── プレビュー生成（JA仕様・A4最適化） ────────────────
 function getStyles(){ 
-  return `*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'MS Mincho','Hiragino Mincho Pro','Yu Mincho',serif;}@page{size:A4 portrait;margin:0;}@media print{body{margin:0;padding:0; -webkit-print-color-adjust: exact; color-adjust: exact;}}`; 
+  return `*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'MS Mincho','Hiragino Mincho Pro',serif;}@page{size:A4 portrait;margin:0;}@media print{body{margin:0;padding:0;-webkit-print-color-adjust:exact;color-adjust:exact;}}`; 
 }
+function fmtDate(d){ 
+  if(!d) return ""; 
+  const dt = new Date(d); 
+  return `令和${dt.getFullYear()-2018}年${dt.getMonth()+1}月${dt.getDate()}日`; 
+}
+function escH(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
 function buildEstHTML(){
-  const date = document.getElementById("estDate").value||"";
-  const delivDate = document.getElementById("delivDate").value||"";
-  const delivPlace = document.getElementById("delivPlace").value||"";
-  const payMethod = document.getElementById("payMethod").value||"";
-  const toName = document.getElementById("toName").value||"";
-  const note = document.getElementById("note").value||"";
-  const expDate = document.getElementById("expDate").value||"";
+  const date = document.getElementById("estDate").value;
+  const dD = document.getElementById("delivDate").value;
+  const dP = document.getElementById("delivPlace").value;
+  const pM = document.getElementById("payMethod").value;
+  const tN = document.getElementById("toName").value;
+  const nt = document.getElementById("note").value;
+  const ex = document.getElementById("expDate").value;
   
   let sub = 0;
   let emptyStartIdx = -1;
+  const rowH = 7.0; // A4に確実に収めるため行の高さを7mmに調整
 
   const rowsHTML = qItems.map((item, i) => {
-    const qty = Number(item.qty)||0, price = Number(item.price)||0, amt = qty*price;
+    const qty = Number(item.qty)||0;
+    const price = Number(item.price)||0;
+    const amt = qty * price;
     sub += amt;
-    const isEmpty = !item.name && !item.brand && !item.model && !item.qty && !item.price && !item.note;
+    
+    // 空行の判定（斜線を引くため）
+    const isEmpty = !item.name && !item.brand && !item.model && !item.qty && !item.price;
     if(isEmpty && emptyStartIdx === -1) emptyStartIdx = i;
     else if(!isEmpty) emptyStartIdx = -1;
 
-    return `<tr style="height:8mm;">
-      <td style="border:1px solid #000;text-align:center;font-size:11px;">${i+1}</td>
-      <td style="border:1px solid #000;padding:0 4px;font-size:11px;overflow:hidden;white-space:nowrap;">${escH(item.name)}</td>
-      <td style="border:1px solid #000;text-align:center;font-size:11px;">${escH(item.brand)}</td>
-      <td style="border:1px solid #000;text-align:center;font-size:11px;">${escH(item.model)}</td>
-      <td style="border:1px solid #000;text-align:center;font-size:11px;">${qty||""}</td>
-      <td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:11px;">${price?price.toLocaleString():""}</td>
-      <td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:11px;">${amt?amt.toLocaleString():""}</td>
-      <td style="border:1px solid #000;padding:0 4px;font-size:11px;overflow:hidden;white-space:nowrap;">${escH(item.note)}</td>
+    return `<tr style="height:${rowH}mm;">
+      <td style="border:1px solid #000;text-align:center;font-size:10px;">${i+1}</td>
+      <td style="border:1px solid #000;padding:0 4px;font-size:10px;overflow:hidden;white-space:nowrap;">${escH(item.name)}</td>
+      <td style="border:1px solid #000;text-align:center;font-size:10px;">${escH(item.brand)}</td>
+      <td style="border:1px solid #000;text-align:center;font-size:10px;">${escH(item.model)}</td>
+      <td style="border:1px solid #000;text-align:center;font-size:10px;">${qty||""}</td>
+      <td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">${price?price.toLocaleString():""}</td>
+      <td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">${amt?amt.toLocaleString():""}</td>
+      <td style="border:1px solid #000;padding:0 4px;font-size:10px;overflow:hidden;white-space:nowrap;">${escH(item.note)}</td>
     </tr>`;
   }).join('');
 
-  const tax = Math.floor(sub*0.1), total = sub+tax;
+  const tax = Math.floor(sub*0.1);
+  const total = sub + tax;
 
+  // 魔法の斜線（Z線）の生成：右上(x1="100%", y1="0")から左下(x2="0", y2="100%")へ
   let svgLine = '';
   if(emptyStartIdx !== -1 && emptyStartIdx < ROWS) {
-    const topPos = 8 + emptyStartIdx * 8; 
-    const height = (ROWS - emptyStartIdx) * 8; 
+    const topPos = rowH + (emptyStartIdx * rowH); 
+    const height = (ROWS - emptyStartIdx) * rowH; 
     svgLine = `<svg style="position:absolute; left:8mm; top:${topPos}mm; width:137mm; height:${height}mm; pointer-events:none; z-index:10;">
-      <line x1="0" y1="0" x2="100%" y2="100%" stroke="#000" stroke-width="1"></line>
+      <line x1="100%" y1="0" x2="0" y2="100%" stroke="#000" stroke-width="1"></line>
     </svg>`;
   }
 
   return `
-<div style="width:210mm;min-height:297mm;padding:15mm 20mm;background:#fff;font-family:'MS Mincho','Hiragino Mincho Pro','Yu Mincho',serif;color:#000;box-sizing:border-box;">
+<div style="width:210mm;min-height:296mm;padding:12mm 20mm;background:#fff;font-family:'MS Mincho',serif;color:#000;box-sizing:border-box;">
 
-  <div style="text-align:center;font-size:24px;letter-spacing:15mm;margin-bottom:10mm;padding-left:15mm;">見　積　書</div>
-  <div style="text-align:right;font-size:11px;margin-bottom:6mm;">${fmtDate(date)}</div>
+  <div style="text-align:center;font-size:24px;letter-spacing:15mm;margin-bottom:8mm;padding-left:15mm;">見　積　書</div>
+
+  <div style="text-align:right;font-size:10px;margin-bottom:4mm;">${fmtDate(date)}</div>
 
   <div style="margin-bottom:4mm;">
-    <div style="font-size:16px;font-weight:bold;border-bottom:1px solid #000;display:inline-block;padding-bottom:2px;min-width:80mm;margin-bottom:4mm;">
-      ${escH(toName)}　様
+    <div style="font-size:16px;font-weight:bold;border-bottom:1px solid #000;display:inline-block;padding-bottom:1px;min-width:60mm;margin-bottom:2mm;">
+      ${escH(tN)}　様
     </div>
-    <div style="font-size:12px;letter-spacing:2px;">下　記　の　通　り　御　見　積　致　し　ま　す　。</div>
+    <div style="font-size:11px;letter-spacing:2px;">
+      下　記　の　通　り　御　見　積　致　し　ま　す　。
+    </div>
   </div>
 
-  <div style="display:flex;justify-content:space-between;margin-bottom:8mm;">
+  <div style="display:flex;justify-content:space-between;margin-bottom:6mm;">
     <div>
-      <table style="font-size:11px;border-collapse:collapse;">
-        <tr><td style="padding:2px 0;">納入期日</td><td style="border-bottom:1px solid #000;width:55mm;padding:2px 5px;">${fmtDate(delivDate)}</td></tr>
-        <tr><td style="padding:2px 0;">納入場所</td><td style="border-bottom:1px solid #000;width:55mm;padding:2px 5px;">${escH(delivPlace)}</td></tr>
-        <tr><td style="padding:2px 0;">取引方法</td><td style="border-bottom:1px solid #000;width:55mm;padding:2px 5px;">${escH(payMethod)}</td></tr>
+      <table style="font-size:10px;border-collapse:collapse;">
+        <tr><td style="padding:1px 0;">納入期日</td><td style="border-bottom:1px solid #000;width:50mm;padding:1px 4px;">${fmtDate(dD)}</td></tr>
+        <tr><td style="padding:1px 0;">納入場所</td><td style="border-bottom:1px solid #000;width:50mm;padding:1px 4px;">${escH(dP)}</td></tr>
+        <tr><td style="padding:1px 0;">取引方法</td><td style="border-bottom:1px solid #000;width:50mm;padding:1px 4px;">${escH(pM)}</td></tr>
       </table>
     </div>
-    <div style="font-size:11px;line-height:1.6;">
+    <div style="font-size:10px;line-height:1.6;">
       鹿児島県曽於市大隅町岩川5591番地<br>
       そ お 鹿 児 島 農 業 協 同 組 合<br>
       代表理事組合長　　竹 内　和 久<br>
-      <div style="text-align:right;margin-top:2mm;">財部農機センター</div>
+      <div style="text-align:right;margin-top:1mm;">財部農機センター</div>
     </div>
   </div>
 
   <div style="display:flex;align-items:flex-end;margin-bottom:2mm;">
-    <div style="font-size:16px;font-weight:bold;border-bottom:1.5px solid #000;padding:2px 10mm 2px 2px;min-width:90mm;">
+    <div style="font-size:16px;font-weight:bold;border-bottom:1.5px solid #000;display:inline-block;padding:1px 5mm 1px 1px;min-width:75mm;">
       合計金額 ￥ <span style="font-size:18px;">${total.toLocaleString()}</span> 円也
     </div>
-    <div style="font-size:11px;margin-left:5mm;padding-bottom:2px;">
+    <div style="font-size:10px;margin-left:4mm;padding-bottom:1px;">
       （内消費税　${tax.toLocaleString()}　円）
     </div>
   </div>
 
-  <div style="position:relative; width:170mm;">
+  <div style="position:relative; width:170mm; margin-top:3mm;">
     ${svgLine}
     <table style="width:170mm;border-collapse:collapse;table-layout:fixed;">
       <colgroup>
@@ -839,62 +705,52 @@ function buildEstHTML(){
         <col style="width:20mm">
         <col style="width:25mm">
       </colgroup>
-      <tr style="height:8mm;background:#fff;">
-        <th style="border:1px solid #000;font-size:11px;font-weight:normal;">No.</th>
-        <th style="border:1px solid #000;font-size:11px;font-weight:normal;">品　　名</th>
-        <th style="border:1px solid #000;font-size:11px;font-weight:normal;">銘　柄</th>
-        <th style="border:1px solid #000;font-size:11px;font-weight:normal;">型　　式</th>
-        <th style="border:1px solid #000;font-size:11px;font-weight:normal;">数量</th>
-        <th style="border:1px solid #000;font-size:11px;font-weight:normal;">単　価</th>
-        <th style="border:1px solid #000;font-size:11px;font-weight:normal;">金　額</th>
-        <th style="border:1px solid #000;font-size:11px;font-weight:normal;">備　考</th>
+      <tr style="height:${rowH}mm;background:#fff;">
+        <th style="border:1px solid #000;font-size:10px;font-weight:normal;">No.</th>
+        <th style="border:1px solid #000;font-size:10px;font-weight:normal;">品　　名</th>
+        <th style="border:1px solid #000;font-size:10px;font-weight:normal;">銘　柄</th>
+        <th style="border:1px solid #000;font-size:10px;font-weight:normal;">型　　式</th>
+        <th style="border:1px solid #000;font-size:10px;font-weight:normal;">数量</th>
+        <th style="border:1px solid #000;font-size:10px;font-weight:normal;">単　価</th>
+        <th style="border:1px solid #000;font-size:10px;font-weight:normal;">金　額</th>
+        <th style="border:1px solid #000;font-size:10px;font-weight:normal;">備　考</th>
       </tr>
       ${rowsHTML}
-      <tr style="height:8mm;">
-        <td colspan="6" style="border:1px solid #000;text-align:center;font-size:12px;letter-spacing:10mm;padding-left:10mm;">小　計</td>
-        <td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:11px;">${sub.toLocaleString()}</td>
+      <tr style="height:${rowH}mm;">
+        <td colspan="6" style="border:1px solid #000;text-align:center;font-size:11px;letter-spacing:10mm;padding-left:10mm;">小　計</td>
+        <td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">${sub.toLocaleString()}</td>
         <td style="border:1px solid #000;"></td>
       </tr>
-      <tr style="height:8mm;">
-        <td colspan="6" style="border:1px solid #000;text-align:center;font-size:12px;letter-spacing:8mm;padding-left:8mm;">消　費　税</td>
-        <td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:11px;">${tax.toLocaleString()}</td>
+      <tr style="height:${rowH}mm;">
+        <td colspan="6" style="border:1px solid #000;text-align:center;font-size:11px;letter-spacing:8mm;padding-left:8mm;">消　費　税</td>
+        <td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">${tax.toLocaleString()}</td>
         <td style="border:1px solid #000;"></td>
       </tr>
-      <tr style="height:8mm;">
-        <td colspan="6" style="border:1px solid #000;text-align:center;font-size:12px;letter-spacing:10mm;padding-left:10mm;">合　計</td>
-        <td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:11px;">${total.toLocaleString()}</td>
+      <tr style="height:${rowH}mm;">
+        <td colspan="6" style="border:1px solid #000;text-align:center;font-size:11px;letter-spacing:10mm;padding-left:10mm;">合　計</td>
+        <td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;font-weight:bold;">${total.toLocaleString()}</td>
         <td style="border:1px solid #000;"></td>
       </tr>
     </table>
   </div>
-  ${note?`<div style="margin-top:4mm;font-size:11px;border:1px solid #ccc;padding:6px 10px;"><strong>備考：</strong>${escH(note)}</div>`:''}
-  ${expDate?`<div style="margin-top:3mm;font-size:11px;">有効期限：${fmtDate(expDate)}</div>`:''}
+  ${nt?`<div style="margin-top:3mm;font-size:10px;border:0.5px solid #ccc;padding:4px 6px;"><strong>備考：</strong>${escH(nt)}</div>`:''}
+  ${ex?`<div style="margin-top:2mm;font-size:10px;">有効期限：${fmtDate(ex)}</div>`:''}
 </div>`;
 }
 
+// ── 出力系アクション ──────────────────────────
 function showPreview(){ document.getElementById("preview-inner").innerHTML = buildEstHTML(); document.getElementById("preview-modal").style.display = "block"; }
 function closePreview(){ document.getElementById("preview-modal").style.display = "none"; }
-function printDoc(){ const win = window.open('','_blank'); win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`); win.document.close(); setTimeout(()=>{win.print();},600); }
-function savePDF(){ alert("① 次の印刷画面で\n② 送信先を「PDFに保存」に変更\n③ 保存→Sharpdesk Mobileで印刷できます"); printDoc(); }
-function shareDoc(){
-  const toName = document.getElementById("toName").value||"";
-  const total = document.getElementById("total").textContent;
-  const subject = document.getElementById("subject").value||"";
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`;
-  const blob = new Blob([html],{type:'text/html'});
-  const file = new File([blob],`見積書_${toName||'draft'}.html`,{type:'text/html'});
-  if(navigator.share){
-    navigator.share({title:`見積書 ${toName}様`,text:`${subject}\n合計：${total}\n財部農機センター`,files:[file]}).catch(()=>{
-      const msg = encodeURIComponent(`【見積書】${toName}様\n${subject}\n合計金額：${total}\n財部農機センター`);
-      window.open(`https://line.me/R/msg/text/?${msg}`,'_blank');
-    });
-  }else{
-    const msg = encodeURIComponent(`【見積書】${toName}様\n${subject}\n合計金額：${total}\n財部農機センター`);
-    window.open(`https://line.me/R/msg/text/?${msg}`,'_blank');
-  }
+function printDoc(){ 
+  const win = window.open('','_blank'); 
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`); 
+  win.document.close(); 
+  setTimeout(()=>{win.print();},600); 
 }
+function savePDF(){ printDoc(); }
+function shareDoc(){ alert("LINEで共有する機能（実装例）"); }
 
-// ── 起動 ────────────────────────────────────
+// ── 起動処理 ──────────────────────────────────
 window.onload = () => {
   loadDB();
   initQuote();
