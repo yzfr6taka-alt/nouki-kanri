@@ -277,7 +277,12 @@
 </head>
 <body>
 
-<div id="app" style="display:block;">
+<div id="loading-screen" style="text-align:center; padding: 60px 20px; color: var(--text);">
+  <h2>🚜 アプリを準備中です...</h2>
+  <p style="font-size:12px; color:gray; margin-top:10px;">もしこの画面がずっと表示される場合は、<br>プログラムの書き方に問題がある可能性があります。</p>
+</div>
+
+<div id="app" style="display:none;">
   <div style="background:var(--main);padding-top:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,0.2);">
     <div style="display:flex;align-items:center;gap:8px;padding:0 14px 12px">
       <span style="font-size:22px">🚜</span>
@@ -430,6 +435,7 @@
       <button onclick="closeApiKey()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text)">×</button>
     </div>
     <div style="padding:16px 18px 40px">
+      <div style="font-size:12px;color:var(--text-sub);margin-bottom:12px;">AI一括入力機能を使うにはAPIキーが必要です。</div>
       <label class="field-label">APIキー</label>
       <input type="password" id="apiKeyInput" class="field-input" placeholder="sk-ant-...">
       <button onclick="saveApiKey()" class="save-btn" style="width:100%">保存する</button>
@@ -438,6 +444,12 @@
 </div>
 
 <script>
+// エラー監視（万が一エラーがあったらメッセージを出します）
+window.onerror = function(msg, url, lineNo, columnNo, error) {
+  alert("読み込みエラーが発生しました:\n" + msg + "\n(行: " + lineNo + ")");
+  return false;
+};
+
 // ── 定数・初期データ ──────────────────────────
 const TABS = ["ホーム", "顧客", "修理", "実演", "部品", "製品", "見積書"];
 let currentTab = 0;
@@ -450,7 +462,7 @@ const STATUS_COLORS = {
 
 let DB = {
   settings: [{id: 1, targetSales: 10000000, currentSales: 0}],
-  customers: [], repairs: [], demos: [], parts: [], products: [], quotes: [] // ★quotesを追加
+  customers: [], repairs: [], demos: [], parts: [], products: [], quotes: []
 };
 
 let apiKey = "";
@@ -464,6 +476,7 @@ function loadDB() {
     const d = localStorage.getItem('agri_db');
     if(d) {
       const parsed = JSON.parse(d);
+      // 安全にデータを読み込む（もしデータがなくても空の配列にする）
       if(parsed.customers) DB.customers = parsed.customers;
       if(parsed.repairs) DB.repairs = parsed.repairs;
       if(parsed.demos) DB.demos = parsed.demos;
@@ -472,6 +485,9 @@ function loadDB() {
       if(parsed.settings) DB.settings = parsed.settings;
       if(parsed.quotes) DB.quotes = parsed.quotes;
     }
+  } catch(e) {}
+  
+  try {
     const k = localStorage.getItem('agri_api_key');
     if(k) apiKey = k;
   } catch(e) {}
@@ -491,7 +507,12 @@ async function callAI(prompt) {
   });
   const data = await res.json();
   if(data.error) throw new Error(data.error.message);
-  const raw = data.content?.[0]?.text || "{}";
+  
+  // スマホの古いブラウザでも絶対に動く安全な書き方
+  let raw = "{}";
+  if (data.content && data.content[0] && data.content[0].text) {
+    raw = data.content[0].text;
+  }
   return JSON.parse(raw.replace(/```json|```/g, "").trim());
 }
 
@@ -507,7 +528,6 @@ async function runSmartAI() {
   statusEl.textContent = "AIが内容を解析して振り分けています...";
 
   const today = new Date().toISOString().slice(0, 10);
-  // ★プロンプトに「model(型式)」を追加
   const prompt = `農業機械販売修理会社の業務管理。以下のテキストを解析してJSONで返してください。
 テキスト:「${text}」
 以下のJSON形式で返してください:
@@ -517,23 +537,23 @@ async function runSmartAI() {
     const result = await callAI(prompt);
     const msgs = [];
     
-    if(result.hasCustomer && result.customer?.name) {
+    if(result.hasCustomer && result.customer && result.customer.name) {
       DB.customers.push({ id: "ID_" + Date.now(), name: result.customer.name, phone: result.customer.phone || "", address: result.customer.address || "" });
       msgs.push("👥 顧客登録");
     }
-    if(result.hasRepair && result.repair?.customerName) {
+    if(result.hasRepair && result.repair && result.repair.customerName) {
       DB.repairs.push({ id: "ID_" + (Date.now() + 1), customerName: result.repair.customerName, machine: result.repair.machine || "", model: result.repair.model || "", attachment: result.repair.attachment || "", hourMeter: result.repair.hourMeter || "", issue: result.repair.issue || "", status: result.repair.status || "修理依頼", dueDate: result.repair.dueDate || "", date: today, usedParts: [] });
       msgs.push("🔧 修理依頼登録");
     }
-    if(result.hasDemo && result.demo?.customerName) {
+    if(result.hasDemo && result.demo && result.demo.customerName) {
       DB.demos.push({ id: "ID_" + (Date.now() + 2), customerName: result.demo.customerName, targetMachine: result.demo.targetMachine || "", model: result.demo.model || "", date: result.demo.date || "", status: result.demo.status || "実演予定" });
       msgs.push("🌾 実演登録");
     }
-    if(result.hasPart && result.part?.name) {
+    if(result.hasPart && result.part && result.part.name) {
       DB.parts.push({ id: "ID_" + (Date.now() + 3), name: result.part.name, partNo: result.part.partNo || "", qty: Number(result.part.qty) || 0, status: result.part.status || "発注前", orderDate: result.part.orderDate || "" });
       msgs.push("⚙️ 部品登録");
     }
-    if(result.hasProduct && result.product?.productName) {
+    if(result.hasProduct && result.product && result.product.productName) {
       DB.products.push({ id: "ID_" + (Date.now() + 4), productName: result.product.productName, maker: result.product.maker || "", model: result.product.model || "", customer: result.product.customer || "", status: result.product.status || "受注", deliveryDate: result.product.deliveryDate || "" });
       msgs.push("🚜 製品登録");
     }
@@ -577,7 +597,7 @@ function renderAll() {
   else if(currentTab === 3) main.innerHTML = renderDemos();
   else if(currentTab === 4) main.innerHTML = renderPartsTab();
   else if(currentTab === 5) main.innerHTML = renderProducts();
-  else if(currentTab === 6) main.innerHTML = renderQuotesList(); // ★見積書一覧
+  else if(currentTab === 6) main.innerHTML = renderQuotesList();
 }
 
 function changeTab(i) {
@@ -586,8 +606,12 @@ function changeTab(i) {
 }
 
 function renderHome() {
-  const target = Number(DB.settings[0]?.targetSales || 10000000);
-  const current = Number(DB.settings[0]?.currentSales || 0);
+  let target = 10000000;
+  let current = 0;
+  if (DB.settings && DB.settings[0]) {
+    target = Number(DB.settings[0].targetSales) || 10000000;
+    current = Number(DB.settings[0].currentSales) || 0;
+  }
   const progress = Math.min((current / target) * 100, 100) || 0;
   const alerts = DB.repairs.filter(r => r.status === "修理依頼" || r.status === "部品待ち" || r.status === "修理中");
   
@@ -632,14 +656,18 @@ function renderProducts() {
   return html;
 }
 
-// ★見積書の一覧画面
+// 見積書の一覧画面
 function renderQuotesList() {
   let html = `<button onclick="openQuoteEditor('')" class="save-btn" style="margin-bottom:15px;width:100%">＋ 見積書を新規作成</button>`;
-  if(DB.quotes.length === 0) {
+  
+  // DB.quotes が万が一壊れていても絶対にエラーを出さない書き方
+  const safeQuotes = DB.quotes || [];
+  
+  if(safeQuotes.length === 0) {
     html += `<div style="text-align:center;color:var(--text-sub);padding:40px 0;">保存された見積書はありません</div>`;
   } else {
-    // 新しい順に表示
-    const sorted = [...DB.quotes].reverse();
+    // 新しい順に表示 (slice()で安全にコピーしてから逆に並べる)
+    const sorted = safeQuotes.slice().reverse();
     sorted.forEach(q => {
       html += `
         <div class="card" onclick="openQuoteEditor('${q.id}')" style="border-left:4px solid #8e44ad;">
@@ -660,7 +688,7 @@ function renderQuotesList() {
 let modalState = null;
 
 function openNew(tab) {
-  modalState = {tab, mode: "new", item: {}};
+  modalState = {tab: tab, mode: "new", item: {}};
   showModal();
 }
 
@@ -668,7 +696,8 @@ function openEdit(id, tab) {
   const keys = ["", "customers", "repairs", "demos", "parts", "products"];
   const item = DB[keys[tab]].find(x => String(x.id) === String(id));
   if(!item) return;
-  modalState = {tab, mode: "edit", item: {...item}};
+  // オブジェクトのコピーを安全に行う
+  modalState = {tab: tab, mode: "edit", item: JSON.parse(JSON.stringify(item))};
   showModal();
 }
 
@@ -755,9 +784,18 @@ function delItem() {
 // ── 見積書エディター（保存・連携対応） ────────────────
 let currentQuoteId = "";
 const ROWS = 20;
-let qItems = Array.from({length: ROWS}, () => ({name: "", brand: "", model: "", qty: "", price: "", note: ""}));
+let qItems = [];
 
-// ★各タブから「見積書を作成」ボタンを押したときの処理
+// 初期化用に関数を用意しておく
+function resetQItems() {
+  qItems = [];
+  for(let i=0; i<ROWS; i++){
+    qItems.push({name: "", brand: "", model: "", qty: "", price: "", note: ""});
+  }
+}
+resetQItems(); // ここで1回初期化しておく
+
+// 各タブから「見積書を作成」ボタンを押したときの処理
 function jumpToQuote() {
   const it = modalState.item;
   const tab = modalState.tab;
@@ -772,9 +810,9 @@ function jumpToQuote() {
   if (tab === 5) document.getElementById("toName").value = it.customer || "";
 
   // 明細リセット
-  qItems = Array.from({length: ROWS}, () => ({name: "", brand: "", model: "", qty: "", price: "", note: ""}));
+  resetQItems();
 
-  // ★「型式(model)」も含めて自動入力！
+  // 型式(model)も含めて自動入力
   if (tab === 2) {
     qItems[0] = {name: it.machine || "", model: it.model || "", qty: 1, price: "", brand: "", note: ""};
   } else if (tab === 3) {
@@ -809,7 +847,7 @@ function openQuoteEditor(id) {
     const exp = new Date(); exp.setMonth(exp.getMonth() + 1);
     document.getElementById("expDate").value = exp.toISOString().slice(0, 10);
     document.getElementById("delivDate").value = "";
-    qItems = Array.from({length: ROWS}, () => ({name: "", brand: "", model: "", qty: "", price: "", note: ""}));
+    resetQItems();
   } else {
     // 既存の読み込み
     const q = DB.quotes.find(x => x.id === id);
@@ -823,7 +861,12 @@ function openQuoteEditor(id) {
       document.getElementById("toName").value = q.toName || "";
       document.getElementById("subject").value = q.subject || "";
       document.getElementById("note").value = q.note || "";
-      qItems = q.qItems ? JSON.parse(JSON.stringify(q.qItems)) : Array.from({length: ROWS}, () => ({name: "", brand: "", model: "", qty: "", price: "", note: ""}));
+      
+      if(q.qItems) {
+        qItems = JSON.parse(JSON.stringify(q.qItems));
+      } else {
+        resetQItems();
+      }
     }
   }
   buildTable();
@@ -865,7 +908,7 @@ function saveCurrentQuote() {
     DB.quotes = DB.quotes.map(q => q.id === quoteData.id ? quoteData : q);
   }
   saveDB();
-  alert("見積書を保存しました！");
+  alert("見積書を保存しました！\n（一覧画面からいつでも確認・再編集できます）");
 }
 
 function deleteCurrentQuote() {
@@ -878,7 +921,9 @@ function deleteCurrentQuote() {
 
 function buildTable() {
   const tbody = document.getElementById("itemsTable");
-  while (tbody.rows.length > 1) tbody.deleteRow(1);
+  while (tbody.rows.length > 1) {
+    tbody.deleteRow(1);
+  }
   
   for (let i = 0; i < ROWS; i++) {
     const tr = tbody.insertRow();
@@ -902,13 +947,19 @@ function calcTotal() {
     const qty = Number(qItems[i].qty) || 0;
     const price = Number(qItems[i].price) || 0;
     const amt = qty * price;
-    document.getElementById("amt_" + i).textContent = amt ? "¥" + amt.toLocaleString() : "—";
+    
+    // エラーが起きないように確実に要素を取得して書き換える
+    const tdElement = document.getElementById("amt_" + i);
+    if(tdElement) {
+        tdElement.textContent = amt ? "¥" + amt.toLocaleString() : "—";
+    }
     sub += amt;
   }
   const tax = Math.floor(sub * 0.1);
-  document.getElementById("subtotal").textContent = "¥" + sub.toLocaleString();
-  document.getElementById("tax").textContent = "¥" + tax.toLocaleString();
-  document.getElementById("total").textContent = "¥" + (sub + tax).toLocaleString();
+  
+  if(document.getElementById("subtotal")) document.getElementById("subtotal").textContent = "¥" + sub.toLocaleString();
+  if(document.getElementById("tax")) document.getElementById("tax").textContent = "¥" + tax.toLocaleString();
+  if(document.getElementById("total")) document.getElementById("total").textContent = "¥" + (sub + tax).toLocaleString();
 }
 
 // ── プレビュー生成（レイアウト極限チューニング） ────────────────
@@ -1043,7 +1094,11 @@ function savePDF() { printDoc(); }
 function shareDoc() { alert("LINEで共有する機能（実装例）"); }
 
 // ── 起動処理 ──────────────────────────────────
-window.onload = () => {
+window.onload = function() {
+  // 安全装置を消して、アプリ本体を表示する
+  document.getElementById('loading-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  
   loadDB();
   initQuote(); // 初期表示用
   renderAll();
