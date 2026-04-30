@@ -273,6 +273,19 @@
     z-index: 1000;
     overflow-y: auto;
   }
+  
+  .badge-count {
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: bold;
+    display: inline-block;
+  }
+  .bc-gray { background: var(--border); color: var(--text-sub); font-weight: normal; }
+  .bc-red { background: #fde8e8; color: #e74c3c; }
+  .bc-orange { background: #fef5e7; color: #f39c12; }
+  .bc-green { background: #eafaf1; color: #27ae60; }
+  .bc-blue { background: #ebf5fb; color: #2980b9; }
 </style>
 </head>
 <body>
@@ -444,7 +457,7 @@
 </div>
 
 <script>
-// エラー監視（万が一エラーがあったらメッセージを出します）
+// エラー監視
 window.onerror = function(msg, url, lineNo, columnNo, error) {
   alert("読み込みエラーが発生しました:\n" + msg + "\n(行: " + lineNo + ")");
   return false;
@@ -476,7 +489,6 @@ function loadDB() {
     const d = localStorage.getItem('agri_db');
     if(d) {
       const parsed = JSON.parse(d);
-      // 安全にデータを読み込む（もしデータがなくても空の配列にする）
       if(parsed.customers) DB.customers = parsed.customers;
       if(parsed.repairs) DB.repairs = parsed.repairs;
       if(parsed.demos) DB.demos = parsed.demos;
@@ -497,7 +509,7 @@ function openApiKey() { document.getElementById('apiKeyInput').value = apiKey; d
 function closeApiKey() { document.getElementById('apiKeyModal').style.display = 'none'; }
 function saveApiKey() { apiKey = document.getElementById('apiKeyInput').value.trim(); try { localStorage.setItem('agri_api_key', apiKey); } catch(e) {} closeApiKey(); alert('APIキーを保存しました'); }
 
-// ── AI機能（型式判別対応） ────────────────────────
+// ── AI機能 ────────────────────────
 async function callAI(prompt) {
   const cleanKey = apiKey.trim();
   if(!cleanKey) throw new Error("APIキーが設定されていません。🔑ボタンから設定してください。");
@@ -508,7 +520,6 @@ async function callAI(prompt) {
   const data = await res.json();
   if(data.error) throw new Error(data.error.message);
   
-  // スマホの古いブラウザでも絶対に動く安全な書き方
   let raw = "{}";
   if (data.content && data.content[0] && data.content[0].text) {
     raw = data.content[0].text;
@@ -531,7 +542,7 @@ async function runSmartAI() {
   const prompt = `農業機械販売修理会社の業務管理。以下のテキストを解析してJSONで返してください。
 テキスト:「${text}」
 以下のJSON形式で返してください:
-{"customer":{"name":"","phone":"","address":""},"repair":{"customerName":"","machine":"","model":"","attachment":"","hourMeter":"","issue":"","status":"修理依頼","dueDate":""},"demo":{"customerName":"","targetMachine":"","model":"","date":"","status":"実演予定"},"part":{"name":"","partNo":"","qty":0,"status":"発注前","orderDate":""},"product":{"productName":"","maker":"","model":"","customer":"","status":"受注","deliveryDate":""},"hasCustomer":false,"hasRepair":false,"hasDemo":false,"hasPart":false,"hasProduct":false}`;
+{"customer":{"name":"","phone":"","address":""},"repair":{"customerName":"","machine":"","model":"","attachment":"","hourMeter":"","issue":"","status":"修理依頼","dueDate":""},"demo":{"customerName":"","targetMachine":"","model":"","date":"","status":"実演予定"},"part":{"customerName":"","name":"","partNo":"","qty":0,"status":"発注前","orderDate":""},"product":{"productName":"","maker":"","model":"","customer":"","status":"受注","deliveryDate":""},"hasCustomer":false,"hasRepair":false,"hasDemo":false,"hasPart":false,"hasProduct":false}`;
 
   try {
     const result = await callAI(prompt);
@@ -550,7 +561,7 @@ async function runSmartAI() {
       msgs.push("🌾 実演登録");
     }
     if(result.hasPart && result.part && result.part.name) {
-      DB.parts.push({ id: "ID_" + (Date.now() + 3), name: result.part.name, partNo: result.part.partNo || "", qty: Number(result.part.qty) || 0, status: result.part.status || "発注前", orderDate: result.part.orderDate || "" });
+      DB.parts.push({ id: "ID_" + (Date.now() + 3), customerName: result.part.customerName || "", name: result.part.name, partNo: result.part.partNo || "", qty: Number(result.part.qty) || 0, status: result.part.status || "発注前", orderDate: result.part.orderDate || "" });
       msgs.push("⚙️ 部品登録");
     }
     if(result.hasProduct && result.product && result.product.productName) {
@@ -587,7 +598,6 @@ function renderAll() {
   const main = document.getElementById("content_main");
   const quoteEditor = document.getElementById("content_quote_editor");
   
-  // 見積書エディターは一旦隠す
   quoteEditor.style.display = "none";
   main.style.display = "block";
     
@@ -617,6 +627,22 @@ function renderHome() {
   
   let html = `<div class="dash-card"><div style="font-size:12px;opacity:0.8;margin-bottom:5px">事業目標：年間売上 ${(target / 10000).toLocaleString()}万円</div><div style="font-size:24px;font-weight:900;margin-bottom:10px">現在: ¥${current.toLocaleString()}</div><div style="background:rgba(255, 255, 255, 0.2);height:8px;border-radius:4px;overflow:hidden"><div style="background:#f1c40f;width:${progress}%;height:100%;transition:width 0.5s"></div></div><div style="font-size:10px;text-align:right;margin-top:4px">達成率: ${progress.toFixed(1)}%</div></div>`;
   
+  html += `
+  <div style="display:flex;gap:8px;margin-bottom:15px;text-align:center;">
+    <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:10px;flex:1;">
+      <div style="font-size:10px;color:var(--text-sub)">修理</div><div style="font-size:16px;font-weight:bold;color:#e74c3c">${DB.repairs.length}</div>
+    </div>
+    <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:10px;flex:1;">
+      <div style="font-size:10px;color:var(--text-sub)">実演</div><div style="font-size:16px;font-weight:bold;color:#f39c12">${DB.demos.length}</div>
+    </div>
+    <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:10px;flex:1;">
+      <div style="font-size:10px;color:var(--text-sub)">製品</div><div style="font-size:16px;font-weight:bold;color:#27ae60">${DB.products.length}</div>
+    </div>
+    <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:10px;flex:1;">
+      <div style="font-size:10px;color:var(--text-sub)">部品</div><div style="font-size:16px;font-weight:bold;color:#2980b9">${DB.parts.length}</div>
+    </div>
+  </div>`;
+  
   if(alerts.length > 0) {
     html += `<h4 style="margin-bottom:10px;color:var(--text)">🔔 修理 要対応 (${alerts.length}件)</h4>`;
     alerts.forEach(a => {
@@ -628,45 +654,91 @@ function renderHome() {
 
 function renderCustomers() {
   let html = `<button onclick="openNew(1)" class="save-btn" style="margin-bottom:15px;width:100%">＋ 顧客を新規登録</button>`;
-  DB.customers.forEach(item => { html += `<div class="card" onclick="openEdit('${item.id}',1)"><div style="font-weight:bold;font-size:15px;margin-bottom:4px">${item.name}　様</div>${item.phone ? `<div style="font-size:12px;color:var(--text-sub)">📞 ${item.phone}</div>` : ''}</div>`; });
+  DB.customers.forEach(item => {
+    const cName = item.name;
+    const rCount = DB.repairs.filter(x => x.customerName === cName).length;
+    const dCount = DB.demos.filter(x => x.customerName === cName).length;
+    const pCount = DB.products.filter(x => x.customer === cName).length;
+    const ptCount = DB.parts.filter(x => x.customerName === cName).length;
+    
+    html += `
+    <div class="card" onclick="openEdit('${item.id}',1)">
+      <div style="font-weight:bold;font-size:15px;margin-bottom:4px">${cName}　様</div>
+      ${item.phone ? `<div style="font-size:12px;color:var(--text-sub);margin-bottom:6px;">📞 ${item.phone}</div>` : ''}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
+        <span class="badge-count ${rCount > 0 ? 'bc-red' : 'bc-gray'}">🔧 修理 ${rCount}</span>
+        <span class="badge-count ${dCount > 0 ? 'bc-orange' : 'bc-gray'}">🌾 実演 ${dCount}</span>
+        <span class="badge-count ${pCount > 0 ? 'bc-green' : 'bc-gray'}">🚜 製品 ${pCount}</span>
+        <span class="badge-count ${ptCount > 0 ? 'bc-blue' : 'bc-gray'}">⚙️ 部品 ${ptCount}</span>
+      </div>
+    </div>`;
+  });
   return html;
 }
 
 function renderRepairs() {
   let html = `<button onclick="openNew(2)" class="save-btn" style="margin-bottom:10px;width:100%">＋ 修理依頼を新規登録</button>`;
-  DB.repairs.forEach(item => { html += `<div class="card" onclick="openEdit('${item.id}',2)" style="border-left:4px solid ${STATUS_COLORS[item.status] || '#95a5a6'}"><div style="font-weight:bold;font-size:15px;margin-bottom:4px">${item.customerName} - ${item.machine || '機械未入力'} ${item.model || ''}</div><span class="badge" style="background:${STATUS_COLORS[item.status] || '#95a5a6'};margin-top:6px;display:inline-block">${item.status}</span></div>`; });
+  DB.repairs.forEach(item => { 
+    html += `<div class="card" onclick="openEdit('${item.id}',2)" style="border-left:4px solid ${STATUS_COLORS[item.status] || '#95a5a6'}">
+      <div style="font-weight:bold;font-size:15px;margin-bottom:4px">${item.customerName} - ${item.machine || '機械未入力'} ${item.model || ''}</div>
+      ${item.hourMeter ? `<div style="font-size:11px;color:var(--text-sub);margin-bottom:2px;">稼働: ${item.hourMeter}h</div>` : ''}
+      ${item.issue ? `<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.issue}</div>` : ''}
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="badge" style="background:${STATUS_COLORS[item.status] || '#95a5a6'};margin-top:2px;display:inline-block">${item.status}</span>
+        ${item.dueDate ? `<span style="font-size:10px;color:var(--text-sub);">納期: ${item.dueDate}</span>` : ''}
+      </div>
+    </div>`; 
+  });
   return html;
 }
 
 function renderDemos() {
   let html = `<button onclick="openNew(3)" class="save-btn" style="margin-bottom:15px;width:100%">＋ 実演を新規登録</button>`;
-  DB.demos.forEach(item => { html += `<div class="card" onclick="openEdit('${item.id}',3)" style="border-left:4px solid ${STATUS_COLORS[item.status] || '#95a5a6'}"><div style="font-weight:bold;font-size:15px;margin-bottom:4px">${item.customerName}</div><div style="font-size:12px;color:var(--text-sub)">🚜 ${item.targetMachine || '未定'} ${item.model || ''}</div></div>`; });
+  DB.demos.forEach(item => { html += `<div class="card" onclick="openEdit('${item.id}',3)" style="border-left:4px solid ${STATUS_COLORS[item.status] || '#95a5a6'}">
+    <div style="font-weight:bold;font-size:15px;margin-bottom:4px">${item.customerName}</div>
+    <div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;">🚜 ${item.targetMachine || '未定'} ${item.model || ''}</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span class="badge" style="background:${STATUS_COLORS[item.status] || '#95a5a6'};margin-top:2px;display:inline-block">${item.status}</span>
+      ${item.date ? `<span style="font-size:10px;color:var(--text-sub);">予定日: ${item.date}</span>` : ''}
+    </div>
+  </div>`; });
   return html;
 }
 
 function renderPartsTab() {
   let html = `<button onclick="openNew(4)" class="save-btn" style="margin-bottom:10px;width:100%">＋ 部品を新規登録</button>`;
-  DB.parts.forEach(item => { html += `<div class="card" onclick="openEdit('${item.id}',4)" style="border-left:4px solid ${STATUS_COLORS[item.status] || '#95a5a6'}"><div style="font-weight:bold;font-size:15px;margin-bottom:4px">${item.name}</div><div style="font-size:12px;color:var(--text-sub)">品番: ${item.partNo || '-'} / 在庫: ${item.qty || 0}個</div></div>`; });
+  DB.parts.forEach(item => { html += `<div class="card" onclick="openEdit('${item.id}',4)" style="border-left:4px solid ${STATUS_COLORS[item.status] || '#95a5a6'}">
+    ${item.customerName ? `<div style="font-size:11px;color:#2980b9;font-weight:bold;margin-bottom:2px;">👤 ${item.customerName} 様</div>` : ''}
+    <div style="font-weight:bold;font-size:15px;margin-bottom:4px">${item.name}</div>
+    <div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;">品番: ${item.partNo || '-'} / 数量: ${item.qty || 0}個</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span class="badge" style="background:${STATUS_COLORS[item.status] || '#95a5a6'};margin-top:2px;display:inline-block">${item.status || '発注前'}</span>
+      ${item.orderDate ? `<span style="font-size:10px;color:var(--text-sub);">発注日: ${item.orderDate}</span>` : ''}
+    </div>
+  </div>`; });
   return html;
 }
 
 function renderProducts() {
   let html = `<button onclick="openNew(5)" class="save-btn" style="margin-bottom:10px;width:100%">＋ 製品を新規登録</button>`;
-  DB.products.forEach(item => { html += `<div class="card" onclick="openEdit('${item.id}',5)" style="border-left:4px solid ${STATUS_COLORS[item.status] || '#95a5a6'}"><div style="font-weight:bold;font-size:15px;margin-bottom:4px">${item.productName}</div><div style="font-size:12px;color:var(--text-sub)">型式: ${item.model || '-'} / 販売額: ¥${Number(item.price || 0).toLocaleString()}</div></div>`; });
+  DB.products.forEach(item => { html += `<div class="card" onclick="openEdit('${item.id}',5)" style="border-left:4px solid ${STATUS_COLORS[item.status] || '#95a5a6'}">
+    ${item.customer ? `<div style="font-size:11px;color:#27ae60;font-weight:bold;margin-bottom:2px;">👤 ${item.customer} 様</div>` : ''}
+    <div style="font-weight:bold;font-size:15px;margin-bottom:4px">${item.productName}</div>
+    <div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;">型式: ${item.model || '-'} / 販売額: ¥${Number(item.price || 0).toLocaleString()}</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span class="badge" style="background:${STATUS_COLORS[item.status] || '#95a5a6'};margin-top:2px;display:inline-block">${item.status || '受注'}</span>
+      ${item.deliveryDate ? `<span style="font-size:10px;color:var(--text-sub);">納品予定: ${item.deliveryDate}</span>` : ''}
+    </div>
+  </div>`; });
   return html;
 }
 
-// 見積書の一覧画面
 function renderQuotesList() {
   let html = `<button onclick="openQuoteEditor('')" class="save-btn" style="margin-bottom:15px;width:100%">＋ 見積書を新規作成</button>`;
-  
-  // DB.quotes が万が一壊れていても絶対にエラーを出さない書き方
   const safeQuotes = DB.quotes || [];
-  
   if(safeQuotes.length === 0) {
     html += `<div style="text-align:center;color:var(--text-sub);padding:40px 0;">保存された見積書はありません</div>`;
   } else {
-    // 新しい順に表示 (slice()で安全にコピーしてから逆に並べる)
     const sorted = safeQuotes.slice().reverse();
     sorted.forEach(q => {
       html += `
@@ -684,7 +756,7 @@ function renderQuotesList() {
   return html;
 }
 
-// ── 編集モーダル（各タブ用） ────────────────────────
+// ── 編集モーダル（復活版） ────────────────────────
 let modalState = null;
 
 function openNew(tab) {
@@ -696,7 +768,6 @@ function openEdit(id, tab) {
   const keys = ["", "customers", "repairs", "demos", "parts", "products"];
   const item = DB[keys[tab]].find(x => String(x.id) === String(id));
   if(!item) return;
-  // オブジェクトのコピーを安全に行う
   modalState = {tab: tab, mode: "edit", item: JSON.parse(JSON.stringify(item))};
   showModal();
 }
@@ -706,31 +777,45 @@ function showModal() {
   let form = "";
   const it = modalState.item;
 
-  if (modalState.tab === 1) {
+  if (modalState.tab === 1) { // 顧客
     form += inp("name", "顧客名", it.name) + inp("phone", "電話番号", it.phone) + inp("address", "住所", it.address);
+    // 備考欄も追加しておきます
+    form += `<label class="field-label">メモ・備考</label><textarea id="f_memo" class="field-textarea" rows="2">${esc(it.memo)}</textarea>`;
   } 
-  else if (modalState.tab === 2) {
+  else if (modalState.tab === 2) { // 修理
     form += inp("customerName", "顧客名", it.customerName);
     form += `<div class="fl"><div class="fg">` + inp("machine", "機械名", it.machine) + `</div><div class="fg">` + inp("model", "型式", it.model) + `</div></div>`;
-    form += sel("status", "ステータス", ["修理依頼", "見積中", "部品待ち", "修理中", "完了(未請求)", "請求済"], it.status);
+    // ★復活：アタッチメント、アワーメーター、不具合内容
+    form += `<div class="fl"><div class="fg">` + inp("attachment", "アタッチメント", it.attachment) + `</div><div class="fg">` + inp("hourMeter", "アワーメーター(h)", it.hourMeter, "number") + `</div></div>`;
+    form += `<label class="field-label">不具合内容・依頼事項</label><textarea id="f_issue" class="field-textarea" rows="2">${esc(it.issue)}</textarea>`;
+    
+    // ★復活：納期
+    form += `<div class="fl"><div class="fg">` + sel("status", "ステータス", ["修理依頼", "見積中", "部品待ち", "修理中", "完了(未請求)", "請求済"], it.status) + `</div><div class="fg">` + inp("dueDate", "納期・予定日", it.dueDate, "date") + `</div></div>`;
     form += `<button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 見積書を作成</button>`;
   } 
-  else if (modalState.tab === 3) {
+  else if (modalState.tab === 3) { // 実演
     form += inp("customerName", "対象顧客", it.customerName);
     form += `<div class="fl"><div class="fg">` + inp("targetMachine", "対象機械", it.targetMachine) + `</div><div class="fg">` + inp("model", "型式", it.model) + `</div></div>`;
-    form += sel("status", "ステータス", ["実演予定", "実施済", "見積提示中", "成約"], it.status);
+    // ★復活：日付
+    form += `<div class="fl"><div class="fg">` + sel("status", "ステータス", ["実演予定", "実施済", "見積提示中", "成約"], it.status) + `</div><div class="fg">` + inp("date", "予定日/実施日", it.date, "date") + `</div></div>`;
     form += `<button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 見積書を作成</button>`;
   } 
-  else if (modalState.tab === 4) {
+  else if (modalState.tab === 4) { // 部品
+    form += inp("customerName", "顧客名（任意）", it.customerName);
     form += inp("name", "部品名", it.name);
-    form += `<div class="fl"><div class="fg">` + inp("partNo", "品番・型式", it.partNo) + `</div><div class="fg">` + inp("qty", "数量", it.qty) + `</div></div>`;
-    form += inp("price", "仕入・販売単価", it.price);
+    form += `<div class="fl"><div class="fg">` + inp("partNo", "品番・型式", it.partNo) + `</div><div class="fg">` + inp("qty", "数量", it.qty, "number") + `</div></div>`;
+    // ★復活：発注日とステータス
+    form += `<div class="fl"><div class="fg">` + sel("status", "ステータス", ["発注前", "発注済", "入荷済"], it.status) + `</div><div class="fg">` + inp("orderDate", "発注日", it.orderDate, "date") + `</div></div>`;
+    form += inp("price", "仕入・販売単価", it.price, "number");
     form += `<button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 この部品で見積書を作成</button>`;
   } 
-  else if (modalState.tab === 5) {
+  else if (modalState.tab === 5) { // 製品
+    form += inp("customer", "顧客名", it.customer);
     form += inp("productName", "製品名", it.productName);
     form += `<div class="fl"><div class="fg">` + inp("maker", "メーカー", it.maker) + `</div><div class="fg">` + inp("model", "型式", it.model) + `</div></div>`;
-    form += inp("price", "販売額", it.price);
+    // ★復活：納品日とステータス
+    form += `<div class="fl"><div class="fg">` + sel("status", "ステータス", ["商談中", "受注", "納品済"], it.status) + `</div><div class="fg">` + inp("deliveryDate", "納品予定日", it.deliveryDate, "date") + `</div></div>`;
+    form += inp("price", "販売額", it.price, "number");
     form += `<button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 この製品で見積書を作成</button>`;
   }
 
@@ -745,10 +830,17 @@ function showModal() {
   document.getElementById("modalOverlay").style.display = "flex";
 }
 
-function inp(id, label, val) { return `<label class="field-label">${label}</label><input type="text" id="f_${id}" class="field-input" value="${esc(val || '')}">`; }
+// type引数を追加して日付や数値を綺麗に入力できるようにしました
+function inp(id, label, val, type="text") { 
+  return `<label class="field-label">${label}</label><input type="${type}" id="f_${id}" class="field-input" value="${esc(val || '')}">`; 
+}
 function sel(id, label, options, currentVal) {
   let optsHtml = "";
-  for(let i = 0; i < options.length; i++) { const o = options[i]; const selected = (currentVal === o) ? 'selected' : ''; optsHtml += `<option value="${o}" ${selected}>${o}</option>`; }
+  for(let i = 0; i < options.length; i++) { 
+    const o = options[i]; 
+    const selected = (currentVal === o) ? 'selected' : ''; 
+    optsHtml += `<option value="${o}" ${selected}>${o}</option>`; 
+  }
   return `<label class="field-label">${label}</label><select id="f_${id}" class="field-select">${optsHtml}</select>`;
 }
 function esc(s) { return String(s || "").replace(/"/g, "&quot;"); }
@@ -761,7 +853,8 @@ function saveItem() {
   const dbKey = keys[modalState.tab];
   let item = { id: modalState.mode === "new" ? "ID_" + Date.now() : modalState.item.id };
 
-  const inputs = document.querySelectorAll("#modalBody input, #modalBody select");
+  // textareaも保存対象に含めるように修正しました
+  const inputs = document.querySelectorAll("#modalBody input, #modalBody select, #modalBody textarea");
   for (let i = 0; i < inputs.length; i++) {
     const el = inputs[i];
     const key = el.id.replace("f_", "");
@@ -781,38 +874,32 @@ function delItem() {
   saveDB(); closeModal(); renderAll();
 }
 
-// ── 見積書エディター（保存・連携対応） ────────────────
+// ── 見積書エディター ────────────────
 let currentQuoteId = "";
 const ROWS = 20;
 let qItems = [];
 
-// 初期化用に関数を用意しておく
 function resetQItems() {
   qItems = [];
   for(let i=0; i<ROWS; i++){
     qItems.push({name: "", brand: "", model: "", qty: "", price: "", note: ""});
   }
 }
-resetQItems(); // ここで1回初期化しておく
+resetQItems();
 
-// 各タブから「見積書を作成」ボタンを押したときの処理
 function jumpToQuote() {
   const it = modalState.item;
   const tab = modalState.tab;
   
   closeModal();
-  
-  // 新規の見積書としてエディターを開く
   openQuoteEditor("");
 
-  // 宛名と件名の転記
   if (tab === 2 || tab === 3) document.getElementById("toName").value = it.customerName || "";
+  if (tab === 4) document.getElementById("toName").value = it.customerName || "";
   if (tab === 5) document.getElementById("toName").value = it.customer || "";
 
-  // 明細リセット
   resetQItems();
 
-  // 型式(model)も含めて自動入力
   if (tab === 2) {
     qItems[0] = {name: it.machine || "", model: it.model || "", qty: 1, price: "", brand: "", note: ""};
   } else if (tab === 3) {
@@ -826,13 +913,11 @@ function jumpToQuote() {
   buildTable();
 }
 
-// 見積書エディターを開く
 function openQuoteEditor(id) {
   document.getElementById("content_main").style.display = "none";
   document.getElementById("content_quote_editor").style.display = "block";
   currentTab = 6;
   
-  // 見積書タブのボタンをアクティブにする
   const tabs = document.querySelectorAll('.tab-btn');
   tabs.forEach(t => t.classList.remove('active'));
   if(tabs[6]) tabs[6].classList.add('active');
@@ -840,7 +925,6 @@ function openQuoteEditor(id) {
   currentQuoteId = id;
   
   if (id === "") {
-    // 新規作成
     const ids = ["estNo", "delivPlace", "payMethod", "toName", "subject", "note"];
     ids.forEach(idx => document.getElementById(idx).value = "");
     document.getElementById("estDate").value = new Date().toISOString().slice(0, 10);
@@ -849,7 +933,6 @@ function openQuoteEditor(id) {
     document.getElementById("delivDate").value = "";
     resetQItems();
   } else {
-    // 既存の読み込み
     const q = DB.quotes.find(x => x.id === id);
     if(q) {
       document.getElementById("estNo").value = q.estNo || "";
@@ -874,10 +957,9 @@ function openQuoteEditor(id) {
 
 function closeQuoteEditor() {
   document.getElementById("content_quote_editor").style.display = "none";
-  renderAll(); // 一覧画面に戻る
+  renderAll();
 }
 
-// 見積書をDBに保存
 function saveCurrentQuote() {
   let sub = 0;
   for (let i = 0; i < ROWS; i++) {
@@ -948,7 +1030,6 @@ function calcTotal() {
     const price = Number(qItems[i].price) || 0;
     const amt = qty * price;
     
-    // エラーが起きないように確実に要素を取得して書き換える
     const tdElement = document.getElementById("amt_" + i);
     if(tdElement) {
         tdElement.textContent = amt ? "¥" + amt.toLocaleString() : "—";
@@ -962,7 +1043,7 @@ function calcTotal() {
   if(document.getElementById("total")) document.getElementById("total").textContent = "¥" + (sub + tax).toLocaleString();
 }
 
-// ── プレビュー生成（レイアウト極限チューニング） ────────────────
+// ── プレビュー生成 ────────────────
 function getStyles() { 
   return `* { box-sizing: border-box; margin: 0; padding: 0; } body { font-family: 'MS Mincho', 'Hiragino Mincho Pro', serif; } @page { size: A4 portrait; margin: 0; } @media print { body { margin: 0; padding: 0; -webkit-print-color-adjust: exact; color-adjust: exact; } }`; 
 }
@@ -1095,7 +1176,6 @@ function shareDoc() { alert("LINEで共有する機能（実装例）"); }
 
 // ── 起動処理 ──────────────────────────────────
 window.onload = function() {
-  // 安全装置を消して、アプリ本体を表示する
   document.getElementById('loading-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   
