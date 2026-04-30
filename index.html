@@ -694,9 +694,15 @@ function renderRepairs() {
 
 function renderDemos() {
   let html = `<button onclick="openNew(3)" class="save-btn" style="margin-bottom:15px;width:100%">＋ 実演を新規登録</button>`;
-  DB.demos.forEach(item => { html += `<div class="card" onclick="openEdit('${item.id}',3)" style="border-left:4px solid ${STATUS_COLORS[item.status] || '#95a5a6'}">
+  DB.demos.forEach(item => { 
+    // 複数機種の表示対応
+    let machinesStr = `🚜 ${item.targetMachine || '未定'} ${item.model || ''}`;
+    if(item.targetMachine2) machinesStr += `<br>🚜 ${item.targetMachine2} ${item.model2 || ''}`;
+    if(item.targetMachine3) machinesStr += `<br>🚜 ${item.targetMachine3} ${item.model3 || ''}`;
+
+    html += `<div class="card" onclick="openEdit('${item.id}',3)" style="border-left:4px solid ${STATUS_COLORS[item.status] || '#95a5a6'}">
     <div style="font-weight:bold;font-size:15px;margin-bottom:4px">${item.customerName}</div>
-    <div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;">🚜 ${item.targetMachine || '未定'} ${item.model || ''}</div>
+    <div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;line-height:1.4;">${machinesStr}</div>
     <div style="display:flex;justify-content:space-between;align-items:center;">
       <span class="badge" style="background:${STATUS_COLORS[item.status] || '#95a5a6'};margin-top:2px;display:inline-block">${item.status}</span>
       ${item.date ? `<span style="font-size:10px;color:var(--text-sub);">予定日: ${item.date}</span>` : ''}
@@ -791,7 +797,10 @@ function showModal() {
   } 
   else if (modalState.tab === 3) { 
     form += inp("customerName", "対象顧客", it.customerName);
-    form += `<div class="fl"><div class="fg">` + inp("targetMachine", "対象機械", it.targetMachine) + `</div><div class="fg">` + inp("model", "型式", it.model) + `</div></div>`;
+    // 複数機種を追加できるように変更
+    form += `<div class="fl"><div class="fg">` + inp("targetMachine", "対象機械 1", it.targetMachine) + `</div><div class="fg">` + inp("model", "型式 1", it.model) + `</div></div>`;
+    form += `<div class="fl"><div class="fg">` + inp("targetMachine2", "対象機械 2 (任意)", it.targetMachine2) + `</div><div class="fg">` + inp("model2", "型式 2", it.model2) + `</div></div>`;
+    form += `<div class="fl"><div class="fg">` + inp("targetMachine3", "対象機械 3 (任意)", it.targetMachine3) + `</div><div class="fg">` + inp("model3", "型式 3", it.model3) + `</div></div>`;
     form += `<div class="fl"><div class="fg">` + sel("status", "ステータス", ["実演予定", "実施済", "見積提示中", "成約"], it.status) + `</div><div class="fg">` + inp("date", "予定日/実施日", it.date, "date") + `</div></div>`;
     form += `<button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 見積書を作成</button>`;
   } 
@@ -894,7 +903,23 @@ function jumpToQuote() {
   if (tab === 2) {
     qItems[0] = {name: it.machine || "", model: it.model || "", qty: 1, price: "", brand: "", note: ""};
   } else if (tab === 3) {
-    qItems[0] = {name: it.targetMachine || "", model: it.model || "", qty: 1, price: "", brand: "", note: ""};
+    // 複数機種を明細に反映させる処理
+    let line = 0;
+    if (it.targetMachine) {
+      qItems[line] = {name: it.targetMachine, model: it.model || "", qty: 1, price: "", brand: "", note: ""};
+      line++;
+    }
+    if (it.targetMachine2) {
+      qItems[line] = {name: it.targetMachine2, model: it.model2 || "", qty: 1, price: "", brand: "", note: ""};
+      line++;
+    }
+    if (it.targetMachine3) {
+      qItems[line] = {name: it.targetMachine3, model: it.model3 || "", qty: 1, price: "", brand: "", note: ""};
+      line++;
+    }
+    if (line === 0) {
+      qItems[0] = {name: "", model: "", qty: 1, price: "", brand: "", note: ""};
+    }
   } else if (tab === 4) {
     qItems[0] = {name: it.name || "", model: it.partNo || "", qty: 1, price: it.price || "", brand: "", note: ""};
   } else if (tab === 5) {
@@ -1100,9 +1125,9 @@ function buildEstHTML() {
   <div style="text-align:right;font-size:10px;margin-bottom:4mm;">${fmtDate(date)}</div>
 
   <div style="margin-bottom:4mm; text-align:left;">
-    <div style="display:inline-flex; align-items:flex-end; border-bottom:1.5px solid #000; padding-bottom:1px; width:75mm; margin-bottom:2mm;">
-      <div style="font-size:16px; font-weight:bold; text-align:left; letter-spacing:4px; flex:1;">${escH(tN)}</div>
-      <div style="font-size:16px; font-weight:bold; margin-left:4mm;">様</div>
+    <div style="display:inline-flex; align-items:flex-end; border-bottom:1.5px solid #000; padding-bottom:1px; width:50mm; margin-bottom:2mm;">
+      <div style="font-size:16px; font-weight:bold; flex:1; text-align:right; letter-spacing:4px;">${escH(tN)}</div>
+      <div style="font-size:16px; font-weight:bold; margin-left:2mm;">様</div>
     </div>
     <div style="font-size:11px;letter-spacing:2px;">下　記　の　通　り　御　見　積　致　し　ま　す　。</div>
   </div>
@@ -1113,17 +1138,17 @@ function buildEstHTML() {
         <tr>
           <td style="padding:1.5px 0; width:15mm; text-align:justify; text-align-last:justify;">納入期日</td>
           <td style="padding:1.5px 2px;">：</td>
-          <td style="border-bottom:1px solid #000; width:45mm; padding:1.5px 4px; text-align:left;">${fmtDate(dD)}</td>
+          <td style="border-bottom:1px solid #000; width:35mm; padding:1.5px 4px; text-align:right;">${fmtDate(dD)}</td>
         </tr>
         <tr>
           <td style="padding:1.5px 0; text-align:justify; text-align-last:justify;">納入場所</td>
           <td style="padding:1.5px 2px;">：</td>
-          <td style="border-bottom:1px solid #000; padding:1.5px 4px; text-align:left;">${escH(dP)}</td>
+          <td style="border-bottom:1px solid #000; width:35mm; padding:1.5px 4px; text-align:right;">${escH(dP)}</td>
         </tr>
         <tr>
           <td style="padding:1.5px 0; text-align:justify; text-align-last:justify;">取引方法</td>
           <td style="padding:1.5px 2px;">：</td>
-          <td style="border-bottom:1px solid #000; padding:1.5px 4px; text-align:left;">${escH(pM)}</td>
+          <td style="border-bottom:1px solid #000; width:35mm; padding:1.5px 4px; text-align:right;">${escH(pM)}</td>
         </tr>
       </table>
     </div>
