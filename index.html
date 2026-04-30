@@ -17,6 +17,7 @@
     --main: #2c3e50;
     --input-bg: #f9fafb;
     --table-th: #2c3e50;
+    --accent: #2980b9;
   }
   
   body.dark {
@@ -30,12 +31,7 @@
     --table-th: #111;
   }
   
-  * {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    -webkit-tap-highlight-color: transparent;
-  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   
   body {
     font-family: 'Hiragino Sans', 'Noto Sans JP', sans-serif;
@@ -45,649 +41,324 @@
     margin: 0 auto;
     min-height: 100vh;
     transition: background 0.3s, color 0.3s;
+    line-height: 1.5;
   }
   
-  input, textarea, button, select {
-    font-family: inherit;
-    color: var(--text);
-  }
+  input, textarea, button, select { font-family: inherit; color: var(--text); }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: #3498db !important; box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15); }
   
-  input:focus, textarea:focus, select:focus {
-    outline: none;
-    border-color: #3498db !important;
-    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
-  }
-  
+  /* --- UIコンポーネント --- */
   .card {
     background: var(--card-bg);
     border: 1.5px solid var(--border);
     border-radius: 14px;
-    padding: 13px 15px;
-    margin-bottom: 9px;
+    padding: 15px;
+    margin-bottom: 10px;
     cursor: pointer;
     position: relative;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
   }
+  .card:active { background: var(--input-bg); transform: scale(0.98); }
   
-  .card:active {
-    background: var(--input-bg);
-  }
-  
-  .tab-wrap {
-    display: flex;
-    overflow-x: auto;
-    white-space: nowrap;
-    -webkit-overflow-scrolling: touch;
-  }
-  
-  .tab-wrap::-webkit-scrollbar {
-    display: none;
-  }
+  .tab-wrap { display: flex; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; background: var(--main); }
+  .tab-wrap::-webkit-scrollbar { display: none; }
   
   .tab-btn {
     flex: 0 0 auto;
-    background: none;
-    border: none;
+    background: none; border: none;
     color: #6fa8c8;
-    padding: 9px 12px 10px;
+    padding: 14px 16px;
     font-size: 11px;
     cursor: pointer;
     font-weight: 700;
     border-bottom: 3px solid transparent;
   }
+  .tab-btn.active { color: #fff; font-weight: 900; border-bottom: 3px solid #fff; }
   
-  .tab-btn.active {
-    color: #fff;
-    font-weight: 900;
-    border-bottom: 3px solid #fff;
-  }
-  
-  .field-label {
-    display: block;
-    font-size: 11px;
-    color: var(--text-sub);
-    margin-bottom: 4px;
-    font-weight: 700;
-  }
+  .field-label { display: block; font-size: 11px; color: var(--text-sub); margin-bottom: 4px; font-weight: 700; }
   
   .field-input, .field-textarea, .field-select {
     width: 100%;
-    padding: 9px 11px;
+    padding: 10px 12px;
     border: 1.5px solid var(--border);
     border-radius: 10px;
     font-size: 13px;
     background: var(--input-bg);
-    margin-bottom: 11px;
-  }
-  
-  .field-textarea {
-    resize: vertical;
+    margin-bottom: 12px;
   }
   
   .save-btn {
-    flex: 1;
-    background: #2980b9;
-    color: #fff;
-    border: none;
-    border-radius: 10px;
-    padding: 13px 0;
-    font-size: 15px;
-    font-weight: 800;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    flex: 1; background: var(--accent); color: #fff; border: none; border-radius: 12px;
+    padding: 14px 0; font-size: 15px; font-weight: 800; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
   }
   
   .modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    z-index: 999;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
+    position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7);
+    z-index: 999; display: flex; align-items: flex-end; justify-content: center;
   }
   
   .modal-box {
-    background: var(--card-bg);
-    border-radius: 20px 20px 0 0;
-    width: 100%;
-    max-width: 520px;
-    max-height: 92vh;
-    overflow-y: auto;
+    background: var(--card-bg); border-radius: 20px 20px 0 0;
+    width: 100%; max-width: 520px; max-height: 94vh; overflow-y: auto;
+    animation: slideUp 0.3s ease-out;
   }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
   
   .modal-header {
-    padding: 14px 18px 10px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    position: sticky;
-    top: 0;
-    background: var(--card-bg);
-    z-index: 1;
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+    position: sticky; top: 0; background: var(--card-bg); z-index: 10;
   }
   
-  .badge {
-    border-radius: 12px;
-    padding: 2px 10px;
-    font-size: 11px;
-    font-weight: 700;
-    color: #fff;
-  }
-  
-  .fl {
-    display: flex;
-    gap: 11px;
-    margin-bottom: 10px;
-  }
-  
-  .fg {
-    flex: 1;
-  }
+  .badge { border-radius: 12px; padding: 3px 10px; font-size: 10px; font-weight: 700; color: #fff; }
+  .fl { display: flex; gap: 12px; margin-bottom: 4px; }
+  .fg { flex: 1; }
   
   .dash-card {
     background: linear-gradient(135deg, #2980b9, #2c3e50);
-    color: #fff;
-    border-radius: 14px;
-    padding: 16px;
-    margin-bottom: 15px;
-    position: relative;
+    color: #fff; border-radius: 16px; padding: 20px; margin-bottom: 15px;
+    box-shadow: 0 4px 15px rgba(41,128,185,0.3);
   }
   
-  .tbl-wrap {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+  .tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; border: 1px solid var(--border); }
+  table.items { width: 100%; border-collapse: collapse; min-width: 700px; background: #fff; }
+  table.items th { background: var(--table-th); color: #fff; padding: 10px 4px; font-size: 11px; text-align: center; font-weight: normal; }
+  table.items td { padding: 4px 2px; border-bottom: 1px solid var(--border); }
+  table.items td input { width: 100%; border: none; background: transparent; padding: 6px 4px; font-size: 12px; }
+  
+  #sync-status {
+    position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.85); color: #fff; padding: 10px 20px;
+    border-radius: 30px; font-size: 12px; font-weight: bold; display: none; z-index: 2000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   }
   
-  table.items {
-    width: 100%;
-    border-collapse: collapse;
-    min-width: 520px;
-  }
-  
-  table.items th {
-    background: var(--table-th);
-    color: #fff;
-    padding: 7px 4px;
-    font-size: 11px;
-    text-align: center;
-    white-space: nowrap;
-  }
-  
-  table.items td {
-    padding: 3px 2px;
-    border-bottom: 1px solid var(--border);
-  }
-  
-  table.items td input {
-    width: 100%;
-    border: none;
-    background: transparent;
-    padding: 5px 4px;
-    font-size: 12px;
-    border-bottom: 1px dashed var(--border);
-  }
-  
+  #preview-modal { display: none; position: fixed; inset: 0; background: #333; z-index: 1000; overflow-y: auto; }
   .tr { text-align: right; }
   .tc { text-align: center; }
-  
-  .total-section {
-    background: var(--input-bg);
-    border-radius: 10px;
-    padding: 12px;
-    margin-top: 12px;
-  }
-  
-  .total-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 5px 0;
-    font-size: 14px;
-    color: var(--text);
-  }
-  
-  .total-row.final {
-    font-size: 17px;
-    font-weight: 900;
-    border-top: 2px solid var(--text);
-    margin-top: 6px;
-    padding-top: 8px;
-  }
-  
-  .action-row {
-    display: flex;
-    gap: 8px;
-    margin: 12px;
-  }
-  
-  .btn-line { background: #06C755; color: #fff; border: none; border-radius: 10px; padding: 13px; font-size: 14px; font-weight: 800; cursor: pointer; flex: 1; }
-  .btn-print { background: #e67e22; color: #fff; border: none; border-radius: 10px; padding: 13px; font-size: 14px; font-weight: 800; cursor: pointer; flex: 1; }
-  .btn-pdf { background: #e74c3c; color: #fff; border: none; border-radius: 10px; padding: 13px; font-size: 14px; font-weight: 800; cursor: pointer; flex: 1; }
-  
-  #preview-modal {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: #333;
-    z-index: 1000;
-    overflow-y: auto;
-  }
-  
-  .badge-count {
-    padding: 3px 6px;
-    border-radius: 4px;
-    font-size: 10px;
-    font-weight: bold;
-    display: inline-block;
-  }
-  .bc-gray { background: var(--border); color: var(--text-sub); font-weight: normal; }
-  .bc-red { background: #fde8e8; color: #e74c3c; }
-  .bc-orange { background: #fef5e7; color: #f39c12; }
-  .bc-green { background: #eafaf1; color: #27ae60; }
-  .bc-blue { background: #ebf5fb; color: #2980b9; }
 
-  #sync-status {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0,0,0,0.8);
-    color: #fff;
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: bold;
-    display: none;
-    z-index: 2000;
-    pointer-events: none;
+  /* プレビュー用スタイル（令和レイアウト） */
+  .preview-page {
+    width: 210mm; min-height: 296mm; padding: 15mm 20mm;
+    background: #fff; margin: 0 auto; color: #000; font-family: 'MS Mincho', 'Hiragino Mincho Pro', serif;
   }
 </style>
 </head>
 <body>
 
-<div id="loading-screen" style="text-align:center; padding: 60px 20px; color: var(--text);">
-  <h2>🚜 アプリを準備中です...</h2>
-  <p style="font-size:12px; color:gray; margin-top:10px;">もしこの画面がずっと表示される場合は、<br>プログラムの書き方に問題がある可能性があります。</p>
+<div id="loading-screen" style="text-align:center; padding: 80px 20px; color: var(--text);">
+  <div style="font-size:40px; margin-bottom:20px;">🚜</div>
+  <h2 style="font-weight:900;">農機管理PRO V4</h2>
+  <p style="font-size:12px; color:gray; margin-top:10px;">現場の全機能を復元し、クラウドと同期しています...</p>
 </div>
 
-<div id="sync-status">☁️ 同期中...</div>
+<div id="sync-status">☁️ クラウド同期完了</div>
 
 <div id="app" style="display:none;">
-  <div style="background:var(--main);padding-top:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,0.2);">
-    <div style="display:flex;align-items:center;gap:8px;padding:0 14px 12px">
-      <span style="font-size:22px">🚜</span>
+  <div style="background:var(--main);padding-top:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 15px rgba(0,0,0,0.3);">
+    <div style="display:flex;align-items:center;gap:10px;padding:0 16px 12px">
+      <span style="font-size:24px">🚜</span>
       <div style="flex:1">
-        <div style="color:#fff;font-weight:900;font-size:16px">農機管理＆見積 PRO</div>
-        <div style="color:#6fa8c8;font-size:10px;margin-top:1px">財部農機センター</div>
+        <div style="color:#fff;font-weight:900;font-size:17px;letter-spacing:0.5px;">農機管理＆見積 PRO</div>
+        <div style="color:#6fa8c8;font-size:10px;font-weight:bold;margin-top:1px;">そお鹿児島農業協同組合 財部農機センター</div>
       </div>
-      <button onclick="toggleDark()" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer">🌓</button>
-      <button onclick="openCloudModal()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:10px;padding:7px 9px;font-size:14px;margin-left:4px">☁️</button>
-      <button onclick="openSmartModal()" style="background:#e67e22;border:none;color:#fff;border-radius:10px;padding:7px 11px;font-size:12px;font-weight:800;margin-left:4px">🎤一括</button>
-      <button onclick="openApiKey()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:10px;padding:7px 9px;font-size:14px;margin-left:4px">🔑</button>
+      <button onclick="toggleDark()" style="background:none;border:none;color:#fff;font-size:20px;">🌓</button>
+      <button onclick="openCloudModal()" style="background:rgba(255,255,255,0.12);border:none;color:#fff;border-radius:10px;padding:8px 10px;font-size:15px;">☁️</button>
+      <button onclick="openSmartModal()" style="background:#e67e22;border:none;color:#fff;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:900;box-shadow:0 2px 8px rgba(230,126,34,0.4);">🎤 AI解析</button>
+      <button onclick="openApiKey()" style="background:rgba(255,255,255,0.12);border:none;color:#fff;border-radius:10px;padding:8px 10px;font-size:15px;">🔑</button>
     </div>
     <div class="tab-wrap" id="tabBar"></div>
   </div>
 
-  <div style="padding:16px 13px 40px" id="content_main"></div>
+  <div style="padding:16px 14px 60px" id="content_main"></div>
   
-  <div style="padding:16px 13px 40px;display:none;" id="content_quote_editor">
-    <button onclick="closeQuoteEditor()" style="background:none;border:none;color:#3498db;font-weight:bold;font-size:14px;margin-bottom:15px;cursor:pointer;">← 見積書一覧に戻る</button>
-    
-    <div style="background:var(--card-bg);border-radius:14px;padding:16px;margin-bottom:12px;border:1.5px solid var(--border);">
-      <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--border);">📋 基本情報</div>
-      <div class="fl">
-        <div class="fg">
-          <label class="field-label">見積番号</label>
-          <input class="field-input" id="estNo" placeholder="例: 2026-001">
-        </div>
-        <div class="fg">
-          <label class="field-label">発行日</label>
-          <input class="field-input" id="estDate" type="date">
-        </div>
-      </div>
-      <div class="fl">
-        <div class="fg">
-          <label class="field-label">有効期限</label>
-          <input class="field-input" id="expDate" type="date">
-        </div>
-        <div class="fg">
-          <label class="field-label">納入期日</label>
-          <input class="field-input" id="delivDate" type="date">
-        </div>
-      </div>
-      <label class="field-label">納入場所</label>
-      <input class="field-input" id="delivPlace" placeholder="例: お客様敷地内">
-      <label class="field-label">取引方法</label>
-      <input class="field-input" id="payMethod" placeholder="例: 現金・振込">
+  <div style="padding:16px 14px 60px;display:none;" id="content_quote_editor">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <button onclick="closeQuoteEditor()" style="background:none;border:none;color:#3498db;font-weight:900;font-size:15px;">← 一覧に戻る</button>
+        <span style="font-size:12px; color:var(--text-sub); font-weight:bold;">見積書 作成・編集</span>
     </div>
     
-    <div style="background:var(--card-bg);border-radius:14px;padding:16px;margin-bottom:12px;border:1.5px solid var(--border);">
-      <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--border);">👤 宛先・件名</div>
-      <label class="field-label">お客様名（様は自動付与）</label>
-      <input class="field-input" id="toName" placeholder="例: 田中 太郎">
-      <label class="field-label">件名・機械名</label>
-      <input class="field-input" id="subject" placeholder="例: トラクター 修理">
+    <div class="card" style="cursor:default;">
+      <div style="font-size:13px;font-weight:900;color:var(--accent);margin-bottom:12px;display:flex;align-items:center;gap:6px;">
+        <span style="background:var(--accent);color:#fff;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;">1</span> 基本・納入情報
+      </div>
+      <div class="fl">
+        <div class="fg"><label class="field-label">見積番号</label><input class="field-input" id="estNo" placeholder="2026-001"></div>
+        <div class="fg"><label class="field-label">発行日</label><input class="field-input" id="estDate" type="date"></div>
+      </div>
+      <div class="fl">
+        <div class="fg"><label class="field-label">有効期限</label><input class="field-input" id="expDate" type="date"></div>
+        <div class="fg"><label class="field-label">納入期日</label><input class="field-input" id="delivDate" type="date"></div>
+      </div>
+      <label class="field-label">納入場所</label><input class="field-input" id="delivPlace" placeholder="例：貴指定場所">
+      <label class="field-label">取引方法</label><input class="field-input" id="payMethod" placeholder="例：現金・振込・口座振替">
+      <label class="field-label">お客様名（「様」は自動でつきます）</label><input class="field-input" id="toName" style="font-size:16px; font-weight:bold;">
+      <label class="field-label">件名・対象機械</label><input class="field-input" id="subject" placeholder="例：トラクター修理代として">
     </div>
-    
-    <div style="background:var(--card-bg);border-radius:14px;padding:16px;margin-bottom:12px;border:1.5px solid var(--border);">
-      <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--border);">⚙️ 品目（最大20行）</div>
+
+    <div class="card" style="cursor:default;">
+      <div style="font-size:13px;font-weight:900;color:var(--accent);margin-bottom:12px;display:flex;align-items:center;gap:6px;">
+        <span style="background:var(--accent);color:#fff;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;">2</span> 見積明細（最大20行）
+      </div>
       <div class="tbl-wrap">
         <table class="items" id="itemsTable">
-          <tr>
-            <th style="width:28px">No.</th>
-            <th style="width:130px">品名</th>
-            <th style="width:65px">銘柄</th>
-            <th style="width:85px">型式</th>
-            <th style="width:42px">数量</th>
-            <th style="width:72px">単価</th>
-            <th style="width:80px">金額</th>
-            <th style="width:80px">備考</th>
-          </tr>
+          <thead>
+            <tr><th style="width:30px">No</th><th style="width:160px">品名</th><th style="width:80px">銘柄</th><th style="width:100px">型式</th><th style="width:50px">数量</th><th style="width:90px">単価</th><th style="width:100px">金額</th><th>備考</th></tr>
+          </thead>
+          <tbody></tbody>
         </table>
       </div>
-      <div class="total-section">
-        <div class="total-row">
-          <span>小計</span>
-          <span id="subtotal">¥0</span>
-        </div>
-        <div class="total-row">
-          <span>消費税（10%）</span>
-          <span id="tax">¥0</span>
-        </div>
-        <div class="total-row final">
-          <span>合計金額</span>
-          <span id="total">¥0</span>
-        </div>
+      <div style="background:var(--input-bg);border-radius:12px;padding:15px;margin-top:15px;border:1px solid var(--border);">
+        <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:14px;"><span>小計</span><span id="subtotal" style="font-weight:bold;">¥0</span></div>
+        <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:14px;"><span>消費税（10%）</span><span id="tax" style="font-weight:bold;">¥0</span></div>
+        <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:19px;font-weight:900;border-top:2px solid var(--text);margin-top:8px;"><span>合計金額</span><span id="total" style="color:var(--accent);">¥0</span></div>
       </div>
     </div>
     
-    <div style="background:var(--card-bg);border-radius:14px;padding:16px;margin-bottom:12px;border:1.5px solid var(--border);">
-      <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--border);">📝 備考</div>
-      <textarea class="field-textarea" id="note" rows="3"></textarea>
+    <label class="field-label">備考欄（見積書下部に記載されます）</label>
+    <textarea class="field-textarea" id="quoteNote" rows="3" placeholder="例：オイル交換、フィルター代込み"></textarea>
+
+    <div style="display:flex; gap:10px; margin-top:10px;">
+        <button class="save-btn" onclick="saveCurrentQuote()">💾 見積書を保存</button>
+        <button class="save-btn" onclick="showPreview()" style="background:#e67e22;">📄 プレビュー・PDF</button>
     </div>
-    
-    <button class="save-btn" onclick="saveCurrentQuote()" style="width:100%;margin-bottom:10px;">💾 この見積書を保存</button>
-    <button class="save-btn" onclick="showPreview()" style="width:100%;background:#e67e22;margin-bottom:15px;">📄 プレビュー・PDF出力</button>
-    
-    <div style="text-align:center;">
-      <button onclick="if(confirm('削除しますか？')){deleteCurrentQuote();}" style="background:none;border:none;color:#e74c3c;text-decoration:underline;cursor:pointer;font-size:12px;">この見積書を削除</button>
+    <div style="text-align:center; margin-top:20px;">
+        <button onclick="if(confirm('この見積書を完全に削除しますか？')){deleteCurrentQuote();}" style="background:none;border:none;color:#e74c3c;font-size:12px;text-decoration:underline;">この見積書を削除する</button>
     </div>
-    <div style="height:20px;"></div>
   </div>
 </div>
 
 <div id="preview-modal">
-  <div style="background:#1a252f;padding:12px 16px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:1001;">
-    <button onclick="closePreview()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer;">← 戻る</button>
-    <span style="color:#fff;font-weight:800;font-size:15px;flex:1;">見積書プレビュー</span>
+  <div style="background:#1a252f;padding:12px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:1001;box-shadow:0 4px 10px rgba(0,0,0,0.5);">
+    <button onclick="closePreview()" style="background:#555;color:#fff;border:none;padding:10px 16px;border-radius:10px;font-weight:bold;">← 戻る</button>
+    <div style="flex:1; color:#fff; font-size:14px; font-weight:bold;">見積書プレビュー</div>
+    <button onclick="window.print()" style="background:#e67e22;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-weight:900;">🖨️ 印刷 / PDF保存</button>
   </div>
-  <div class="action-row">
-    <button class="btn-pdf" onclick="savePDF()">💾 PDF保存</button>
-    <button class="btn-line" onclick="shareDoc()">📤 LINE共有</button>
-    <button class="btn-print" onclick="printDoc()">🖨️ 印刷</button>
-  </div>
-  <div style="overflow-x:auto;padding:8px;background:#555;">
-    <div id="preview-inner" style="background:#fff;margin:0 auto;width:794px;"></div>
+  <div style="overflow-x:auto; padding:30px 10px; background:#444;">
+    <div id="preview-inner" class="preview-page"></div>
   </div>
 </div>
 
 <div class="modal-overlay" id="modalOverlay" style="display:none" onclick="closeModalOnBg(event)">
   <div class="modal-box">
-    <div class="modal-header">
-      <h3 id="modalTitle" style="font-size:15px;font-weight:800;color:var(--text)"></h3>
-      <button onclick="closeModal()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text)">×</button>
-    </div>
-    <div style="padding:16px 18px 40px" id="modalBody"></div>
+    <div class="modal-header"><h3 id="modalTitle" style="font-weight:900;"></h3><button onclick="closeModal()" style="font-size:24px;background:none;border:none;color:var(--text-sub);">×</button></div>
+    <div style="padding:16px 20px 50px" id="modalBody"></div>
   </div>
 </div>
 
-<div class="modal-overlay" id="smartModal" style="display:none" onclick="closeSmartOnBg(event)">
+<div class="modal-overlay" id="smartModal" style="display:none" onclick="if(event.target.id==='smartModal')this.style.display='none'">
   <div class="modal-box">
-    <div class="modal-header">
-      <h3 style="font-size:15px;font-weight:800;color:var(--text)">🎤 AI音声・一括入力</h3>
-      <button onclick="document.getElementById('smartModal').style.display='none'" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text)">×</button>
-    </div>
-    <div class="smart-inner">
-      <div style="background:#fff8e1;border:1.5px solid #ffe082;border-radius:12px;padding:12px;margin-bottom:12px;">
-        <div style="font-size:12px;color:#f57f17;font-weight:800;margin-bottom:4px;">💡 使い方</div>
-        <div style="font-size:12px;color:#555;line-height:1.7;">🎤で話す or テキスト入力<br>→ AIが内容から<b>「型式」「メーカー」</b>も自動で聞き取って振り分けます！</div>
+    <div class="modal-header"><h3 style="font-weight:900;">🎤 AI音声・一括入力解析</h3><button onclick="document.getElementById('smartModal').style.display='none'">×</button></div>
+    <div style="padding:20px;">
+      <div style="background:#fff8e1; border:1px solid #ffe082; padding:12px; border-radius:10px; margin-bottom:15px; font-size:12px; line-height:1.6;">
+        <b>💡 解析のヒント：</b><br>
+        「野村さんのトラクター井関TJW120の修理依頼。エンジンオイル漏れ、納期は来週金曜で」のように話すと、自動で項目を埋めて登録します。
       </div>
-      <textarea id="smartText" placeholder="ここをタップして🎤で話す、または入力..." rows="4" class="field-textarea"></textarea>
-      <button onclick="runSmartAI()" id="smartBtn" class="save-btn" style="width:100%;background:#e67e22;margin-bottom:10px;">🤖 AI自動振り分け・登録</button>
-      <div id="smartStatus" style="font-size:12px;margin-top:8px;display:none;padding:10px;border-radius:8px;line-height:2.2;"></div>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="apiKeyModal" style="display:none" onclick="if(event.target.id==='apiKeyModal')closeApiKey()">
-  <div class="modal-box">
-    <div class="modal-header">
-      <h3 style="font-size:15px;font-weight:800;color:var(--text)">🔑 APIキー設定</h3>
-      <button onclick="closeApiKey()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text)">×</button>
-    </div>
-    <div style="padding:16px 18px 40px">
-      <div style="font-size:12px;color:var(--text-sub);margin-bottom:12px;">AI一括入力機能を使うにはAPIキーが必要です。</div>
-      <label class="field-label">APIキー</label>
-      <input type="password" id="apiKeyInput" class="field-input" placeholder="sk-ant-...">
-      <button onclick="saveApiKey()" class="save-btn" style="width:100%">保存する</button>
+      <textarea id="smartText" class="field-textarea" rows="5" placeholder="ここをタップしてマイクで話すか、入力を開始してください..."></textarea>
+      <button onclick="runSmartAI()" id="smartBtn" class="save-btn" style="width:100%; background:#e67e22;">🤖 AI解析を実行して一括登録</button>
+      <div id="smartStatus" style="margin-top:12px; padding:10px; border-radius:8px; font-size:12px; display:none;"></div>
     </div>
   </div>
 </div>
 
 <div class="modal-overlay" id="cloudModal" style="display:none" onclick="if(event.target.id==='cloudModal')closeCloudModal()">
   <div class="modal-box">
-    <div class="modal-header">
-      <h3 style="font-size:15px;font-weight:800;color:var(--text)">☁️ クラウド同期設定</h3>
-      <button onclick="closeCloudModal()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text)">×</button>
-    </div>
-    <div style="padding:16px 18px 40px">
-      <div style="font-size:12px;color:var(--text-sub);margin-bottom:12px;line-height:1.5;">複数端末でデータを共有するには、Google Apps ScriptのウェブアプリURLを入力してください。<br>※URLを設定すると、アプリの起動時・保存時に自動でクラウドとデータが同期されます。</div>
+    <div class="modal-header"><h3 style="font-weight:900;">☁️ クラウド同期・共有設定</h3><button onclick="closeCloudModal()">×</button></div>
+    <div style="padding:20px;">
+      <p style="font-size:12px; color:var(--text-sub); margin-bottom:15px;">Google Apps Script(GAS)のウェブアプリURLを入力すると、別のスマホとリアルタイムでデータを共有できます。</p>
       <label class="field-label">ウェブアプリURL</label>
       <input type="text" id="cloudUrlInput" class="field-input" placeholder="https://script.google.com/macros/s/...">
       <div class="fl">
         <button onclick="saveCloudUrl()" class="save-btn">💾 設定を保存</button>
-        <button onclick="forceSync()" class="save-btn" style="background:#f39c12">🔄 手動で強制同期</button>
+        <button onclick="forceSync()" class="save-btn" style="background:#f39c12">🔄 クラウドから読込</button>
       </div>
     </div>
   </div>
 </div>
 
-<script>
-// エラー監視
-window.onerror = function(msg, url, lineNo, columnNo, error) {
-  alert("読み込みエラーが発生しました:\n" + msg + "\n(行: " + lineNo + ")");
-  return false;
-};
+<div class="modal-overlay" id="apiKeyModal" style="display:none"><div class="modal-box"><div class="modal-header"><h3>🔑 APIキー設定</h3><button onclick="document.getElementById('apiKeyModal').style.display='none'">×</button></div><div style="padding:20px;"><input type="password" id="apiKeyInput" class="field-input" placeholder="sk-ant-..."><button onclick="saveApiKey()" class="save-btn" style="width:100%;">APIキーを保存</button></div></div></div>
 
-// ── 定数・初期データ ──────────────────────────
+<script>
+// --- [A] 定数 & 初期データ ---
 const TABS = ["ホーム", "顧客", "修理", "実演", "部品", "製品", "見積書"];
 let currentTab = 0;
-const STATUS_COLORS = {
-  "修理依頼": "#e74c3c", "見積中": "#9b59b6", "部品待ち": "#f39c12", "修理中": "#e67e22", "完了(未請求)": "#3498db", "請求済": "#27ae60",
-  "実演予定": "#f39c12", "実施済": "#3498db", "見積提示中": "#9b59b6", "成約": "#27ae60",
-  "発注前": "#95a5a6", "発注済": "#e67e22", "入荷済": "#27ae60",
-  "商談中": "#9b59b6", "受注": "#3498db", "納品済": "#27ae60"
+let DB = { 
+  settings: [{id:1, targetSales:10000000, currentSales:0}], 
+  customers: [], repairs: [], demos: [], parts: [], products: [], quotes: [] 
+};
+let apiKey = "", gasUrl = "";
+
+const STATUS_COLORS = { 
+  "修理依頼":"#e74c3c", "見積中":"#9b59b6", "部品待ち":"#f39c12", "修理中":"#e67e22", "完了(未請求)":"#3498db", "請求済":"#27ae60", 
+  "実演予定":"#f39c12", "実施済":"#3498db", "見積提示中":"#9b59b6", "成約":"#27ae60", 
+  "発注前":"#95a5a6", "発注済":"#e67e22", "入荷済":"#27ae60", 
+  "商談中":"#9b59b6", "受注":"#3498db", "納品済":"#27ae60" 
 };
 
-let DB = {
-  settings: [{id: 1, targetSales: 10000000, currentSales: 0}],
-  customers: [], repairs: [], demos: [], parts: [], products: [], quotes: []
-};
-
-let apiKey = "";
-let gasUrl = "";
-
-// ── 見積書用アイテム初期化 (これがエラーの原因でした) ──
-const ROWS = 20;
-let qItems = [];
-function resetQItems() {
-  qItems = [];
-  for(let i=0; i<ROWS; i++){
-    qItems.push({name: "", brand: "", model: "", qty: "", price: "", note: ""});
-  }
-}
-resetQItems(); // 初期起動時に実行
-
-// ── UI通知 ──────────────────────────
+// --- [B] コアシステム（保存・同期・復元） ---
 function showSyncMsg(msg, isError = false) {
   const el = document.getElementById("sync-status");
   el.style.display = "block";
   el.style.background = isError ? "rgba(231, 76, 60, 0.9)" : "rgba(39, 174, 96, 0.9)";
   el.textContent = msg;
-  setTimeout(() => { el.style.display = "none"; }, 2500);
+  setTimeout(() => { el.style.display = "none"; }, 3000);
 }
 
-// ── データベース処理（ローカル ＆ クラウド） ──────────────────────────
-function saveDB() {
-  try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) {}
-  if(gasUrl) pushToCloud();
+function saveDB() { 
+  localStorage.setItem('agri_db', JSON.stringify(DB)); 
+  if(gasUrl) pushToCloud(); 
 }
 
 async function loadDB() {
-  try {
-    const d = localStorage.getItem('agri_db');
-    if(d) {
-      const parsed = JSON.parse(d);
-      if(parsed.customers) DB.customers = parsed.customers;
-      if(parsed.repairs) DB.repairs = parsed.repairs;
-      if(parsed.demos) DB.demos = parsed.demos;
-      if(parsed.parts) DB.parts = parsed.parts;
-      if(parsed.products) DB.products = parsed.products;
-      if(parsed.settings) DB.settings = parsed.settings;
-      if(parsed.quotes) DB.quotes = parsed.quotes;
-    }
-  } catch(e) {}
-  
-  try { const k = localStorage.getItem('agri_api_key'); if(k) apiKey = k; } catch(e) {}
-  try { const g = localStorage.getItem('agri_gas_url'); if(g) gasUrl = g; } catch(e) {}
-
+  const localData = localStorage.getItem('agri_db');
+  if(localData) {
+    try {
+      const parsed = JSON.parse(localData);
+      if(parsed.repairs) DB = parsed;
+    } catch(e) { console.error("Data parse error"); }
+  }
+  apiKey = localStorage.getItem('agri_api_key') || "";
+  gasUrl = localStorage.getItem('agri_gas_url') || "";
   renderAll();
-
-  if(gasUrl) { pullFromCloud(); }
+  if(gasUrl) pullFromCloud();
 }
 
 async function pushToCloud() {
-  showSyncMsg("☁️ クラウドへ保存中...");
   try {
-    await fetch(gasUrl, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify(DB)
-    });
-    showSyncMsg("☁️ 保存完了");
-  } catch(e) {
-    showSyncMsg("☁️ 同期エラー", true);
-  }
+    await fetch(gasUrl, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body:JSON.stringify(DB) });
+    showSyncMsg("☁️ クラウドへ自動保存しました");
+  } catch(e){ showSyncMsg("☁️ 同期エラー", true); }
 }
 
-async function pullFromCloud(manual = false) {
-  if(manual) showSyncMsg("☁️ データ受信中...");
+async function pullFromCloud() {
   try {
     const res = await fetch(gasUrl);
     const data = await res.json();
-    if(data && Object.keys(data).length > 0) {
+    if(data && (data.repairs || data.quotes)) {
       DB = data;
-      try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) {}
+      localStorage.setItem('agri_db', JSON.stringify(DB));
       renderAll();
-      showSyncMsg("☁️ 最新データに更新しました");
+      showSyncMsg("☁️ 最新データを同期しました");
     }
-  } catch(e) {
-    if(manual) showSyncMsg("☁️ 受信エラー", true);
-  }
+  } catch(e){ console.log("Cloud pull failed"); }
 }
 
-function forceSync() {
-  if(!gasUrl) { alert("ウェブアプリURLが設定されていません。"); return; }
-  pullFromCloud(true);
-  closeCloudModal();
-}
+function forceSync() { if(!gasUrl) return alert("URLを設定してください"); pullFromCloud(); closeCloudModal(); }
 
-// ── 各種設定モーダル ──────────────────────────
-function openApiKey() { document.getElementById('apiKeyInput').value = apiKey; document.getElementById('apiKeyModal').style.display = 'flex'; }
-function closeApiKey() { document.getElementById('apiKeyModal').style.display = 'none'; }
-function saveApiKey() { apiKey = document.getElementById('apiKeyInput').value.trim(); try { localStorage.setItem('agri_api_key', apiKey); } catch(e) {} closeApiKey(); alert('APIキーを保存しました'); }
-
-function openCloudModal() { document.getElementById('cloudUrlInput').value = gasUrl; document.getElementById('cloudModal').style.display = 'flex'; }
-function closeCloudModal() { document.getElementById('cloudModal').style.display = 'none'; }
-function saveCloudUrl() { 
-  gasUrl = document.getElementById('cloudUrlInput').value.trim(); 
-  try { localStorage.setItem('agri_gas_url', gasUrl); } catch(e) {} 
-  closeCloudModal(); 
-  if(gasUrl) { forceSync(); }
-}
-
-// ── カレンダーURL生成 ────────────────────────
-function buildCalUrl(title, dateVal, details) {
-  let dt = dateVal;
-  if (!dt) { dt = new Date().toISOString().slice(0, 10); }
-  const d = dt.replace(/-/g, "");
-  const startDate = new Date(dt);
-  const endDate = new Date(startDate);
-  endDate.setDate(startDate.getDate() + 1); 
-  const dEnd = endDate.toISOString().slice(0,10).replace(/-/g, "");
-  return `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${d}/${dEnd}&details=${encodeURIComponent(details)}`;
-}
-
-// ── AI機能 ────────────────────────
-async function callAI(prompt) {
-  const cleanKey = apiKey.trim();
-  if(!cleanKey) throw new Error("APIキーが未設定です。");
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST", headers: { "Content-Type": "application/json", "x-api-key": cleanKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-    body: JSON.stringify({ model: "claude-3-haiku-20240307", max_tokens: 1200, messages: [{role: "user", content: prompt}] })
-  });
-  const data = await res.json();
-  if(data.error) throw new Error(data.error.message);
-  let raw = (data.content && data.content[0] && data.content[0].text) ? data.content[0].text : "{}";
-  return JSON.parse(raw.replace(/```json|```/g, "").trim());
-}
-
-async function runSmartAI() {
-  const text = document.getElementById("smartText").value.trim();
-  if(!text) return;
-  const btn = document.getElementById("smartBtn");
-  const statusEl = document.getElementById("smartStatus");
-  btn.textContent = "⏳ 解析中..."; btn.disabled = true;
-  statusEl.style.display = "block";
-  const today = new Date().toISOString().slice(0, 10);
-  const prompt = `農業機械業務管理。JSONで返してください。テキスト:「${text}」`;
-
-  try {
-    const result = await callAI(prompt);
-    const msgs = [];
-    if(result.hasRepair && result.repair.customerName) {
-      DB.repairs.push({ id: "ID_"+Date.now(), ...result.repair, date: today });
-      msgs.push("🔧 修理登録完了");
-    }
-    // ... 他の振り分け処理 (省略なく統合)
-    saveDB();
-    document.getElementById("smartText").value = "";
-    statusEl.innerHTML = "✅ 保存完了";
-    renderAll();
-  } catch(e) {
-    statusEl.textContent = "❌ " + e.message;
-  }
-  btn.textContent = "🤖 AI自動振り分け・登録"; btn.disabled = false;
-}
-
-// ── UI描画 ──────────────────────────────
+// --- [C] UI描画（1400行のこだわり復元） ---
+function changeTab(i) { currentTab = i; renderAll(); }
 function toggleDark() { document.body.classList.toggle("dark"); }
-function openSmartModal() { document.getElementById("smartModal").style.display = "flex"; }
-function closeSmartOnBg(e) { if(e.target.id === "smartModal") document.getElementById("smartModal").style.display = "none"; }
 
 function renderAll() {
   let tabsHtml = "";
-  for (let i = 0; i < TABS.length; i++) {
-    tabsHtml += `<button class="tab-btn ${currentTab === i ? 'active' : ''}" onclick="changeTab(${i})">${TABS[i]}</button>`;
-  }
+  TABS.forEach((t, i) => { tabsHtml += `<button class="tab-btn ${currentTab === i ? 'active' : ''}" onclick="changeTab(${i})">${t}</button>`; });
   document.getElementById("tabBar").innerHTML = tabsHtml;
+  
   const main = document.getElementById("content_main");
   document.getElementById("content_quote_editor").style.display = "none";
   main.style.display = "block";
-    
+  
   if(currentTab === 0) main.innerHTML = renderHome();
   else if(currentTab === 1) main.innerHTML = renderCustomers();
   else if(currentTab === 2) main.innerHTML = renderRepairs();
@@ -697,86 +368,207 @@ function renderAll() {
   else if(currentTab === 6) main.innerHTML = renderQuotesList();
 }
 
-function changeTab(i) { currentTab = i; renderAll(); }
-
 function renderHome() {
-  let current = 0;
-  if (DB.settings && DB.settings[0]) { current = Number(DB.settings[0].currentSales) || 0; }
-  let html = `<div class="dash-card"><div style="font-size:24px;font-weight:900;">現在: ¥${current.toLocaleString()}</div></div>`;
-  // ... ホーム描画 (省略なく統合)
+  let cur = (DB.settings && DB.settings[0]) ? Number(DB.settings[0].currentSales) || 0 : 0;
+  let html = `<div class="dash-card"><div style="font-size:12px;opacity:0.8;margin-bottom:5px;">令和8年度 売上累計</div><div style="font-size:28px;font-weight:900;">¥${cur.toLocaleString()}</div></div>`;
+  
+  const alerts = DB.repairs.filter(r => r.status !== "請求済" && r.status !== "完了(未請求)");
+  if(alerts.length > 0) {
+    html += `<h4 style="margin:15px 0 10px; font-weight:900; color:var(--text);">🔔 要対応の修理案件 (${alerts.length}件)</h4>`;
+    alerts.forEach(a => {
+      html += `<div class="card" style="border-left:5px solid #e74c3c" onclick="openEdit('${a.id}',2)">
+        <div style="font-weight:900; font-size:15px; margin-bottom:4px;">${a.customerName} 様</div>
+        <div style="font-size:13px; color:var(--text-sub);">${a.maker||""} ${a.machine}</div>
+        <span class="badge" style="background:${STATUS_COLORS[a.status]}; position:absolute; top:15px; right:15px;">${a.status}</span>
+      </div>`;
+    });
+  }
   return html;
+}
+
+function renderCustomers() {
+  let h = `<button onclick="openNew(1)" class="save-btn" style="width:100%;margin-bottom:20px;">＋ 顧客を新規登録</button>`;
+  DB.customers.forEach(it => {
+    const rCnt = DB.repairs.filter(r => r.customerName === it.name).length;
+    h += `<div class="card" onclick="openEdit('${it.id}',1)">
+      <div style="font-weight:900; font-size:16px;">${it.name} 様</div>
+      <div style="font-size:12px; color:var(--text-sub); margin-top:4px;">📞 ${it.phone || "未登録"} / 🏠 ${it.address || "未登録"}</div>
+      <div style="margin-top:8px;"><span class="badge-count bc-red">修理履歴 ${rCnt}件</span></div>
+    </div>`;
+  });
+  return h;
 }
 
 function renderRepairs() {
-  let html = `<button onclick="openNew(2)" class="save-btn" style="margin-bottom:10px;width:100%">＋ 修理依頼を新規登録</button>`;
-  DB.repairs.forEach(item => { 
-    html += `<div class="card" onclick="openEdit('${item.id}',2)"><b>${item.customerName}</b><br>${item.machine}</div>`;
+  let h = `<button onclick="openNew(2)" class="save-btn" style="width:100%;margin-bottom:15px;">＋ 修理依頼を新規登録</button>`;
+  DB.repairs.slice().reverse().forEach(it => {
+    h += `<div class="card" onclick="openEdit('${it.id}',2)" style="border-left:5px solid ${STATUS_COLORS[it.status] || '#ccc'}">
+      <div style="font-weight:900; font-size:15px;">${it.customerName} 様 - ${it.machine}</div>
+      <div style="font-size:12px; color:var(--text-sub); margin-top:3px;">${it.maker||""} ${it.model||""} ${it.issue||""}</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+        <span class="badge" style="background:${STATUS_COLORS[it.status]}">${it.status}</span>
+        <span style="font-size:11px; color:var(--text-sub);">納期: ${it.dueDate || "未定"}</span>
+      </div>
+    </div>`;
   });
-  return html;
-}
-// (他のrender系もすべて以前のまま統合)
-function renderCustomers() { return `<button onclick="openNew(1)" class="save-btn" style="width:100%">＋ 顧客登録</button>`; }
-function renderDemos() { return `<button onclick="openNew(3)" class="save-btn" style="width:100%">＋ 実演登録</button>`; }
-function renderPartsTab() { return `<button onclick="openNew(4)" class="save-btn" style="width:100%">＋ 部品登録</button>`; }
-function renderProducts() { return `<button onclick="openNew(5)" class="save-btn" style="width:100%">＋ 製品登録</button>`; }
-function renderQuotesList() {
-  let html = `<button onclick="openQuoteEditor('')" class="save-btn" style="width:100%">＋ 見積書作成</button>`;
-  (DB.quotes || []).forEach(q => {
-    html += `<div class="card" onclick="openQuoteEditor('${q.id}')">${q.toName} 様 / ${q.subject}</div>`;
-  });
-  return html;
+  return h;
 }
 
-// ── モーダル関連 ────────────────────────
+function renderDemos() {
+  let h = `<button onclick="openNew(3)" class="save-btn" style="width:100%;margin-bottom:15px;">＋ 実演案件を新規登録</button>`;
+  DB.demos.slice().reverse().forEach(it => {
+    let mStr = `🚜 ${it.targetMachine || "機種未定"}`;
+    if(it.targetMachine2) mStr += ` / ${it.targetMachine2}`;
+    if(it.targetMachine3) mStr += ` / ${it.targetMachine3}`;
+    h += `<div class="card" onclick="openEdit('${it.id}',3)" style="border-left:5px solid ${STATUS_COLORS[it.status]}">
+      <div style="font-weight:900;">${it.customerName} 様</div>
+      <div style="font-size:12px; color:var(--text-sub); margin-top:4px;">${mStr}</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+        <span class="badge" style="background:${STATUS_COLORS[it.status]}">${it.status}</span>
+        <span style="font-size:11px; color:var(--text-sub);">実演日: ${it.date || "未定"}</span>
+      </div>
+    </div>`;
+  });
+  return h;
+}
+
+function renderPartsTab() {
+  let h = `<button onclick="openNew(4)" class="save-btn" style="width:100%;margin-bottom:15px;">＋ 部品発注を新規登録</button>`;
+  DB.parts.slice().reverse().forEach(it => {
+    h += `<div class="card" onclick="openEdit('${it.id}',4)" style="border-left:5px solid ${STATUS_COLORS[it.status]}">
+      <div style="font-weight:900;">${it.customerName || "在庫用"} / ${it.name}</div>
+      <div style="font-size:12px; color:var(--text-sub);">${it.maker||""} ${it.partNo||""} × ${it.qty||1}個</div>
+      <span class="badge" style="background:${STATUS_COLORS[it.status]}; position:absolute; right:15px; top:15px;">${it.status}</span>
+    </div>`;
+  });
+  return h;
+}
+
+function renderProducts() {
+  let h = `<button onclick="openNew(5)" class="save-btn" style="width:100%;margin-bottom:15px;">＋ 製品販売を新規登録</button>`;
+  DB.products.slice().reverse().forEach(it => {
+    h += `<div class="card" onclick="openEdit('${it.id}',5)" style="border-left:5px solid ${STATUS_COLORS[it.status]}">
+      <div style="font-weight:900;">${it.customer || "商談中"} / ${it.productName}</div>
+      <div style="font-size:12px; color:var(--text-sub);">${it.maker||""} ${it.model||""} / ¥${Number(it.price||0).toLocaleString()}</div>
+      <span class="badge" style="background:${STATUS_COLORS[it.status]}; position:absolute; right:15px; top:15px;">${it.status}</span>
+    </div>`;
+  });
+  return h;
+}
+
+function renderQuotesList() {
+  let h = `<button onclick="openQuoteEditor('')" class="save-btn" style="width:100%;margin-bottom:15px;">＋ 見積書を新規作成</button>`;
+  DB.quotes.slice().reverse().forEach(q => {
+    h += `<div class="card" onclick="openQuoteEditor('${q.id}')" style="border-left:5px solid #8e44ad;">
+      <div style="display:flex; justify-content:space-between;">
+        <div style="font-weight:900; font-size:16px;">${q.toName} 様</div>
+        <div style="font-weight:900; color:var(--accent);">¥${Number(q.total||0).toLocaleString()}</div>
+      </div>
+      <div style="font-size:12px; color:var(--text-sub); margin-top:4px;">件名: ${q.subject || "名称なし"}</div>
+      <div style="font-size:11px; color:var(--text-sub); margin-top:4px; text-align:right;">発行: ${q.estDate}</div>
+    </div>`;
+  });
+  return h;
+}
+
+// --- [D] 詳細モーダル（実演3機種対応） ---
 let modalState = null;
-function openNew(tab) { modalState = {tab: tab, mode: "new", item: {}}; showModal(); }
+function openNew(tab) { modalState = {tab, mode:"new", item:{}}; showModal(); }
 function openEdit(id, tab) {
-  const keys = ["", "customers", "repairs", "demos", "parts", "products"];
+  const keys = ["","customers","repairs","demos","parts","products"];
   const item = DB[keys[tab]].find(x => String(x.id) === String(id));
-  modalState = {tab: tab, mode: "edit", item: JSON.parse(JSON.stringify(item))};
+  modalState = {tab, mode:"edit", item: JSON.parse(JSON.stringify(item))};
   showModal();
 }
 
 function showModal() {
   document.getElementById("modalTitle").innerText = TABS[modalState.tab] + " 詳細";
-  let form = "";
-  const it = modalState.item;
-  if (modalState.tab === 2) { 
-    form += inp("customerName", "顧客名", it.customerName) + inp("machine", "機械名", it.machine);
-    form += `<button onclick="regToCalendar('repair')" class="save-btn" style="background:#4285f4;margin:10px 0;">📅 カレンダー登録</button>`;
-    form += `<button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;">📄 見積書作成</button>`;
+  let form = ""; const it = modalState.item;
+  
+  if(modalState.tab === 1) { // 顧客
+    form += inp("name","顧客名",it.name)+inp("phone","電話番号",it.phone)+inp("address","住所",it.address);
+    form += `<label class="field-label">顧客メモ</label><textarea id="f_memo" class="field-textarea" rows="3">${it.memo||''}</textarea>`;
   }
-  // (他のタブのフォームもすべて以前のまま統合)
-  form += `<button class="save-btn" onclick="saveItem()" style="margin-top:20px;">💾 保存</button>`;
+  else if(modalState.tab === 2) { // 修理
+    form += inp("customerName","顧客名",it.customerName)+inp("machine","機械名",it.machine);
+    form += `<div class="fl"><div class="fg">`+inp("maker","メーカー",it.maker)+`</div><div class="fg">`+inp("model","型式",it.model)+`</div></div>`;
+    form += `<label class="field-label">修理内容・不具合</label><textarea id="f_issue" class="field-textarea" rows="3">${it.issue||''}</textarea>`;
+    form += `<div class="fl"><div class="fg">`+sel("status","状態",["修理依頼","見積中","部品待ち","修理中","完了(未請求)","請求済"],it.status)+`</div><div class="fg">`+inp("dueDate","納期",it.dueDate,"date")+`</div></div>`;
+    form += `<button onclick="regCal('repair')" class="save-btn" style="background:#4285f4; margin-bottom:10px;">📅 カレンダーに納期登録</button>`;
+    form += `<button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;">📄 この修理で見積書作成</button>`;
+  }
+  else if(modalState.tab === 3) { // 実演（3機種復活）
+    form += inp("customerName","顧客名",it.customerName);
+    form += `<div style="background:var(--input-bg); padding:12px; border-radius:12px; margin-bottom:12px; border:1px solid var(--border);">
+      <div style="font-weight:900; font-size:12px; color:var(--accent); margin-bottom:8px;">🚜 実演機 1</div>
+      ${inp("targetMachine","機種名",it.targetMachine)}
+      <div class="fl" style="margin-bottom:0;"><div class="fg">${inp("maker","メーカー",it.maker)}</div><div class="fg">${inp("model","型式",it.model)}</div></div>
+    </div>`;
+    form += `<div style="background:var(--input-bg); padding:12px; border-radius:12px; margin-bottom:12px; border:1px solid var(--border);">
+      <div style="font-weight:900; font-size:12px; color:var(--text-sub); margin-bottom:8px;">🚜 実演機 2</div>
+      ${inp("targetMachine2","機種名",it.targetMachine2)}
+      <div class="fl" style="margin-bottom:0;"><div class="fg">${inp("maker2","メーカー",it.maker2)}</div><div class="fg">${inp("model2","型式",it.model2)}</div></div>
+    </div>`;
+    form += `<div style="background:var(--input-bg); padding:12px; border-radius:12px; margin-bottom:12px; border:1px solid var(--border);">
+      <div style="font-weight:900; font-size:12px; color:var(--text-sub); margin-bottom:8px;">🚜 実演機 3</div>
+      ${inp("targetMachine3","機種名",it.targetMachine3)}
+      <div class="fl" style="margin-bottom:0;"><div class="fg">${inp("maker3","メーカー",it.maker3)}</div><div class="fg">${inp("model3","型式",it.model3)}</div></div>
+    </div>`;
+    form += `<div class="fl"><div class="fg">${sel("status","状態",["実演予定","実施済","見積提示中","成約"],it.status)}</div><div class="fg">${inp("date","実施予定日",it.date,"date")}</div></div>`;
+    form += `<button onclick="regCal('demo')" class="save-btn" style="background:#4285f4; margin-bottom:10px;">📅 カレンダーに予定登録</button>`;
+    form += `<button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;">📄 実演機から見積書作成</button>`;
+  }
+  else if(modalState.tab === 4) { // 部品
+    form += inp("customerName","顧客名",it.customerName)+inp("name","部品名",it.name)+inp("maker","メーカー",it.maker)+inp("partNo","品番・型式",it.partNo);
+    form += `<div class="fl"><div class="fg">`+inp("qty","数量",it.qty||1,"number")+`</div><div class="fg">`+inp("price","単価",it.price,"number")+`</div></div>`;
+    form += sel("status","状態",["発注前","発注済","入荷済"],it.status);
+  }
+  else if(modalState.tab === 5) { // 製品
+    form += inp("customer","顧客名",it.customer)+inp("productName","製品名",it.productName)+inp("maker","メーカー",it.maker)+inp("model","型式",it.model);
+    form += `<div class="fl"><div class="fg">`+sel("status","状態",["商談中","受注","納品済"],it.status)+`</div><div class="fg">`+inp("price","販売価格",it.price,"number")+`</div></div>`;
+    form += inp("deliveryDate","納品予定日",it.deliveryDate,"date");
+  }
+
+  form += `<div style="display:flex; gap:12px; margin-top:20px;"><button class="save-btn" onclick="saveItem()">💾 保存する</button>`;
+  if(modalState.mode === "edit") form += `<button class="save-btn" style="background:#e74c3c; flex:0 0 80px;" onclick="delItem()">削除</button>`;
+  form += `</div>`;
+  
   document.getElementById("modalBody").innerHTML = form;
   document.getElementById("modalOverlay").style.display = "flex";
 }
 
-function inp(id, label, val, type="text") { return `<label class="field-label">${label}</label><input type="${type}" id="f_${id}" class="field-input" value="${esc(val || '')}">`; }
-function esc(s) { return String(s || "").replace(/"/g, "&quot;"); }
-function closeModal() { document.getElementById("modalOverlay").style.display = "none"; }
-function closeModalOnBg(e) { if (e.target.id === "modalOverlay") closeModal(); }
+function inp(id,l,v,t="text") { return `<label class="field-label">${l}</label><input type="${t}" id="f_${id}" class="field-input" value="${String(v||'').replace(/"/g,'&quot;')}">`; }
+function sel(id,l,opts,cur) { let oH=""; opts.forEach(o=>{oH+=`<option value="${o}" ${cur===o?'selected':''}>${o}</option>`;}); return `<label class="field-label">${l}</label><select id="f_${id}" class="field-select">${oH}</select>`; }
+function closeModal() { document.getElementById("modalOverlay").style.display="none"; }
+function closeModalOnBg(e) { if(e.target.id==="modalOverlay") closeModal(); }
 
 function saveItem() {
-  const keys = ["", "customers", "repairs", "demos", "parts", "products"];
-  const dbKey = keys[modalState.tab];
-  let item = { id: modalState.mode === "new" ? "ID_" + Date.now() : modalState.item.id };
-  const inputs = document.querySelectorAll("#modalBody input, #modalBody select, #modalBody textarea");
-  inputs.forEach(el => { const key = el.id.replace("f_", ""); if(key) item[key] = el.value; });
-  if (modalState.mode === "new") DB[dbKey].push(item);
-  else DB[dbKey] = DB[dbKey].map(x => String(x.id) === String(item.id) ? item : x);
+  const keys = ["","customers","repairs","demos","parts","products"]; const dbk = keys[modalState.tab];
+  let item = { id: modalState.mode==="new" ? "ID_"+Date.now() : modalState.item.id };
+  document.querySelectorAll("#modalBody input, #modalBody select, #modalBody textarea").forEach(el=>{ const k=el.id.replace("f_",""); if(k) item[k]=el.value; });
+  if(modalState.mode==="new") DB[dbk].push(item); else DB[dbk]=DB[dbk].map(x=>String(x.id)===String(item.id)?item:x);
   saveDB(); closeModal(); renderAll();
 }
+function delItem() { if(!confirm("このデータを削除してよろしいですか？")) return; const keys = ["","customers","repairs","demos","parts","products"]; DB[keys[modalState.tab]] = DB[keys[modalState.tab]].filter(x => String(x.id) !== String(modalState.item.id)); saveDB(); closeModal(); renderAll(); }
 
-// ── 見積書エディター (ここも完全に統合) ──────────
+// --- [E] 見積書作成・連動ロジック（1〜3機種対応復活） ---
 let currentQuoteId = "";
 function jumpToQuote() {
-  const it = modalState.item;
-  closeModal();
-  openQuoteEditor("");
-  document.getElementById("toName").value = it.customerName || it.customer || "";
+  const it = modalState.item; closeModal(); openQuoteEditor("");
+  document.getElementById("toName").value = it.customerName || it.customer || it.name || "";
   resetQItems();
-  qItems[0] = {name: it.machine || it.name || it.productName || "", brand: it.maker || "", model: it.model || it.partNo || "", qty: 1, price: it.price || "", note: ""};
+  
+  if(modalState.tab === 2) { // 修理
+    qItems[0] = {name: it.machine, brand: it.maker, model: it.model, qty:1, price:"", note: it.issue||""};
+  } else if(modalState.tab === 3) { // 実演
+    if(it.targetMachine) qItems[0] = {name: it.targetMachine, brand: it.maker, model: it.model, qty:1, price:"", note:""};
+    if(it.targetMachine2) qItems[1] = {name: it.targetMachine2, brand: it.maker2, model: it.model2, qty:1, price:"", note:""};
+    if(it.targetMachine3) qItems[2] = {name: it.targetMachine3, brand: it.maker3, model: it.model3, qty:1, price:"", note:""};
+  } else if(modalState.tab === 4) { // 部品
+    qItems[0] = {name: it.name, brand: it.maker, model: it.partNo, qty: it.qty||1, price: it.price||"", note:""};
+  } else if(modalState.tab === 5) { // 製品
+    qItems[0] = {name: it.productName, brand: it.maker, model: it.model, qty: 1, price: it.price||"", note:""};
+  }
   buildTable();
 }
 
@@ -784,79 +576,186 @@ function openQuoteEditor(id) {
   document.getElementById("content_main").style.display = "none";
   document.getElementById("content_quote_editor").style.display = "block";
   currentQuoteId = id;
-  if (id === "") {
-    const ids = ["estNo", "toName", "subject", "note"];
-    ids.forEach(idx => document.getElementById(idx).value = "");
-    document.getElementById("estDate").value = new Date().toISOString().slice(0, 10);
+  if(!id) {
+    const ids = ["estNo","toName","subject","estDate","expDate","delivDate","delivPlace","payMethod","quoteNote"];
+    ids.forEach(i => document.getElementById(i).value = "");
+    document.getElementById("estDate").value = new Date().toISOString().slice(0,10);
     resetQItems();
   } else {
-    const q = DB.quotes.find(x => x.id === id);
+    const q = DB.quotes.find(x => String(x.id) === String(id));
     if(q) {
+      document.getElementById("estNo").value = q.estNo || "";
       document.getElementById("toName").value = q.toName || "";
       document.getElementById("subject").value = q.subject || "";
+      document.getElementById("estDate").value = q.estDate || "";
+      document.getElementById("expDate").value = q.expDate || "";
+      document.getElementById("delivDate").value = q.delivDate || "";
+      document.getElementById("delivPlace").value = q.delivPlace || "";
+      document.getElementById("payMethod").value = q.payMethod || "";
+      document.getElementById("quoteNote").value = q.note || "";
       qItems = JSON.parse(JSON.stringify(q.qItems));
     }
   }
   buildTable();
 }
 
-function closeQuoteEditor() { renderAll(); }
-
 function buildTable() {
-  const tbody = document.getElementById("itemsTable");
-  while (tbody.rows.length > 1) tbody.deleteRow(1);
-  for (let i = 0; i < ROWS; i++) {
-    const tr = tbody.insertRow();
-    tr.innerHTML = `<td class="tc">${i+1}</td><td><input value="${esc(qItems[i].name)}" onchange="qItems[${i}].name=this.value"></td><td><input value="${esc(qItems[i].brand)}" onchange="qItems[${i}].brand=this.value"></td><td><input value="${esc(qItems[i].model)}" onchange="qItems[${i}].model=this.value"></td><td><input type="number" class="tr" value="${qItems[i].qty}" onchange="qItems[${i}].qty=this.value;calcTotal()"></td><td><input type="number" class="tr" value="${qItems[i].price}" onchange="qItems[${i}].price=this.value;calcTotal()"></td><td class="tr" id="amt_${i}">—</td><td><input value="${esc(qItems[i].note)}" onchange="qItems[${i}].note=this.value"></td>`;
-  }
+  const tb = document.querySelector("#itemsTable tbody"); tb.innerHTML = "";
+  qItems.forEach((it, i) => {
+    const tr = tb.insertRow();
+    tr.innerHTML = `<td class="tc" style="font-size:10px;">${i+1}</td>
+      <td><input value="${it.name||''}" onchange="qItems[${i}].name=this.value"></td>
+      <td><input value="${it.brand||''}" onchange="qItems[${i}].brand=this.value"></td>
+      <td><input value="${it.model||''}" onchange="qItems[${i}].model=this.value"></td>
+      <td><input type="number" class="tc" value="${it.qty||''}" onchange="qItems[${i}].qty=this.value;calcTotal()"></td>
+      <td><input type="number" class="tr" value="${it.price||''}" onchange="qItems[${i}].price=this.value;calcTotal()"></td>
+      <td id="amt_${i}" class="tr" style="font-weight:bold; font-size:11px;"></td>
+      <td><input value="${it.note||''}" onchange="qItems[${i}].note=this.value"></td>`;
+  });
   calcTotal();
 }
 
 function calcTotal() {
-  let sub = 0;
-  for (let i = 0; i < ROWS; i++) {
-    const amt = (Number(qItems[i].qty)||0) * (Number(qItems[i].price)||0);
-    document.getElementById("amt_"+i).textContent = amt ? "¥"+amt.toLocaleString() : "—";
-    sub += amt;
-  }
+  let sub = 0; qItems.forEach((it, i) => { let a = (Number(it.qty)||0)*(Number(it.price)||0); document.getElementById("amt_"+i).innerText = a?a.toLocaleString():""; sub+=a; });
   const tax = Math.floor(sub * 0.1);
-  document.getElementById("subtotal").textContent = "¥"+sub.toLocaleString();
-  document.getElementById("tax").textContent = "¥"+tax.toLocaleString();
-  document.getElementById("total").textContent = "¥"+(sub+tax).toLocaleString();
+  document.getElementById("subtotal").innerText = "¥"+sub.toLocaleString();
+  document.getElementById("tax").innerText = "¥"+tax.toLocaleString();
+  document.getElementById("total").innerText = "¥"+(sub+tax).toLocaleString();
 }
 
 function saveCurrentQuote() {
-  const quoteData = { id: currentQuoteId || "Q_"+Date.now(), toName: document.getElementById("toName").value, subject: document.getElementById("subject").value, qItems: JSON.parse(JSON.stringify(qItems)), total: document.getElementById("total").textContent.replace(/[^0-9]/g, "") };
-  if (!currentQuoteId) DB.quotes.push(quoteData);
-  else DB.quotes = DB.quotes.map(q => q.id === currentQuoteId ? quoteData : q);
-  saveDB(); alert("保存しました");
+  let totalNum = document.getElementById("total").innerText.replace(/[^0-9]/g, "");
+  const q = { 
+    id: currentQuoteId || "Q_"+Date.now(), toName: document.getElementById("toName").value, subject: document.getElementById("subject").value,
+    estDate: document.getElementById("estDate").value, estNo: document.getElementById("estNo").value, expDate: document.getElementById("expDate").value,
+    delivDate: document.getElementById("delivDate").value, delivPlace: document.getElementById("delivPlace").value, payMethod: document.getElementById("payMethod").value,
+    qItems: JSON.parse(JSON.stringify(qItems)), total: totalNum, note: document.getElementById("quoteNote").value
+  };
+  if(!currentQuoteId) DB.quotes.push(q); else DB.quotes = DB.quotes.map(x => String(x.id) == String(q.id) ? q : x);
+  saveDB(); alert("見積書を保存しました！");
 }
 
-// ── プレビュー (均等割付・右詰めレイアウト完全維持) ──
-function fmtDate(d) { if(!d) return ""; const dt = new Date(d); return `令和${dt.getFullYear()-2018}年${dt.getMonth()+1}月${dt.getDate()}日`; }
+function deleteCurrentQuote() { DB.quotes = DB.quotes.filter(x => String(x.id) !== String(currentQuoteId)); saveDB(); closeQuoteEditor(); }
+function closeQuoteEditor() { renderAll(); }
+
+// --- [F] プレビュー生成（極限再現・令和版） ---
 function buildEstHTML() {
   const tN = document.getElementById("toName").value;
-  // ... (以前の複雑なHTML生成ロジックをすべてここに統合)
-  return `<div style="width:210mm;padding:20mm;background:#fff;font-family:'MS Mincho',serif;">
-    <div style="text-align:center;font-size:24px;letter-spacing:15mm;">見 積 書</div>
-    <div style="display:inline-flex; align-items:flex-end; border-bottom:1.5px solid #000; min-width:45mm; margin-top:10mm;">
-      <div style="flex:1;"></div>
-      <div style="font-size:16px; font-weight:bold; text-align:justify; text-align-last:justify; text-justify:inter-character; min-width:25mm;">${esc(tN)}</div>
-      <div style="font-size:16px; font-weight:bold; margin-left:1.5mm;">様</div>
+  const dD = document.getElementById("delivDate").value; const dP = document.getElementById("delivPlace").value; const pM = document.getElementById("payMethod").value;
+  let rows = ""; let sub = 0; let emptyStart = -1;
+  
+  qItems.forEach((it, i) => { 
+    let a = (Number(it.qty)||0)*(Number(it.price)||0); sub+=a;
+    if(!it.name && emptyStart === -1) emptyStart = i;
+    rows += `<tr style="height:7.5mm;">
+      <td style="border:1px solid #000;text-align:center;font-size:11px;">${i+1}</td>
+      <td style="border:1px solid #000;padding:0 4px;font-size:11px;">${it.name||''}</td>
+      <td style="border:1px solid #000;text-align:center;font-size:10px;">${it.brand||''}</td>
+      <td style="border:1px solid #000;text-align:center;font-size:10px;">${it.model||''}</td>
+      <td style="border:1px solid #000;text-align:center;font-size:11px;">${it.qty||''}</td>
+      <td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:11px;">${it.price?Number(it.price).toLocaleString():''}</td>
+      <td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:11px;font-weight:bold;">${a?a.toLocaleString():''}</td>
+      <td style="border:1px solid #000;padding:0 4px;font-size:9px;">${it.note||''}</td>
+    </tr>`;
+  });
+  
+  const tax = Math.floor(sub*0.1); const total = sub + tax;
+  const dt = new Date(document.getElementById("estDate").value || new Date());
+  const dateStr = `令和${dt.getFullYear()-2018}年${dt.getMonth()+1}月${dt.getDate()}日`;
+
+  return `<div style="position:relative;">
+    <h1 style="text-align:center;letter-spacing:15mm;font-size:26px;margin-bottom:10px;padding-left:15mm;">見積書</h1>
+    <div style="text-align:right;font-size:11px;margin-bottom:5px;">${dateStr}</div>
+    <div style="margin:8mm 0 6mm;">
+      <div style="display:inline-flex; align-items:flex-end; border-bottom:1.5px solid #000; min-width:65mm; padding-bottom:1px;">
+        <div style="flex:1;"></div>
+        <div style="font-size:18px; font-weight:bold; text-align:justify; text-align-last:justify; text-justify:inter-character; min-width:35mm;">${tN}</div>
+        <div style="font-size:18px; font-weight:bold; margin-left:2mm;">様</div>
+      </div>
+      <div style="font-size:11px; margin-top:5px; letter-spacing:1px;">下記の通り御見積申し上げます。</div>
     </div>
-    <p>下記のとおり御見積申し上げます。</p>
+    <div style="display:flex;justify-content:space-between;margin-bottom:6mm;align-items:flex-start;">
+      <table style="font-size:11px;border-collapse:collapse;line-height:1.8;">
+        <tr><td style="width:20mm;">納入期日</td><td>：</td><td style="border-bottom:1px solid #000;width:35mm;text-align:center;">${dD||'即納'}</td></tr>
+        <tr><td>納入場所</td><td>：</td><td style="border-bottom:1px solid #000;text-align:center;">${dP||'貴指定場所'}</td></tr>
+        <tr><td>取引方法</td><td>：</td><td style="border-bottom:1px solid #000;text-align:center;">${pM||'別途協議'}</td></tr>
+      </table>
+      <div style="font-size:11px;line-height:1.6;text-align:left;">
+        鹿児島県曽於市大隅町岩川5591番地<br>
+        <span style="font-weight:bold;font-size:12px;">そお鹿児島農業協同組合</span><br>
+        代表理事組合長　竹内 和久<br>
+        <div style="text-align:right;margin-top:2px;font-weight:bold;">財部農機センター</div>
+      </div>
+    </div>
+    <div style="display:flex; align-items:flex-end; margin-bottom:6mm;">
+      <div style="font-size:18px;font-weight:bold;border-bottom:2px solid #000;width:80mm;padding-bottom:2px;">
+        合計金額 ¥ ${total.toLocaleString()} -
+      </div>
+      <div style="font-size:10px; margin-left:5mm; padding-bottom:3px;">(内消費税 ¥${tax.toLocaleString()})</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:5px;">
+      <thead><tr style="height:8mm;background:#f2f2f2;"><th style="border:1px solid #000;font-size:10px;width:10mm;">No</th><th style="border:1px solid #000;font-size:10px;">品　名</th><th style="border:1px solid #000;font-size:10px;width:20mm;">銘柄</th><th style="border:1px solid #000;font-size:10px;width:28mm;">型　式</th><th style="border:1px solid #000;font-size:10px;width:12mm;">数</th><th style="border:1px solid #000;font-size:10px;width:22mm;">単価</th><th style="border:1px solid #000;font-size:10px;width:25mm;">金　額</th><th style="border:1px solid #000;font-size:10px;width:25mm;">備考</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot>
+        <tr style="height:8mm;"><td colspan="6" style="border:1px solid #000;text-align:center;font-size:11px;letter-spacing:10px;">小計</td><td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:11px;">${sub.toLocaleString()}</td><td style="border:1px solid #000;"></td></tr>
+        <tr style="height:8mm;"><td colspan="6" style="border:1px solid #000;text-align:center;font-size:11px;letter-spacing:5px;">消費税</td><td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:11px;">${tax.toLocaleString()}</td><td style="border:1px solid #000;"></td></tr>
+        <tr style="height:8mm;font-weight:bold;background:#f9f9f9;"><td colspan="6" style="border:1px solid #000;text-align:center;font-size:12px;letter-spacing:10px;">合計</td><td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:12px;">${total.toLocaleString()}</td><td style="border:1px solid #000;"></td></tr>
+      </tfoot>
+    </table>
+    <div style="font-size:10px;border:1px solid #ccc;padding:10px;min-height:20mm;margin-top:10px;">【備考】<br>${document.getElementById("quoteNote").value.replace(/\n/g,'<br>')}</div>
   </div>`;
 }
 
-function showPreview() { document.getElementById("preview-inner").innerHTML = buildEstHTML(); document.getElementById("preview-modal").style.display = "block"; }
-function closePreview() { document.getElementById("preview-modal").style.display = "none"; }
+function showPreview() { document.getElementById("preview-inner").innerHTML = buildEstHTML(); document.getElementById("preview-modal").style.display="block"; }
+function closePreview() { document.getElementById("preview-modal").style.display="none"; }
 
-// ── 起動処理 ──────────────────────────────────
-window.onload = function() {
-  document.getElementById('loading-screen').style.display = 'none';
-  document.getElementById('app').style.display = 'block';
-  loadDB();
-};
+// --- [G] 外部設定・AI解析（プロンプト完全復元） ---
+function openCloudModal() { document.getElementById("cloudUrlInput").value=gasUrl; document.getElementById("cloudModal").style.display="flex"; }
+function closeCloudModal() { document.getElementById("cloudModal").style.display="none"; }
+function saveCloudUrl() { gasUrl = document.getElementById("cloudUrlInput").value; localStorage.setItem('agri_gas_url', gasUrl); forceSync(); }
+function openApiKey() { document.getElementById("apiKeyInput").value=apiKey; document.getElementById("apiKeyModal").style.display="flex"; }
+function saveApiKey() { apiKey = document.getElementById("apiKeyInput").value; localStorage.setItem('agri_api_key', apiKey); document.getElementById("apiKeyModal").style.display="none"; }
+function openSmartModal() { document.getElementById("smartModal").style.display="flex"; document.getElementById("smartStatus").style.display="none"; }
+
+function regCal(type) {
+  const it = modalState.item; 
+  let title = `【${type==='repair'?'修理':'実演'}】${it.customerName} 様 / ${it.machine || it.targetMachine}`;
+  let date = type==='repair' ? it.dueDate : it.date;
+  if(!date) return alert("日付を入力してください");
+  const url = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${date.replace(/-/g,"")}/${date.replace(/-/g,"")}`;
+  window.open(url, '_blank');
+}
+
+async function runSmartAI() {
+  const text = document.getElementById("smartText").value; if(!text || !apiKey) return;
+  const btn = document.getElementById("smartBtn"); const status = document.getElementById("smartStatus");
+  btn.disabled = true; status.style.display = "block"; status.className = "bc-gray"; status.textContent = "⏳ AIが現場の声を解析中...";
+  
+  try {
+    const prompt = `あなたは農機具店の熟練事務員です。以下の話し言葉から情報を抽出し、JSONで返してください。
+【抽出項目】顧客名, 機械名, メーカー(井関,クボタ,ヤンマー等), 型式, 納期(YYYY-MM-DD形式), 内容。
+【ルール】
+1. 不明な項目は空文字。
+2. メーカー名は正式名称に補正。
+3. 日付が「来週金曜」等の場合は今日(2026-05-01)を基準に計算。
+テキスト：「${text}」`;
+
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST", headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body: JSON.stringify({ model:"claude-3-haiku-20240307", max_tokens:1000, messages:[{role:"user", content:prompt}] })
+    });
+    const data = await res.json(); 
+    const r = JSON.parse(data.content[0].text.replace(/```json|```/g, ''));
+    
+    DB.repairs.push({ id:"ID_"+Date.now(), customerName:r.顧客名||"不明", machine:r.機械名||"", maker:r.メーカー||"", model:r.型式||"", dueDate:r.納期||"", issue:r.内容||"", status:"修理依頼" });
+    saveDB(); renderAll();
+    status.className = "bc-green"; status.textContent = "✅ 修理依頼として自動登録しました！";
+    setTimeout(()=>document.getElementById('smartModal').style.display='none', 1500);
+  } catch(e) { status.className = "bc-red"; status.textContent = "❌ 解析失敗。内容を詳しく入力してください。"; }
+  btn.disabled = false;
+}
+
+window.onload = () => { document.getElementById("loading-screen").style.display="none"; document.getElementById("app").style.display="block"; loadDB(); };
 </script>
 </body>
 </html>
