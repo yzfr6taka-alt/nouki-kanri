@@ -57,7 +57,6 @@
   .bc-green{background:#eafaf1;color:#27ae60;}
   .bc-blue{background:#ebf5fb;color:#2980b9;}
 
-  /* 相互登録ボタンセクション */
   .quick-reg-box{
     background:var(--input-bg);
     border:1.5px dashed var(--border);
@@ -82,7 +81,6 @@
   }
   .qbtn:active{opacity:.7;}
 
-  /* 同期ステータスバー */
   #syncBar{
     position:fixed;bottom:0;left:50%;transform:translateX(-50%);
     width:100%;max-width:520px;padding:8px 14px;
@@ -108,7 +106,6 @@
 
 <div id="app" style="display:none;">
 
-  <!-- ヘッダー -->
   <div style="background:var(--main);padding-top:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.2);">
     <div style="display:flex;align-items:center;gap:8px;padding:0 14px 12px;">
       <span style="font-size:22px;">🚜</span>
@@ -126,7 +123,6 @@
 
   <div style="padding:16px 13px 60px;" id="content_main"></div>
 
-  <!-- 見積書エディター -->
   <div style="padding:16px 13px 60px;display:none;" id="content_quote_editor">
     <button onclick="closeQuoteEditor()" style="background:none;border:none;color:#3498db;font-weight:bold;font-size:14px;margin-bottom:15px;cursor:pointer;">← 見積書一覧に戻る</button>
     <div style="background:var(--card-bg);border-radius:14px;padding:16px;margin-bottom:12px;border:1.5px solid var(--border);">
@@ -178,7 +174,6 @@
   </div>
 </div>
 
-<!-- プレビュー -->
 <div id="preview-modal">
   <div style="background:#1a252f;padding:12px 16px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:1001;">
     <button onclick="closePreview()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer;">← 戻る</button>
@@ -194,7 +189,6 @@
   </div>
 </div>
 
-<!-- 通常モーダル -->
 <div class="modal-overlay" id="modalOverlay" style="display:none;" onclick="closeModalOnBg(event)">
   <div class="modal-box">
     <div class="modal-header">
@@ -205,7 +199,6 @@
   </div>
 </div>
 
-<!-- AI一括モーダル -->
 <div class="modal-overlay" id="smartModal" style="display:none;" onclick="closeSmartOnBg(event)">
   <div class="modal-box">
     <div class="modal-header">
@@ -224,7 +217,6 @@
   </div>
 </div>
 
-<!-- APIキー・同期設定モーダル -->
 <div class="modal-overlay" id="apiKeyModal" style="display:none;" onclick="if(event.target.id==='apiKeyModal')closeApiKey()">
   <div class="modal-box">
     <div class="modal-header">
@@ -253,7 +245,6 @@
 <script>
 window.onerror=function(msg,url,line){alert('エラー:\n'+msg+'\n行:'+line);return false;};
 
-// ─── 定数 ───────────────────────────────────────
 const TABS=['ホーム','顧客','修理','実演','部品','製品','見積書'];
 let currentTab=0;
 const STATUS_COLORS={
@@ -292,11 +283,11 @@ function loadDB(){
   try{const g=localStorage.getItem('agri_gas_url');if(g)gasUrl=g;}catch(e){}
 }
 
-// ─── クラウド同期 ────────────────────────────────
+// ─── クラウド同期（修正済み）────────────────────
 function showSyncBar(msg,type,autohide=true){
   const bar=document.getElementById('syncBar');
   bar.textContent=msg;bar.className='show '+type;
-  if(autohide)setTimeout(()=>{bar.className='';},3000);
+  if(autohide)setTimeout(()=>{bar.className='';},3500);
 }
 function updateSyncLabel(msg){
   const el=document.getElementById('syncLabel');if(el)el.textContent=msg;
@@ -305,14 +296,31 @@ function scheduleSync(){
   if(syncTimer)clearTimeout(syncTimer);
   syncTimer=setTimeout(()=>{syncToCloud(false);},3000);
 }
+
+// ★ タイムアウト付きfetch（修正①）
+async function fetchWithTimeout(url, options, timeoutMs=15000){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{
+    const res=await fetch(url,{...options,signal:controller.signal,
+      credentials:'omit'  // ★ 修正②: Cookieを送らないことでCORSを回避
+    });
+    return res;
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
 async function syncToCloud(showResult=false){
   if(!gasUrl||isSyncing)return;
   isSyncing=true;
   if(showResult)showSyncBar('☁️ 同期中...','syncing',false);
   try{
-    const getRes=await fetch(gasUrl,{method:'GET',cache:'no-cache'});
+    // ★ GET: credentialsをomitして送信
+    const getRes=await fetchWithTimeout(gasUrl,{method:'GET',cache:'no-cache'});
+    if(!getRes.ok)throw new Error('サーバーエラー: '+getRes.status);
     const serverData=await getRes.json();
-    if(!serverData.empty){
+    if(serverData&&!serverData.empty){
       const serverTime=new Date(serverData.lastModified||0).getTime();
       const localTime=new Date(DB.lastModified||0).getTime();
       if(serverTime>localTime){
@@ -322,44 +330,62 @@ async function syncToCloud(showResult=false){
         renderAll();
         const t=new Date(DB.lastModified).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
         updateSyncLabel('最終同期: '+t);
-        showSyncBar('✅ 最新データを受信しました','ok');
+        if(showResult)showSyncBar('✅ 最新データを受信しました','ok');
         isSyncing=false;return;
       }
     }
-    const postRes=await fetch(gasUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(DB)});
+    // ★ 修正③: Content-Type を text/plain に変更してCORSプリフライトを回避
+    // （application/json だとブラウザがOPTIONSリクエストを先に送り、GASが応答できずにエラー）
+    const postRes=await fetchWithTimeout(gasUrl,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify(DB)
+    });
+    if(!postRes.ok)throw new Error('保存エラー: '+postRes.status);
     const result=await postRes.json();
     if(result.status==='conflict'){
       ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k=>{if(result.data[k])DB[k]=result.data[k];});
       DB.lastModified=result.data.lastModified;
       try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}
       renderAll();
-      showSyncBar('🔄 競合を解決しました（新しいデータを適用）','conflict');
+      if(showResult)showSyncBar('🔄 競合を解決しました（新しいデータを適用）','conflict');
     }else if(result.status==='ok'){
       const t=new Date(DB.lastModified).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
       updateSyncLabel('最終同期: '+t);
       if(showResult)showSyncBar('✅ 同期完了','ok');
     }else{
-      if(showResult)showSyncBar('⚠️ 同期エラー','error');
+      if(showResult)showSyncBar('⚠️ GAS応答エラー: '+JSON.stringify(result),'error');
     }
   }catch(e){
-    if(showResult)showSyncBar('❌ 接続失敗: '+e.message,'error');
+    // ★ 修正④: エラー種別をより詳しく表示
+    let errMsg=e.message||String(e);
+    if(e.name==='AbortError')errMsg='接続タイムアウト（15秒）';
+    else if(errMsg==='Failed to fetch')errMsg='接続失敗（GASのアクセス権限を確認してください）';
+    if(showResult)showSyncBar('❌ '+errMsg,'error');
   }
   isSyncing=false;
 }
+
 async function manualSync(){
   if(!gasUrl){showSyncBar('⚠️ GAS URLが未設定です。🔑から設定してください','error');return;}
   await syncToCloud(true);
 }
+
 async function testSync(){
   const url=document.getElementById('gasUrlInput').value.trim();
   if(!url){document.getElementById('testResult').textContent='⚠️ URLを入力してください';return;}
   document.getElementById('testResult').textContent='🔄 接続テスト中...';
   try{
-    const res=await fetch(url,{method:'GET',cache:'no-cache'});
+    // ★ テストも同じくcredentials:omit + タイムアウト付き
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),15000);
+    const res=await fetch(url,{method:'GET',cache:'no-cache',credentials:'omit',signal:controller.signal});
+    clearTimeout(timer);
     await res.json();
     document.getElementById('testResult').innerHTML='<span style="color:#27ae60;font-weight:bold;">✅ 接続成功！データ共有できます</span>';
   }catch(e){
-    document.getElementById('testResult').innerHTML='<span style="color:#e74c3c;">❌ 接続失敗: '+e.message+'</span>';
+    let msg=e.name==='AbortError'?'タイムアウト（15秒）':e.message;
+    document.getElementById('testResult').innerHTML='<span style="color:#e74c3c;">❌ 接続失敗: '+msg+'</span>';
   }
 }
 
@@ -644,7 +670,6 @@ function regToCalendar(type){
     dateVal=document.getElementById('f_dueDate')?.value;
     details='メーカー: '+(document.getElementById('f_maker')?.value||'')+'\n型式: '+(document.getElementById('f_model')?.value||'')+'\n製造番号: '+(document.getElementById('f_serialNo')?.value||'')+'\n内容: '+(document.getElementById('f_issue')?.value||'');
   }else if(type==='demo'){
-    // ✅ バグ修正：3台分すべて送信
     const m1=(document.getElementById('f_targetMachine')?.value||'')+(document.getElementById('f_model')?.value?' '+document.getElementById('f_model').value:'');
     const m2=(document.getElementById('f_targetMachine2')?.value||'')+(document.getElementById('f_model2')?.value?' '+document.getElementById('f_model2').value:'');
     const m3=(document.getElementById('f_targetMachine3')?.value||'')+(document.getElementById('f_model3')?.value?' '+document.getElementById('f_model3').value:'');
@@ -664,11 +689,9 @@ function regToCalendar(type){
 }
 
 // ─── 相互登録機能 ────────────────────────────────
-// どのモーダルからでも他タブに新規登録できる
 let quickDefaults = {};
 
 function quickReg(tab, defaults) {
-  // 現在のモーダルを閉じてから新規登録モーダルを開く
   quickDefaults = defaults || {};
   document.getElementById('modalOverlay').style.display='none';
   setTimeout(()=>{
@@ -677,37 +700,31 @@ function quickReg(tab, defaults) {
   }, 150);
 }
 
-// 相互登録ボタンHTML生成（各モーダル内に挿入）
 function buildQuickRegBox(tab, it) {
   let btns = '';
   const cName = (it.name || it.customerName || it.customer || '');
   const cEsc = cName.replace(/'/g, "\\'");
 
   if(tab === 1) {
-    // 顧客詳細 → 修理/実演/部品/製品を登録
     btns += '<button class="qbtn" onclick="quickReg(2,{customerName:\''+cEsc+'\'})">🔧 修理依頼を登録</button>';
     btns += '<button class="qbtn" onclick="quickReg(3,{customerName:\''+cEsc+'\'})">🌾 実演を登録</button>';
     btns += '<button class="qbtn" onclick="quickReg(4,{customerName:\''+cEsc+'\'})">⚙️ 部品を発注登録</button>';
     btns += '<button class="qbtn" onclick="quickReg(5,{customer:\''+cEsc+'\'})">🚜 製品を登録</button>';
     btns += '<button class="qbtn" style="background:#8e44ad;color:#fff;border-color:#8e44ad;" onclick="quickReg(6,{toName:\''+cEsc+'\'})">📄 見積書を作成</button>';
   } else if(tab === 2) {
-    // 修理詳細 → 部品発注/製品登録
     const machine = (it.machine||'').replace(/'/g,"\\'");
     btns += '<button class="qbtn" onclick="quickReg(4,{customerName:\''+cEsc+'\',name:\''+machine+'\'})">⚙️ 関連部品を発注登録</button>';
     btns += '<button class="qbtn" onclick="quickReg(5,{customer:\''+cEsc+'\',productName:\''+machine+'\'})">🚜 製品として登録</button>';
   } else if(tab === 3) {
-    // 実演詳細 → 部品発注/製品登録
     const machine = (it.targetMachine||'').replace(/'/g,"\\'");
     btns += '<button class="qbtn" onclick="quickReg(4,{customerName:\''+cEsc+'\',name:\''+machine+'\'})">⚙️ 関連部品を発注登録</button>';
     btns += '<button class="qbtn" onclick="quickReg(5,{customer:\''+cEsc+'\',productName:\''+machine+'\'})">🚜 製品として登録</button>';
   } else if(tab === 4) {
-    // 部品詳細 → 修理登録/製品登録
     const partName = (it.name||'').replace(/'/g,"\\'");
     btns += '<button class="qbtn" onclick="quickReg(2,{customerName:\''+cEsc+'\',machine:\''+partName+'\'})">🔧 修理依頼として登録</button>';
     btns += '<button class="qbtn" onclick="quickReg(5,{customer:\''+cEsc+'\',productName:\''+partName+'\'})">🚜 製品として登録</button>';
     btns += '<button class="qbtn" onclick="quickReg(1,{name:\''+cEsc+'\'})">👥 顧客として登録</button>';
   } else if(tab === 5) {
-    // 製品詳細 → 修理登録/部品発注
     const prodName = (it.productName||'').replace(/'/g,"\\'");
     const maker = (it.maker||'').replace(/'/g,"\\'");
     btns += '<button class="qbtn" onclick="quickReg(2,{customerName:\''+cEsc+'\',machine:\''+prodName+'\',maker:\''+maker+'\'})">🔧 修理依頼として登録</button>';
@@ -743,13 +760,10 @@ function showModal(){
   const it=modalState.item;
 
   if(modalState.tab===1){
-    // 顧客
     form+=inp('name','顧客名',it.name)+inp('phone','電話番号',it.phone)+inp('address','住所',it.address);
     form+='<label class="field-label">メモ・備考</label><textarea id="f_memo" class="field-textarea" rows="2">'+esc(it.memo)+'</textarea>';
     form+=buildQuickRegBox(1, it);
-
   }else if(modalState.tab===2){
-    // 修理
     form+=inp('customerName','顧客名',it.customerName)+inp('machine','機械名 (品名)',it.machine);
     form+='<div class="fl"><div class="fg">'+inp('maker','メーカー',it.maker)+'</div><div class="fg">'+inp('model','型式',it.model)+'</div></div>';
     form+=inp('serialNo','製造番号',it.serialNo);
@@ -759,11 +773,8 @@ function showModal(){
     form+='<button onclick="regToCalendar(\'repair\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに納期を登録</button>';
     form+='<button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 見積書を作成</button>';
     form+=buildQuickRegBox(2, it);
-
   }else if(modalState.tab===3){
-    // 実演
     form+=inp('customerName','対象顧客',it.customerName);
-    // ✅ バグ修正：実演機1のラベル
     const demoBlocks=[['','🚜 実演機 1',''],['2','🚜 実演機 2 (任意)','var(--text-sub)'],['3','🚜 実演機 3 (任意)','var(--text-sub)']];
     demoBlocks.forEach(([n,label,color])=>{
       form+='<div style="padding:10px;background:var(--input-bg);border-radius:10px;margin-bottom:12px;">';
@@ -776,9 +787,7 @@ function showModal(){
     form+='<button onclick="regToCalendar(\'demo\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに予定を登録</button>';
     form+='<button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 見積書を作成</button>';
     form+=buildQuickRegBox(3, it);
-
   }else if(modalState.tab===4){
-    // 部品
     form+=inp('customerName','顧客名（任意）',it.customerName)+inp('name','部品名',it.name);
     form+='<div class="fl"><div class="fg">'+inp('maker','メーカー',it.maker)+'</div><div class="fg">'+inp('partNo','品番・型式',it.partNo)+'</div></div>';
     form+='<div class="fl"><div class="fg">'+inp('qty','数量',it.qty,'number')+'</div><div class="fg">'+inp('price','仕入・販売単価',it.price,'number')+'</div></div>';
@@ -786,9 +795,7 @@ function showModal(){
     form+='<button onclick="regToCalendar(\'part\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに発注日を登録</button>';
     form+='<button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 この部品で見積書を作成</button>';
     form+=buildQuickRegBox(4, it);
-
   }else if(modalState.tab===5){
-    // 製品
     form+=inp('customer','顧客名',it.customer)+inp('productName','製品名',it.productName);
     form+='<div class="fl"><div class="fg">'+inp('maker','メーカー',it.maker)+'</div><div class="fg">'+inp('model','型式',it.model)+'</div></div>';
     form+=inp('serialNo','製造番号',it.serialNo);
