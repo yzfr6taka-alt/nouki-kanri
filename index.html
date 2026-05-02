@@ -319,7 +319,10 @@ async function syncToCloud(showResult=false){
     // ★ GET: credentialsをomitして送信
     const getRes=await fetchWithTimeout(gasUrl,{method:'GET',cache:'no-cache'});
     if(!getRes.ok)throw new Error('サーバーエラー: '+getRes.status);
-    const serverData=await getRes.json();
+    // ★ GETレスポンスも安全にパース（プレーンテキスト対応）
+    const getText=await getRes.text();
+    let serverData;
+    try{serverData=JSON.parse(getText);}catch(e){serverData={empty:true};}
     if(serverData&&!serverData.empty){
       const serverTime=new Date(serverData.lastModified||0).getTime();
       const localTime=new Date(DB.lastModified||0).getTime();
@@ -342,7 +345,20 @@ async function syncToCloud(showResult=false){
       body:JSON.stringify(DB)
     });
     if(!postRes.ok)throw new Error('保存エラー: '+postRes.status);
-    const result=await postRes.json();
+    // ★ 修正⑤: GASが "Success" などプレーンテキストを返す場合に対応
+    const postText=await postRes.text();
+    let result;
+    try{
+      result=JSON.parse(postText);
+    }catch(e){
+      // JSONでなくても "Success" 系文字列なら正常扱い
+      const t=postText.trim().toLowerCase();
+      if(t==='success'||t.includes('"success"')||t.includes('ok')){
+        result={status:'ok'};
+      }else{
+        throw new Error('GAS応答が不正: '+postText.slice(0,80));
+      }
+    }
     if(result.status==='conflict'){
       ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k=>{if(result.data[k])DB[k]=result.data[k];});
       DB.lastModified=result.data.lastModified;
