@@ -1183,36 +1183,7 @@ const SCREENSHOT_QUOTES = [
      {name:'',brand:'',model:'',qty:'',price:'',note:''}
    ], total:5026120, note:''}
 ];
-const SCREENSHOT_DEMOS = [
-  {id:'DEMO_1', customerName:'立和田', targetMachine:'トラクター', maker:'', model:'TJW1233', targetMachine2:'プラソイラ', maker2:'', model2:'J805', date:'2026-05-15', status:'実演予定'},
-  {id:'DEMO_2', customerName:'立和田', targetMachine:'トラクター', maker:'', model:'M135GEP', targetMachine2:'コンビソイラ', maker2:'', model2:'H604', targetMachine3:'グランドハロー', maker3:'', model3:'LXE2630HS-2LH', date:'2026-10-31', status:'実演予定'}
-];
-const SCREENSHOT_PARTS = [
-  {id:'PART_1', customerName:'', name:'ネット駆動スプリング', maker:'', partNo:'', qty:0, price:0, status:'発注済', orderDate:'2026-04-30'}
-];
-const SCREENSHOT_PRODUCTS = [
-  {id:'PROD_1', productName:'ドライブハロー HS2430',    maker:'ニプロ',   model:'HS2430',    serialNo:'', customer:'東丸 和久', status:'受注', deliveryDate:'2026-05-25', price:0},
-  {id:'PROD_2', productName:'甘諸ツルキリ機 FNC1002K',  maker:'ニプロ',   model:'FNC1002K',  serialNo:'', customer:'満行 翼',   status:'受注', deliveryDate:'2026-07-20', price:0},
-  {id:'PROD_3', productName:'甘諸ハーベスタ GZA651',    maker:'ニプロ',   model:'GZA651',    serialNo:'', customer:'満行 翼',   status:'受注', deliveryDate:'2026-07-25', price:0},
-  {id:'PROD_4', productName:'中古トラクター YT333RJ',   maker:'ヤンマー', model:'YT333RJ',   serialNo:'', customer:'松元 崇',   status:'受注', deliveryDate:'2026-08-31', price:0},
-  {id:'PROD_5', productName:'中古田植機 RPO40DL',       maker:'',         model:'RPO40DL',   serialNo:'', customer:'',          status:'受注', deliveryDate:'',           price:0}
-];
-const SCREENSHOT_CUSTOMERS = [
-  {id:'CUST_1', name:'山下 林作',  phone:'', address:'', memo:''},
-  {id:'CUST_2', name:'渡邊 誠',    phone:'', address:'', memo:''},
-  {id:'CUST_3', name:'上丸 勝芳',  phone:'', address:'', memo:''},
-  {id:'CUST_4', name:'徳丸 秋雄',  phone:'', address:'', memo:''},
-  {id:'CUST_5', name:'吉満 忠吉',  phone:'', address:'', memo:''},
-  {id:'CUST_6', name:'徳丸 勉',    phone:'', address:'', memo:''},
-  {id:'CUST_7', name:'東丸 和久',  phone:'', address:'', memo:''},
-  {id:'CUST_8', name:'立和田',      phone:'', address:'', memo:''},
-  {id:'CUST_9', name:'満行 翼',    phone:'', address:'', memo:''},
-  {id:'CUST_10',name:'松元 崇',    phone:'', address:'', memo:''},
-  {id:'CUST_11',name:'上丸 文友',  phone:'', address:'', memo:''},
-  {id:'CUST_12',name:'野村 治雄',  phone:'', address:'', memo:''},
-  {id:'CUST_13',name:'園田 正志',  phone:'', address:'', memo:''},
-  {id:'CUST_14',name:'山田',        phone:'', address:'', memo:''}
-];
+
 
 function restoreFromScreenshots(){
   if(!confirm('スクリーンショットから確認できた修理データ9件を復元します。\n\n※ スクショに写っていなかったデータ（顧客・実演・製品・部品・見積書など）は手入力が必要です。\n\n復元しますか？')) return;
