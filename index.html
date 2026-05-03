@@ -349,6 +349,12 @@ async function syncToCloud(showResult=false){
         isSyncing=false;return;
       }
     }
+    // ★ 最重要安全装置: ローカルが空なのにサーバーへPOSTしない
+    const _localEmpty = !['customers','repairs','demos','parts','products'].some(k=>DB[k]&&DB[k].length>0);
+    if(_localEmpty){
+      if(showResult)showSyncBar('⚠️ ローカルが空のためアップロードをスキップ','conflict');
+      isSyncing=false;return;
+    }
     // ★ 修正③: Content-Type を text/plain に変更してCORSプリフライトを回避
     // （application/json だとブラウザがOPTIONSリクエストを先に送り、GASが応答できずにエラー）
     const postRes=await fetchWithTimeout(gasUrl,{
@@ -1068,7 +1074,23 @@ function openLineShare(text){
 
 // ─── 起動 ────────────────────────────────────────
 
-// ★ 緊急データ復元バナー
+// ★ 自動復元（データが空の場合に自動実行）
+function autoRestoreData(){
+  DB.repairs   = SCREENSHOT_REPAIRS;
+  DB.demos     = SCREENSHOT_DEMOS;
+  DB.parts     = SCREENSHOT_PARTS;
+  DB.products  = SCREENSHOT_PRODUCTS;
+  DB.customers = SCREENSHOT_CUSTOMERS;
+  // タイムスタンプを現在時刻より未来にして「最新」と認識させる
+  DB.lastModified = new Date(Date.now() + 86400000).toISOString(); // 明日の日付
+  try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}
+  renderAll();
+  showSyncBar('✅ データを復元しました（修理'+DB.repairs.length+'件 製品'+DB.products.length+'件）','ok');
+  // クラウドへ強制アップロード（3秒後）
+  if(gasUrl) setTimeout(()=>syncToCloud(true), 3000);
+}
+
+// ★ 緊急データ復元バナー（手動用）
 function showRecoveryBanner(){
   const banner = document.createElement('div');
   banner.id = 'recoveryBanner';
@@ -1147,9 +1169,12 @@ function restoreFromScreenshots(){
 
 window.onload=async function(){
   loadDB();
-  // データが空なら復元バナー表示
+  // データが空なら自動復元（localStorageクリア後も対応）
   const _hasAnyData=['customers','repairs','demos','parts','products'].some(k=>DB[k]&&DB[k].length>0);
-  if(!_hasAnyData){showRecoveryBanner();}
+  if(!_hasAnyData){
+    console.log('ローカルデータが空のため自動復元を実行');
+    autoRestoreData();
+  }
   document.getElementById('loading-screen').style.display='none';
   document.getElementById('app').style.display='block';
   renderAll();
