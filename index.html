@@ -266,10 +266,14 @@ let isSyncing=false;
 
 // ─── ローカル保存 ──────────────────────────────
 function saveDB(){
-  DB.lastModified=new Date().toISOString();
+  const now = Date.now();
+  const currentLastModified = new Date(DB.lastModified || 0).getTime();
+  const newTime = Math.max(now, currentLastModified + 1000);
+  DB.lastModified = new Date(newTime).toISOString();
   try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}
   scheduleSync();
 }
+
 function loadDB(){
   try{
     const d=localStorage.getItem('agri_db');
@@ -1083,7 +1087,7 @@ function autoRestoreData(){
   DB.customers = SCREENSHOT_CUSTOMERS;
   DB.quotes    = SCREENSHOT_QUOTES;
   // タイムスタンプを現在時刻より未来にして「最新」と認識させる
-  DB.lastModified = new Date(Date.now() + 86400000).toISOString(); // 明日の日付
+  DB.lastModified = new Date().toISOString();
   try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}
   renderAll();
   showSyncBar('✅ データを復元しました（修理'+DB.repairs.length+'件 製品'+DB.products.length+'件 見積'+DB.quotes.length+'件）','ok');
