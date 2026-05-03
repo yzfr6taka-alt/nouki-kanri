@@ -1081,11 +1081,12 @@ function autoRestoreData(){
   DB.parts     = SCREENSHOT_PARTS;
   DB.products  = SCREENSHOT_PRODUCTS;
   DB.customers = SCREENSHOT_CUSTOMERS;
+  DB.quotes    = SCREENSHOT_QUOTES;
   // タイムスタンプを現在時刻より未来にして「最新」と認識させる
   DB.lastModified = new Date(Date.now() + 86400000).toISOString(); // 明日の日付
   try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}
   renderAll();
-  showSyncBar('✅ データを復元しました（修理'+DB.repairs.length+'件 製品'+DB.products.length+'件）','ok');
+  showSyncBar('✅ データを復元しました（修理'+DB.repairs.length+'件 製品'+DB.products.length+'件 見積'+DB.quotes.length+'件）','ok');
   // クラウドへ強制アップロード（3秒後）
   if(gasUrl) setTimeout(()=>syncToCloud(true), 3000);
 }
@@ -1100,28 +1101,87 @@ function showRecoveryBanner(){
 }
 
 const SCREENSHOT_REPAIRS = [
-  // Image7: 修理タブ（詳細情報あり）
-  {id:'REC_1', customerName:'山下 林作',  machine:'甘諸ハーベスタ', maker:'ニプロ',   model:'GZA651', serialNo:'', hourMeter:'2233', status:'修理中',   dueDate:'2026-07-15', issue:'',       date:'2026-05-03', usedParts:[]},
-  {id:'REC_2', customerName:'渡邊 誠',    machine:'甘諸ハーベスタ', maker:'ニプロ',   model:'GZA651', serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'2026-07-20', issue:'',       date:'2026-05-03', usedParts:[]},
-  {id:'REC_3', customerName:'渡邊 誠',    machine:'甘諸ハーベスタ', maker:'ニプロ',   model:'GRA650', serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'2026-07-20', issue:'',       date:'2026-05-03', usedParts:[]},
-  {id:'REC_4', customerName:'上丸 勝芳',  machine:'甘諸ハーベスタ', maker:'ニプロ',   model:'GZA651', serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'2026-07-25', issue:'',       date:'2026-05-03', usedParts:[]},
-  {id:'REC_5', customerName:'上丸 勝芳',  machine:'甘諸ハーベスタ', maker:'ニプロ',   model:'GRA650', serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'',           issue:'点検整備', date:'2026-05-03', usedParts:[]},
-  // Image2: ホーム修理リスト
-  {id:'REC_6', customerName:'徳丸 秋雄',  machine:'甘諸ハーベスタ', maker:'ニプロ',   model:'GZA651', serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'',           issue:'',       date:'2026-05-03', usedParts:[]},
-  // Image3: 続き
-  {id:'REC_7', customerName:'東丸 和久',  machine:'タイヤローラー', maker:'',         model:'',       serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'',           issue:'回転しない',     date:'2026-05-03', usedParts:[]},
-  {id:'REC_8', customerName:'園田 正志',  machine:'薪わり機',       maker:'',         model:'KT155PRO',serialNo:'',hourMeter:'',    status:'修理依頼', dueDate:'',           issue:'油圧作動油漏れ', date:'2026-05-03', usedParts:[]},
-  {id:'REC_9', customerName:'徳丸 秋雄',  machine:'甘諸ハーベスタ', maker:'',         model:'GRA650', serialNo:'', hourMeter:'1963', status:'修理依頼', dueDate:'',           issue:'',       date:'2026-05-03', usedParts:[]},
-  // 顧客リストから推定（吉満忠吉1件、徳丸勉2件、東丸和久残り2件）
-  {id:'REC_10',customerName:'吉満 忠吉',  machine:'',               maker:'',         model:'',       serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'',           issue:'',       date:'2026-05-03', usedParts:[]},
-  {id:'REC_11',customerName:'徳丸 勉',    machine:'',               maker:'',         model:'',       serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'',           issue:'',       date:'2026-05-03', usedParts:[]},
-  {id:'REC_12',customerName:'徳丸 勉',    machine:'',               maker:'',         model:'',       serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'',           issue:'',       date:'2026-05-03', usedParts:[]},
-  {id:'REC_13',customerName:'東丸 和久',  machine:'',               maker:'',         model:'',       serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'',           issue:'',       date:'2026-05-03', usedParts:[]},
-  {id:'REC_14',customerName:'東丸 和久',  machine:'',               maker:'',         model:'',       serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'',           issue:'',       date:'2026-05-03', usedParts:[]},
-  // 以前のスクショから確認済み
-  {id:'REC_15',customerName:'野村 治雄',  machine:'田植機',         maker:'ヤンマー', model:'VP50',   serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'',           issue:'',       date:'2026-05-03', usedParts:[]},
-  {id:'REC_16',customerName:'上丸 文友',  machine:'ヤンマートラクター', maker:'ヤンマー',model:'EG224',serialNo:'',hourMeter:'',    status:'修理依頼', dueDate:'',           issue:'',       date:'2026-05-03', usedParts:[]},
-  {id:'REC_17',customerName:'山田',        machine:'トラクター',      maker:'ヤンマー', model:'EG224',  serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'',           issue:'',       date:'2026-05-03', usedParts:[]}
+  // カレンダー＋スクショ完全版
+  {id:'REC_1', customerName:'山下 林作',   machine:'甘諸ハーベスタ', maker:'ニプロ',   model:'GZA651',    serialNo:'', hourMeter:'2233', status:'修理中',   dueDate:'2026-07-15', issue:'',                         date:'2026-05-03', usedParts:[]},
+  {id:'REC_2', customerName:'渡邊 誠',     machine:'甘諸ハーベスタ', maker:'ニプロ',   model:'GZA651',    serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'2026-07-20', issue:'',                         date:'2026-05-03', usedParts:[]},
+  {id:'REC_3', customerName:'渡邊 誠',     machine:'甘諸ハーベスタ', maker:'ニプロ',   model:'GRA650',    serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'2026-07-20', issue:'',                         date:'2026-05-03', usedParts:[]},
+  {id:'REC_4', customerName:'上丸 勝芳',   machine:'甘諸ハーベスタ', maker:'ニプロ',   model:'GZA651',    serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'2026-07-25', issue:'',                         date:'2026-05-03', usedParts:[]},
+  {id:'REC_5', customerName:'上丸 勝芳',   machine:'甘諸ハーベスタ', maker:'ニプロ',   model:'GRA650',    serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'2026-07-20', issue:'点検整備',                 date:'2026-05-03', usedParts:[]},
+  {id:'REC_6', customerName:'徳丸 秋雄',   machine:'甘諸ハーベスタ', maker:'ニプロ',   model:'GZA651',    serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'',           issue:'',                         date:'2026-05-03', usedParts:[]},
+  {id:'REC_7', customerName:'東丸 和久',   machine:'タイヤローラー', maker:'',         model:'',          serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'',           issue:'回転しない',               date:'2026-05-03', usedParts:[]},
+  {id:'REC_8', customerName:'園田 正志',   machine:'薪わり機',       maker:'',         model:'KT155PRO',  serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'',           issue:'油圧作動油漏れ',           date:'2026-05-03', usedParts:[]},
+  {id:'REC_9', customerName:'徳丸 秋雄',   machine:'甘諸ハーベスタ', maker:'',         model:'GRA650',    serialNo:'', hourMeter:'1963', status:'修理依頼', dueDate:'2026-07-05', issue:'',                         date:'2026-05-03', usedParts:[]},
+  {id:'REC_10',customerName:'グッドカンパニー',machine:'田植機',     maker:'',         model:'YR6D',      serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'',           issue:'',                         date:'2026-05-03', usedParts:[]},
+  {id:'REC_11',customerName:'野村 治雄',   machine:'田植機',         maker:'ヤンマー', model:'VP50',      serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'2026-05-31', issue:'縦おくりがおかしく、欠株になる', date:'2026-05-03', usedParts:[]},
+  {id:'REC_12',customerName:'今村 三男',   machine:'マニアスプレッダー',maker:'',      model:'TMS1890',   serialNo:'', hourMeter:'',     status:'部品待ち', dueDate:'',           issue:'',                         date:'2026-05-03', usedParts:[]},
+  {id:'REC_13',customerName:'吉満 忠吉',   machine:'甘諸ハーベスタ', maker:'ニプロ',   model:'GRA650',    serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'2026-07-20', issue:'',                         date:'2026-05-03', usedParts:[]},
+  {id:'REC_14',customerName:'徳丸 勉',     machine:'甘諸ハーベスタ', maker:'ニプロ',   model:'GZA651',    serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'2026-07-25', issue:'',                         date:'2026-05-03', usedParts:[]},
+  {id:'REC_15',customerName:'徳丸 勉',     machine:'甘諸ハーベスタ', maker:'ニプロ',   model:'GZA651',    serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'2026-07-25', issue:'',                         date:'2026-05-03', usedParts:[]},
+  {id:'REC_16',customerName:'上丸 文友',   machine:'ヤンマートラクター',maker:'ヤンマー',model:'EG224',   serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'',           issue:'',                         date:'2026-05-03', usedParts:[]},
+  {id:'REC_17',customerName:'山田',         machine:'トラクター',     maker:'ヤンマー', model:'EG224',     serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'',           issue:'',                         date:'2026-05-03', usedParts:[]},
+  {id:'REC_18',customerName:'延時 暁寿',   machine:'だいこん収穫機', maker:'井関',     model:'VHD1250',   serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'2026-04-25', issue:'',                         date:'2026-05-03', usedParts:[]},
+  {id:'REC_19',customerName:'森山 光治',   machine:'甘諸ハーベスタ', maker:'ニプロ',   model:'GZA651',    serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'2026-07-25', issue:'点検整備',                 date:'2026-05-03', usedParts:[]},
+  {id:'REC_20',customerName:'東丸 和久',   machine:'甘諸ハーベスタ', maker:'ニプロ',   model:'GRA650',    serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'2026-07-25', issue:'点検整備',                 date:'2026-05-03', usedParts:[]},
+  {id:'REC_21',customerName:'東丸 和久',   machine:'甘諸ハーベスタ', maker:'ニプロ',   model:'GZA651',    serialNo:'', hourMeter:'',     status:'修理依頼', dueDate:'2026-07-25', issue:'点検整備',                 date:'2026-05-03', usedParts:[]}
+];
+const SCREENSHOT_DEMOS = [
+  {id:'DEMO_1', customerName:'立和田', targetMachine:'トラクター', maker:'', model:'TJW1233', targetMachine2:'プラソイラ', maker2:'', model2:'J805', targetMachine3:'', maker3:'', model3:'', date:'2026-05-15', status:'実演予定'},
+  {id:'DEMO_2', customerName:'立和田', targetMachine:'トラクター', maker:'', model:'M135GEP', targetMachine2:'コンビソイラ', maker2:'', model2:'H604', targetMachine3:'グランドハロー', maker3:'', model3:'LXE2630HS-2LH', date:'2026-10-31', status:'実演予定'}
+];
+const SCREENSHOT_PARTS = [
+  {id:'PART_1', customerName:'', name:'ネット駆動スプリング', maker:'', partNo:'', qty:0, price:0, status:'発注済', orderDate:'2026-04-30'}
+];
+const SCREENSHOT_PRODUCTS = [
+  {id:'PROD_1', productName:'ドライブハロー HS2430',       maker:'ニプロ',   model:'HS2430',    serialNo:'', customer:'東丸 和久',        status:'受注', deliveryDate:'2026-05-25', price:0},
+  {id:'PROD_2', productName:'甘諸ツルキリ機 FNC1002K',     maker:'ニプロ',   model:'FNC1002K',  serialNo:'', customer:'満行 翼',           status:'受注', deliveryDate:'2026-07-20', price:0},
+  {id:'PROD_3', productName:'甘諸ハーベスタ GZA651',       maker:'ニプロ',   model:'GZA651',    serialNo:'', customer:'満行 翼',           status:'受注', deliveryDate:'2026-07-25', price:0},
+  {id:'PROD_4', productName:'中古トラクター YT333RJ',      maker:'ヤンマー', model:'YT333RJ',   serialNo:'', customer:'松元 崇',           status:'受注', deliveryDate:'2026-08-31', price:0},
+  {id:'PROD_5', productName:'中古田植機 RPQ40DL',          maker:'',         model:'RPQ40DL',   serialNo:'', customer:'',                  status:'受注', deliveryDate:'',           price:0},
+  {id:'PROD_6', productName:'グランドソワー RS1411',       maker:'',         model:'RS1411',    serialNo:'', customer:'',                  status:'受注', deliveryDate:'',           price:0},
+  {id:'PROD_7', productName:'マルチデガー',                maker:'東洋農機', model:'TMD1V24',   serialNo:'', customer:'延時 暁寿',         status:'受注', deliveryDate:'2026-07-31', price:5026120},
+  {id:'PROD_8', productName:'急速充電器',                  maker:'やまびこ', model:'LCJQ-560D', serialNo:'', customer:'社会福祉法人エンゼル会', status:'受注', deliveryDate:'2026-05-01', price:107000},
+  {id:'PROD_9', productName:'刈払機',                      maker:'新ダイワ', model:'RA3021UT',  serialNo:'', customer:'川崎 ちえ子',       status:'受注', deliveryDate:'2026-05-06', price:55000}
+];
+const SCREENSHOT_CUSTOMERS = [
+  {id:'CUST_1', name:'山下 林作',           phone:'', address:'', memo:''},
+  {id:'CUST_2', name:'渡邊 誠',             phone:'', address:'', memo:''},
+  {id:'CUST_3', name:'上丸 勝芳',           phone:'', address:'', memo:''},
+  {id:'CUST_4', name:'徳丸 秋雄',           phone:'', address:'', memo:''},
+  {id:'CUST_5', name:'吉満 忠吉',           phone:'', address:'', memo:''},
+  {id:'CUST_6', name:'徳丸 勉',             phone:'', address:'', memo:''},
+  {id:'CUST_7', name:'東丸 和久',           phone:'', address:'', memo:''},
+  {id:'CUST_8', name:'森山 光治',           phone:'', address:'', memo:''},
+  {id:'CUST_9', name:'立和田',               phone:'', address:'', memo:''},
+  {id:'CUST_10',name:'満行 翼',             phone:'', address:'', memo:''},
+  {id:'CUST_11',name:'松元 崇',             phone:'', address:'', memo:''},
+  {id:'CUST_12',name:'上丸 文友',           phone:'', address:'', memo:''},
+  {id:'CUST_13',name:'野村 治雄',           phone:'', address:'', memo:''},
+  {id:'CUST_14',name:'園田 正志',           phone:'', address:'', memo:''},
+  {id:'CUST_15',name:'山田',                 phone:'', address:'', memo:''},
+  {id:'CUST_16',name:'今村 三男',           phone:'', address:'', memo:''},
+  {id:'CUST_17',name:'延時 暁寿',           phone:'', address:'', memo:''},
+  {id:'CUST_18',name:'グッドカンパニー',    phone:'', address:'', memo:''},
+  {id:'CUST_19',name:'社会福祉法人エンゼル会', phone:'', address:'', memo:''},
+  {id:'CUST_20',name:'川崎 ちえ子',         phone:'', address:'', memo:''}
+];
+
+const SCREENSHOT_QUOTES = [
+  {id:'Q_REC_1', estNo:'', estDate:'2026-04-30', expDate:'2026-08-31', delivDate:'2026-07-31',
+   delivPlace:'貴指定場所', payMethod:'口座振替', toName:'延時 暁寿', subject:'マルチデガー',
+   qItems:[
+     {name:'マルチデガー',    brand:'東洋農機', model:'TMD1V24',   qty:1, price:4358000, note:''},
+     {name:'揺さぶり前側',   brand:'〃',       model:'TMD1V24-B', qty:1, price:105600,  note:''},
+     {name:'揺さぶり後ろ側', brand:'〃',       model:'TMD1V24-C', qty:1, price:105600,  note:''},
+     {name:'',brand:'',model:'',qty:'',price:'',note:''},{name:'',brand:'',model:'',qty:'',price:'',note:''},
+     {name:'',brand:'',model:'',qty:'',price:'',note:''},{name:'',brand:'',model:'',qty:'',price:'',note:''},
+     {name:'',brand:'',model:'',qty:'',price:'',note:''},{name:'',brand:'',model:'',qty:'',price:'',note:''},
+     {name:'',brand:'',model:'',qty:'',price:'',note:''},{name:'',brand:'',model:'',qty:'',price:'',note:''},
+     {name:'',brand:'',model:'',qty:'',price:'',note:''},{name:'',brand:'',model:'',qty:'',price:'',note:''},
+     {name:'',brand:'',model:'',qty:'',price:'',note:''},{name:'',brand:'',model:'',qty:'',price:'',note:''},
+     {name:'',brand:'',model:'',qty:'',price:'',note:''},{name:'',brand:'',model:'',qty:'',price:'',note:''},
+     {name:'',brand:'',model:'',qty:'',price:'',note:''},{name:'',brand:'',model:'',qty:'',price:'',note:''},
+     {name:'',brand:'',model:'',qty:'',price:'',note:''}
+   ], total:5026120, note:''}
 ];
 const SCREENSHOT_DEMOS = [
   {id:'DEMO_1', customerName:'立和田', targetMachine:'トラクター', maker:'', model:'TJW1233', targetMachine2:'プラソイラ', maker2:'', model2:'J805', date:'2026-05-15', status:'実演予定'},
