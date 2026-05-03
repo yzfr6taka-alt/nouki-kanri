@@ -1213,120 +1213,42 @@ const SCREENSHOT_CUSTOMERS = [
   {id:'CUST_13',name:'園田 正志',  phone:'', address:'', memo:''},
   {id:'CUST_14',name:'山田',        phone:'', address:'', memo:''}
 ];
-// --- 設定・定数 ---
-const SYNC_INTERVAL_MS = 30000; // 同期処理の間隔（30秒）
 
-/**
- * スクリーンショットからのデータ復元処理
- */
-function restoreFromScreenshots() {
-  // 1. データが存在するかどうかの安全確認
-  if (!SCREENSHOT_REPAIRS || SCREENSHOT_REPAIRS.length === 0) {
-    alert('復元するデータが見つかりません。');
-    return;
-  }
-
-  // 2. 件数を動的に表示（ハードコード「9件」の排除）
-  const confirmMsg = `スクリーンショットから確認できた修理データ${SCREENSHOT_REPAIRS.length}件を復元します。\n\n※ スクショに写っていなかったデータ（顧客・実演・製品・部品・見積書など）は手入力が必要です。\n\n復元しますか？`;
-  if (!confirm(confirmMsg)) return;
-
-  // 3. 参照渡しを防ぐため、スプレッド構文でコピーを代入
-  DB.repairs = [...SCREENSHOT_REPAIRS];
-
-  // 4. IDの衝突を防ぐためタイムスタンプを利用
-  const timestamp = Date.now();
-  DB.customers = SCREENSHOT_REPAIRS
-    .map((r, i) => ({
-      id: `CUSTREC_${timestamp}_${i}`, 
-      name: r.customerName,
-      phone: '',
-      address: '',
-      memo: '' // 既存データ構造に合わせてmemoを明記
-    }))
-    .filter((c, i, arr) => arr.findIndex(x => x.name === c.name) === i); // 名前で重複除去
-
+function restoreFromScreenshots(){
+  if(!confirm('スクリーンショットから確認できた修理データ9件を復元します。\n\n※ スクショに写っていなかったデータ（顧客・実演・製品・部品・見積書など）は手入力が必要です。\n\n復元しますか？')) return;
+  DB.repairs = SCREENSHOT_REPAIRS;
+  DB.customers = SCREENSHOT_REPAIRS.map((r,i)=>({id:'CUSTREC_'+i, name:r.customerName, phone:'', address:''}))
+    .filter((c,i,arr)=>arr.findIndex(x=>x.name===c.name)===i); // 重複除去
   DB.lastModified = new Date().toISOString();
-  
-  // 5. 保存処理のエラーハンドリング
-  try {
-    saveDB();
-  } catch (error) {
-    console.error('データベースの保存に失敗しました:', error);
-    alert('データの保存に失敗しました。容量不足などの可能性があります。');
-    return;
-  }
-
-  // 6. オプショナルチェーン（?.）でシンプルにDOM操作
-  document.getElementById('recoveryBanner')?.remove();
-  
+  saveDB();
+  const banner = document.getElementById('recoveryBanner');
+  if(banner) banner.remove();
   renderAll();
-
-  // 7. テンプレートリテラルで文字列結合を見やすく
-  alert(`✅ 復元完了！\n\n修理データ: ${DB.repairs.length}件\n顧客データ: ${DB.customers.length}件\n\n⚠️ スクリーンショットに写っていなかったデータは手入力してください。\n\n復元後、☁️ボタンで同期してください。`);
+  alert('✅ 復元完了！\n\n修理データ: '+DB.repairs.length+'件\n顧客データ: '+DB.customers.length+'件\n\n⚠️ スクリーンショットに写っていなかったデータは手入力してください。\n\n復元後、☁️ボタンで同期してください。');
 }
-/**
- * アプリの初期化処理
- * 全ての読み込みが完了してから実行する（フライング実行を防止）
- */
-window.addEventListener('load', async () => {
-  try {
-    loadDB();
-    
-    // データ存在チェック（DBが未定義の場合のエラーも防ぐ）
-    const keysToCheck = ['customers', 'repairs', 'demos', 'parts', 'products'];
-    const hasAnyData = typeof DB !== 'undefined' && DB && keysToCheck.some(k => DB[k] && DB[k].length > 0);
-    
-    if (!hasAnyData && typeof autoRestoreData === 'function') {
-      console.log('ローカルデータが空のため自動復元を実行します');
-      autoRestoreData();
-    }
 
-    // DOM要素の存在確認をしてからスタイル変更
-    const loadingScreen = document.getElementById('loading-screen');
-    const appScreen = document.getElementById('app');
-    if (loadingScreen) loadingScreen.style.display = 'none';
-    if (appScreen) appScreen.style.display = 'block';
-    
-    if (typeof renderAll === 'function') renderAll();
-
-    // 8. 非同期処理（クラウド同期）のエラーハンドリング
-    if (typeof gasUrl !== 'undefined' && gasUrl) {
-      try {
-        if (typeof showSyncBar === 'function') showSyncBar('☁️ クラウドから最新データを取得中...', 'syncing', false);
-        if (typeof syncToCloud === 'function') await syncToCloud(true);
-      } catch (syncError) {
-        console.error('初期同期に失敗しました:', syncError);
-      }
-
-      // 定期同期のセット
-      setInterval(() => {
-        if (typeof syncToCloud === 'function') syncToCloud(false).catch(console.error);
-      }, SYNC_INTERVAL_MS);
-    }
-  } catch (error) {
-    console.error('初期化処理中に予期せぬエラーが発生しました:', error);
-    alert(`起動中にエラーが発生しました。\n${error.message}`);
-    
-    // エラーで止まってもローディング画面は強制的に消す
-    const loadingScreen = document.getElementById('loading-screen');
-    const appScreen = document.getElementById('app');
-    if (loadingScreen) loadingScreen.style.display = 'none';
-    if (appScreen) appScreen.style.display = 'block';
+window.onload=async function(){
+  // ★ まず必ず画面を表示（クラウド同期を待たない）
+  loadDB();
+  const _hasAnyData=['customers','repairs','demos','parts','products'].some(k=>DB[k]&&DB[k].length>0);
+  if(!_hasAnyData){
+    autoRestoreData();
   }
-});
-
-/**
- * バックグラウンドから復帰した際の同期処理
- */
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && typeof gasUrl !== 'undefined' && gasUrl) {
-    if (typeof syncToCloud === 'function') {
-      syncToCloud(false).catch(e => console.error('バックグラウンド同期エラー:', e));
-    }
+  document.getElementById('loading-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+  renderAll();
+  // ★ クラウド同期は非同期でバックグラウンド実行（画面表示をブロックしない）
+  if(gasUrl){
+    setTimeout(async()=>{
+      showSyncBar('☁️ クラウドから最新データを取得中...','syncing',false);
+      try{await syncToCloud(true);}catch(e){showSyncBar('⚠️ 同期失敗: '+e.message,'error');}
+    }, 500);
   }
-});
-
-
+  setInterval(()=>{if(gasUrl)syncToCloud(false);},30000);
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible'&&gasUrl)syncToCloud(false);
+  });
+};
 </script>
 </body>
 </html>
