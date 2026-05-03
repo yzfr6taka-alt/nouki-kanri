@@ -1213,40 +1213,111 @@ const SCREENSHOT_CUSTOMERS = [
   {id:'CUST_13',name:'園田 正志',  phone:'', address:'', memo:''},
   {id:'CUST_14',name:'山田',        phone:'', address:'', memo:''}
 ];
+// --- 設定・定数 ---
+const SYNC_INTERVAL_MS = 30000; // 同期処理の間隔（30秒）
 
-function restoreFromScreenshots(){
-  if(!confirm('スクリーンショットから確認できた修理データ9件を復元します。\n\n※ スクショに写っていなかったデータ（顧客・実演・製品・部品・見積書など）は手入力が必要です。\n\n復元しますか？')) return;
-  DB.repairs = SCREENSHOT_REPAIRS;
-  DB.customers = SCREENSHOT_REPAIRS.map((r,i)=>({id:'CUSTREC_'+i, name:r.customerName, phone:'', address:''}))
-    .filter((c,i,arr)=>arr.findIndex(x=>x.name===c.name)===i); // 重複除去
+/**
+ * スクリーンショットからのデータ復元処理
+ */
+function restoreFromScreenshots() {
+  // 1. データが存在するかどうかの安全確認
+  if (!SCREENSHOT_REPAIRS || SCREENSHOT_REPAIRS.length === 0) {
+    alert('復元するデータが見つかりません。');
+    return;
+  }
+
+  // 2. 件数を動的に表示（ハードコード「9件」の排除）
+  const confirmMsg = `スクリーンショットから確認できた修理データ${SCREENSHOT_REPAIRS.length}件を復元します。\n\n※ スクショに写っていなかったデータ（顧客・実演・製品・部品・見積書など）は手入力が必要です。\n\n復元しますか？`;
+  if (!confirm(confirmMsg)) return;
+
+  // 3. 参照渡しを防ぐため、スプレッド構文でコピーを代入
+  DB.repairs = [...SCREENSHOT_REPAIRS];
+
+  // 4. IDの衝突を防ぐためタイムスタンプを利用
+  const timestamp = Date.now();
+  DB.customers = SCREENSHOT_REPAIRS
+    .map((r, i) => ({
+      id: `CUSTREC_${timestamp}_${i}`, 
+      name: r.customerName,
+      phone: '',
+      address: '',
+      memo: '' // 既存データ構造に合わせてmemoを明記
+    }))
+    .filter((c, i, arr) => arr.findIndex(x => x.name === c.name) === i); // 名前で重複除去
+
   DB.lastModified = new Date().toISOString();
-  saveDB();
-  const banner = document.getElementById('recoveryBanner');
-  if(banner) banner.remove();
+  
+  // 5. 保存処理のエラーハンドリング
+  try {
+    saveDB();
+  } catch (error) {
+    console.error('データベースの保存に失敗しました:', error);
+    alert('データの保存に失敗しました。容量不足などの可能性があります。');
+    return;
+  }
+
+  // 6. オプショナルチェーン（?.）でシンプルにDOM操作
+  document.getElementById('recoveryBanner')?.remove();
+  
   renderAll();
-  alert('✅ 復元完了！\n\n修理データ: '+DB.repairs.length+'件\n顧客データ: '+DB.customers.length+'件\n\n⚠️ スクリーンショットに写っていなかったデータは手入力してください。\n\n復元後、☁️ボタンで同期してください。');
+
+  // 7. テンプレートリテラルで文字列結合を見やすく
+  alert(`✅ 復元完了！\n\n修理データ: ${DB.repairs.length}件\n顧客データ: ${DB.customers.length}件\n\n⚠️ スクリーンショットに写っていなかったデータは手入力してください。\n\n復元後、☁️ボタンで同期してください。`);
 }
 
-window.onload=async function(){
-  loadDB();
-  // データが空なら自動復元（localStorageクリア後も対応）
-  const _hasAnyData=['customers','repairs','demos','parts','products'].some(k=>DB[k]&&DB[k].length>0);
-  if(!_hasAnyData){
-    console.log('ローカルデータが空のため自動復元を実行');
-    autoRestoreData();
+/**
+ * アプリの初期化処理
+ * window.onloadより早く実行されるDOMContentLoadedを採用
+ */
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    loadDB();
+    
+    // データ存在チェック（DBオブジェクト自体がnullでないかも確認）
+    const keysToCheck = ['customers', 'repairs', 'demos', 'parts', 'products'];
+    const hasAnyData = DB && keysToCheck.some(k => DB[k] && DB[k].length > 0);
+    
+    if (!hasAnyData && typeof autoRestoreData === 'function') {
+      console.log('ローカルデータが空のため自動復元を実行します');
+      autoRestoreData();
+    }
+
+    // DOM要素の存在確認をしてからスタイル変更
+    const loadingScreen = document.getElementById('loading-screen');
+    const appScreen = document.getElementById('app');
+    if (loadingScreen) loadingScreen.style.display = 'none';
+    if (appScreen) appScreen.style.display = 'block';
+    
+    renderAll();
+
+    // 8. 非同期処理（クラウド同期）のエラーハンドリング
+    if (typeof gasUrl !== 'undefined' && gasUrl) {
+      try {
+        showSyncBar('☁️ クラウドから最新データを取得中...', 'syncing', false);
+        await syncToCloud(true);
+      } catch (syncError) {
+        console.error('初期同期に失敗しました:', syncError);
+        // エラー状態をユーザーに伝える処理があればここに追加
+      }
+
+      // 定期同期のセット
+      setInterval(() => syncToCloud(false).catch(console.error), SYNC_INTERVAL_MS);
+    }
+  } catch (error) {
+    console.error('初期化処理中に予期せぬエラーが発生しました:', error);
   }
-  document.getElementById('loading-screen').style.display='none';
-  document.getElementById('app').style.display='block';
-  renderAll();
-  if(gasUrl){
-    showSyncBar('☁️ クラウドから最新データを取得中...','syncing',false);
-    await syncToCloud(true);
+});
+
+/**
+ * バックグラウンドから復帰した際の同期処理
+ * 階層（ネスト）を浅くするため、初期化処理の外に分離
+ */
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && typeof gasUrl !== 'undefined' && gasUrl) {
+    syncToCloud(false).catch(e => console.error('バックグラウンド同期エラー:', e));
   }
-  setInterval(()=>{if(gasUrl)syncToCloud(false);},30000);
-  document.addEventListener('visibilitychange',()=>{
-    if(document.visibilityState==='visible'&&gasUrl)syncToCloud(false);
-  });
-};
+});
+
 </script>
 </body>
 </html>
