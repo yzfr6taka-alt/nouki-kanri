@@ -265,19 +265,27 @@
       DB.lastModified = new Date().toISOString();
       try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e){}
       scheduleSync();
-    }
     function loadDB() {
-      try {
-        const d = localStorage.getItem('agri_db');
-        if (d) {
-          const p = JSON.parse(d);
-          ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k => { if(p[k]) DB[k]=p[k]; });
-          if(p.lastModified) DB.lastModified = p.lastModified;
+  try {
+    const d = localStorage.getItem('agri_db');
+    if (d) {
+      const p = JSON.parse(d);
+      ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k => { if(p[k]) DB[k]=p[k]; });
+      if(p.lastModified) {
+        // ★スマホ内に染み付いた「未来の時間」を現在時刻にリセットする毒抜き処理
+        if (new Date(p.lastModified).getTime() > Date.now()) {
+          DB.lastModified = new Date().toISOString();
+          localStorage.setItem('agri_db', JSON.stringify(DB)); 
+        } else {
+          DB.lastModified = p.lastModified;
         }
-      } catch(e){}
-      try { const k = localStorage.getItem('agri_api_key'); if(k) apiKey=k; } catch(e){}
-      try { const g = localStorage.getItem('agri_gas_url'); if(g) gasUrl=g; } catch(e){}
+      }
     }
+  } catch(e){}
+  try { const k = localStorage.getItem('agri_api_key'); if(k) apiKey=k; } catch(e){}
+  try { const g = localStorage.getItem('agri_gas_url'); if(g) gasUrl=g; } catch(e){}
+}
+
 
     // --- クラウド同期関連 ---
     function showSyncBar(msg, type, autohide=true) {
