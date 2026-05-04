@@ -69,7 +69,6 @@
     #syncBar.error { background: #e74c3c; color: #fff; }
     #_print_frame { position: fixed; top: -9999px; left: -9999px; width: 210mm; height: 297mm; border: none; }
     
-    /* ステータスバッジ色分け用の追加スタイル */
     .alert-type-repair { border-left-color: #e74c3c !important; }
     .alert-type-part { border-left-color: #f39c12 !important; }
     .alert-type-product { border-left-color: #27ae60 !important; }
@@ -228,7 +227,6 @@
           <button onclick="testSync()" style="background:#2980b9;color:#fff;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;width:100%;margin-bottom:8px;">🔗 接続テスト</button>
           <div id="testResult" style="font-size:12px;min-height:18px;"></div>
         </div>
-        
         <button onclick="saveApiKey()" class="save-btn" style="width:100%;">💾 保存する</button>
       </div>
     </div>
@@ -243,7 +241,6 @@
     const TABS = ['ホーム','顧客','修理','実演','部品','製品','見積書'];
     let currentTab = 0;
     
-    // ★ ステータス色分け定義
     const STATUS_COLORS = {
       '修理依頼':'#e74c3c','見積中':'#9b59b6','部品待ち':'#f39c12','修理中':'#e67e22',
       '完了(未請求)':'#3498db','請求済':'#95a5a6',
@@ -260,34 +257,33 @@
     
     let apiKey = ''; let gasUrl = ''; let syncTimer = null; let isSyncing = false;
 
-    // --- データ保存と読み込み ---
     function saveDB() {
       DB.lastModified = new Date().toISOString();
       try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e){}
       scheduleSync();
-    function loadDB() {
-  try {
-    const d = localStorage.getItem('agri_db');
-    if (d) {
-      const p = JSON.parse(d);
-      ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k => { if(p[k]) DB[k]=p[k]; });
-      if(p.lastModified) {
-        // ★スマホ内に染み付いた「未来の時間」を現在時刻にリセットする毒抜き処理
-        if (new Date(p.lastModified).getTime() > Date.now()) {
-          DB.lastModified = new Date().toISOString();
-          localStorage.setItem('agri_db', JSON.stringify(DB)); 
-        } else {
-          DB.lastModified = p.lastModified;
-        }
-      }
     }
-  } catch(e){}
-  try { const k = localStorage.getItem('agri_api_key'); if(k) apiKey=k; } catch(e){}
-  try { const g = localStorage.getItem('agri_gas_url'); if(g) gasUrl=g; } catch(e){}
-}
+    
+    function loadDB() {
+      try {
+        const d = localStorage.getItem('agri_db');
+        if (d) {
+          const p = JSON.parse(d);
+          ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k => { if(p[k]) DB[k]=p[k]; });
+          if(p.lastModified) {
+            // ★スマホ内に染み付いた「未来の時間」を現在時刻にリセットする毒抜き処理
+            if (new Date(p.lastModified).getTime() > Date.now()) {
+              DB.lastModified = new Date().toISOString();
+              try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e){}
+            } else {
+              DB.lastModified = p.lastModified;
+            }
+          }
+        }
+      } catch(e){}
+      try { const k = localStorage.getItem('agri_api_key'); if(k) apiKey=k; } catch(e){}
+      try { const g = localStorage.getItem('agri_gas_url'); if(g) gasUrl=g; } catch(e){}
+    }
 
-
-    // --- クラウド同期関連 ---
     function showSyncBar(msg, type, autohide=true) {
       const bar = document.getElementById('syncBar');
       bar.textContent = msg; bar.className = 'show ' + type;
@@ -308,6 +304,7 @@
         return res;
       } finally { clearTimeout(timer); }
     }
+    
     async function syncToCloud(showResult=false) {
       if(!gasUrl || isSyncing) return;
       isSyncing = true;
@@ -435,7 +432,6 @@
       return 'https://www.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(title) + '&dates=' + d + '/' + dEnd + '&details=' + encodeURIComponent(details);
     }
 
-    // --- AI一括入力機能 ---
     async function callAI(prompt) {
       if (!apiKey.trim()) throw new Error('APIキーが設定されていません。🔑ボタンから設定してください。');
       const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -493,7 +489,6 @@
           const url = buildCalUrl('【実演予定】'+r.demo.customerName+' 様 '+(r.demo.targetMachine||''), r.demo.date, 'メーカー: '+(r.demo.maker||'')+'\n型式: '+(r.demo.model||''));
           msgs.push('🌾 実演登録 <a href="'+url+'" target="_blank" style="margin-left:8px;background:#4285f4;color:#fff;padding:4px 8px;border-radius:6px;text-decoration:none;font-size:11px;display:inline-block;">📅 カレンダー</a>');
         }
-        
         if (r.hasParts && Array.isArray(r.parts)) {
           r.parts.forEach((pt, idx) => {
             if (pt && pt.name) {
@@ -503,7 +498,6 @@
             }
           });
         }
-        
         if (r.hasProducts && Array.isArray(r.products)) {
           r.products.forEach((pd, idx) => {
             if (pd && pd.productName) {
@@ -513,7 +507,6 @@
             }
           });
         }
-        
         if (r.hasQuote && r.quote) {
           const src = r.quote.items || [];
           const newQI = [];
@@ -527,7 +520,6 @@
           DB.quotes.push(nq);
           msgs.push('📄 見積書自動作成（¥'+total.toLocaleString()+'） <a onclick="openQuoteEditor(\''+nq.id+'\')" style="margin-left:8px;background:#8e44ad;color:#fff;padding:4px 8px;border-radius:6px;text-decoration:none;font-size:11px;display:inline-block;cursor:pointer;">📝 開く</a>');
         }
-        
         saveDB();
         document.getElementById('smartText').value = '';
         if (msgs.length > 0) {
@@ -545,7 +537,6 @@
       btn.textContent = '🤖 AI自動振り分け・登録'; btn.disabled = false;
     }
 
-    // --- UI・画面描画 ---
     function toggleDark() { document.body.classList.toggle('dark'); }
     function openSmartModal() { document.getElementById('smartModal').style.display = 'flex'; document.getElementById('smartStatus').style.display = 'none'; }
     function closeSmartOnBg(e) { if(e.target.id === 'smartModal') document.getElementById('smartModal').style.display = 'none'; }
@@ -774,7 +765,6 @@
       window.open(buildCalUrl(title, dateVal, details), '_blank');
     }
 
-    // --- 詳細モーダル・編集機能 ---
     let quickDefaults = {};
     function quickReg(tab, defaults) {
       quickDefaults = defaults || {};
@@ -934,7 +924,6 @@
       if (modalState.mode === 'new') DB[dbKey].push(item);
       else DB[dbKey] = DB[dbKey].map(x => String(x.id) === String(item.id) ? item : x);
       
-      // 製品の10行一括登録
       if (modalState.tab === 5 && modalState.mode === 'new') {
         const newIdBase = Date.now();
         for(let i=2; i<=10; i++) {
@@ -950,7 +939,6 @@
         }
       }
       
-      // 部品の10行一括登録
       if (modalState.tab === 4 && modalState.mode === 'new') {
         const newIdBase = Date.now();
         for(let i=2; i<=10; i++) {
@@ -976,7 +964,6 @@
       saveDB(); closeModal(); renderAll();
     }
 
-    // --- 見積書機能 ---
     let currentQuoteId = ''; const ROWS = 20; let qItems = [];
     function resetQItems() { qItems=[]; for(let i=0; i<ROWS; i++) qItems.push({name:'',brand:'',model:'',qty:'',price:'',note:''}); }
     resetQItems();
@@ -1082,7 +1069,6 @@
       [['subtotal',sub],['tax',tax],['total',sub+tax]].forEach(([id,v]) => { const el = document.getElementById(id); if(el) el.textContent = '¥'+v.toLocaleString(); });
     }
 
-    // --- 見積書プレビュー・印刷関連 ---
     function getStyles() { return '*{box-sizing:border-box;margin:0;padding:0;}body{font-family:\'MS Mincho\',\'Hiragino Mincho Pro\',serif;}@page{size:A4 portrait;margin:0;}@media print{body{margin:0;padding:0;-webkit-print-color-adjust:exact;color-adjust:exact;}}'; }
     function fmtDate(d) { if(!d) return ''; const dt = new Date(d); return '令和'+(dt.getFullYear()-2018)+'年'+(dt.getMonth()+1)+'月'+dt.getDate()+'日'; }
     function escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -1117,7 +1103,7 @@
         + '<div style="text-align:center;font-size:24px;letter-spacing:15mm;margin-bottom:8mm;padding-left:15mm;">見　積　書</div>'
         + '<div style="text-align:right;font-size:10px;margin-bottom:4mm;">'+fmtDate(date)+'</div>'
         + '<div style="margin-bottom:4mm;text-align:left;"><div style="display:inline-flex;align-items:flex-end;border-bottom:1.5px solid #000;padding-bottom:1px;margin-bottom:2mm;min-width:45mm;white-space:nowrap;"><div style="flex:1;"></div><div style="font-size:16px;font-weight:bold;text-align:justify;text-align-last:justify;min-width:25mm;">'+escH(tN)+'</div><div style="font-size:16px;font-weight:bold;margin-left:1.5mm;">様</div></div><div style="font-size:11px;letter-spacing:2px;">下　記　の　通　り　御　見　積　致　し　ま　す　。</div></div>'
-        + '<div style="display:flex;justify-content:space-between;margin-bottom:6mm;"><div><table style="font-size:10px;border-collapse:collapse;text-align:left;"><tr><td style="padding:1.5px 0;width:15mm;text-align:justify;text-align-last:justify;">納入期日</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">'+fmtDate(dD)+'</td></tr><tr><td style="padding:1.5px 0;text-align:justify;text-align-last:justify;">納入場所</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">'+escH(dP)+'</td></tr><tr><td style="padding:1.5px 0;text-align:justify;text-align-last:justify;">取引方法</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">'+escH(pM)+'</td></tr></table></div><div style="font-size:10px;line-height:1.6;text-align:left;">鹿児島県曽於市大隅町岩川5591番地<br>そ  お  鹿  児  島  農  業  協  同  組  合<br>代表理事組合長　　  竹 内　和 久<br><div style="text-align:right;margin-top:1mm;">財部農機センター</div></div></div>'
+        + '<div style="display:flex;justify-content:space-between;margin-bottom:6mm;"><div><table style="font-size:10px;border-collapse:collapse;text-align:left;"><tr><td style="padding:1.5px 0;width:15mm;text-align:justify;text-align-last:justify;">納入期日</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">'+fmtDate(dD)+'</td></tr><tr><td style="padding:1.5px 0;text-align:justify;text-align-last:justify;">納入場所</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">'+escH(dP)+'</td></tr><tr><td style="padding:1.5px 0;text-align:justify;text-align-last:justify;">取引方法</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">'+escH(pM)+'</td></tr></table></div><div style="font-size:10px;line-height:1.6;text-align:left;">鹿児島県曽於市大隅町岩川5591番地<br>そ お 鹿 児 島 農 業 協 同 組 合<br>代 表 理 事 組 合 長　　竹 内　和 久<br><div style="text-align:right;margin-top:1mm;">財部農機センター</div></div></div>'
         + '<div style="display:flex;align-items:flex-end;margin-bottom:2mm;"><div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1.5px solid #000;width:60mm;padding-bottom:1px;"><div style="font-size:16px;font-weight:bold;">合計金額 ￥</div><div style="text-align:right;flex:1;"><span style="font-size:18px;font-weight:bold;">'+total.toLocaleString()+'</span><span style="font-size:16px;font-weight:bold;"> 円也</span></div></div><div style="font-size:10px;margin-left:4mm;padding-bottom:1px;">（内消費税　'+tax.toLocaleString()+'　円）</div></div>'
         + '<div style="position:relative;width:170mm;margin-top:3mm;">' + svgLine
         + '<table style="width:170mm;border-collapse:collapse;table-layout:fixed;"><colgroup><col style="width:8mm"><col style="width:45mm"><col style="width:15mm"><col style="width:25mm"><col style="width:12mm"><col style="width:20mm"><col style="width:20mm"><col style="width:25mm"></colgroup>'
@@ -1183,12 +1169,11 @@
       }
     }
 
-    // --- 復元用定数と初期化 ---
     function autoRestoreData() {
       DB.repairs = SCREENSHOT_REPAIRS; DB.demos = SCREENSHOT_DEMOS;
       DB.parts = SCREENSHOT_PARTS; DB.products = SCREENSHOT_PRODUCTS;
       DB.customers = SCREENSHOT_CUSTOMERS; DB.quotes = SCREENSHOT_QUOTES;
-      DB.lastModified = new Date(Date.now()).toISOString();
+      DB.lastModified = new Date().toISOString();
       try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e){}
       renderAll();
       showSyncBar('✅ データを復元しました（修理'+DB.repairs.length+'件 製品'+DB.products.length+'件）', 'ok');
