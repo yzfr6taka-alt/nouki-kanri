@@ -174,7 +174,14 @@
         let DB={settings:[{id:1,targetSales:10000000,currentSales:0}],customers:[],repairs:[],demos:[],parts:[],products:[],quotes:[],lastModified:new Date().toISOString()};
         let apiKey='',gasUrl='',syncTimer=null,isSyncing=false;
 
-        function saveDB(){DB.lastModified=new Date().toISOString();try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}scheduleSync();}
+        function saveDB(){
+            // ★改善: 単調増加タイムスタンプ（複数端末での競合を防ぐ）
+            const now=Date.now();
+            const cur=new Date(DB.lastModified||0).getTime();
+            DB.lastModified=new Date(Math.max(now,cur+1000)).toISOString();
+            try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}
+            scheduleSync();
+        }
         function loadDB(){try{const d=localStorage.getItem('agri_db');if(d){const p=JSON.parse(d);['customers','repairs','demos','parts','products','settings','quotes'].forEach(k=>{if(p[k])DB[k]=p[k];});if(p.lastModified)DB.lastModified=p.lastModified;}}catch(e){}try{const k=localStorage.getItem('agri_api_key');if(k)apiKey=k;}catch(e){}try{const g=localStorage.getItem('agri_gas_url');if(g)gasUrl=g;}catch(e){}}
         function showSyncBar(msg,type,autohide=true){const bar=document.getElementById('syncBar');bar.textContent=msg;bar.className='show '+type;if(autohide)setTimeout(()=>{bar.className='';},3500);}
         function updateSyncLabel(msg){const el=document.getElementById('syncLabel');if(el)el.textContent=msg;}
