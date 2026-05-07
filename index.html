@@ -124,7 +124,7 @@
         </div>
         <div class="action-row">
             <button class="btn-pdf" onclick="savePDF()">💾 PDF保存</button>
-            <button class="btn-line" onclick="shareAsPDF()">📤 LINEにPDF送信</button>
+            <button class="btn-line" onclick="shareDoc()">📤 LINE共有</button>
             <button class="btn-print" onclick="printDoc()">🖨️ 印刷</button>
         </div>
         <div style="overflow-x:auto;padding:8px;background:#555;"><div id="preview-inner" style="background:#fff;margin:0 auto;width:794px;"></div></div>
@@ -157,13 +157,7 @@
                     <div style="font-size:11px;color:#555;line-height:1.7;margin-bottom:10px;">複数スマホでデータを共有できます。<br>Google Apps ScriptのURLを入力してください。</div>
                     <label class="field-label">GAS デプロイ URL</label>
                     <input type="url" id="gasUrlInput" class="field-input" placeholder="https://script.google.com/macros/s/...">
-                    <button onclick="testSync()" style="background:#2980b9;color:#fff;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;width:100%;margin-bottom:6px;">🔗 接続テスト</button>
-                    <button onclick="copyGasUrl()" style="background:#27ae60;color:#fff;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;width:100%;margin-bottom:6px;">📋 GAS URLをコピー（他のスマホに共有）</button>
-                    <div style="display:flex;gap:6px;margin-bottom:8px;">
-                        <button onclick="forceGetFromCloud()" style="background:#8e44ad;color:#fff;border:none;border-radius:8px;padding:9px;font-size:11px;font-weight:700;cursor:pointer;flex:1;">⬇️ クラウドから強制取得</button>
-                        <button onclick="forcePushToCloud()" style="background:#e67e22;color:#fff;border:none;border-radius:8px;padding:9px;font-size:11px;font-weight:700;cursor:pointer;flex:1;">⬆️ このスマホから強制送信</button>
-                    </div>
-                    <div style="font-size:10px;color:#888;margin-bottom:6px;">※強制取得/送信はタイムスタンプを無視して同期します</div>
+                    <button onclick="testSync()" style="background:#2980b9;color:#fff;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;width:100%;margin-bottom:8px;">🔗 接続テスト</button>
                     <div id="testResult" style="font-size:12px;min-height:18px;"></div>
                 </div>
                 <button onclick="saveApiKey()" class="save-btn" style="width:100%;">💾 保存する</button>
@@ -201,23 +195,7 @@
             scheduleSync();
         }
         function loadDB(){
-            try{
-                const d=localStorage.getItem('agri_db');
-                if(d){
-                    const p=JSON.parse(d);
-                    ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k=>{if(p[k])DB[k]=p[k];});
-                    if(p.lastModified){
-                        DB.lastModified=p.lastModified;
-                        // ★ 旧バグ対策: 未来のタイムスタンプ（旧コードが「明日」をセットしていた）を検出してリセット
-                        const lmTime=new Date(DB.lastModified).getTime();
-                        if(lmTime>Date.now()+3600000){ // 1時間以上未来ならリセット
-                            console.warn('未来タイムスタンプを検出→リセット:',DB.lastModified);
-                            DB.lastModified='2020-01-01T00:00:00.000Z';
-                            try{p.lastModified='2020-01-01T00:00:00.000Z';localStorage.setItem('agri_db',JSON.stringify(p));}catch(e){}
-                        }
-                    }
-                }
-            }catch(e){}
+            try{const d=localStorage.getItem('agri_db');if(d){const p=JSON.parse(d);['customers','repairs','demos','parts','products','settings','quotes'].forEach(k=>{if(p[k])DB[k]=p[k];});if(p.lastModified)DB.lastModified=p.lastModified;}}catch(e){}
             try{const k=localStorage.getItem('agri_api_key');if(k)apiKey=k;}catch(e){}
             try{const g=localStorage.getItem('agri_gas_url');if(g)gasUrl=g;}catch(e){}
         }
@@ -238,13 +216,8 @@
                 let serverData;
                 try{serverData=JSON.parse(getText);}catch(e){serverData={empty:true};}
                 if(serverData&&!serverData.empty){
-                    let serverTime=new Date(serverData.lastModified||0).getTime();
+                    const serverTime=new Date(serverData.lastModified||0).getTime();
                     const localTime=new Date(DB.lastModified||0).getTime();
-                    // ★ 旧バグ対策: サーバーのタイムスタンプが1時間以上未来ならリセット
-                    if(serverTime>Date.now()+3600000){
-                        console.warn('サーバーの未来タイムスタンプを検出:',serverData.lastModified);
-                        serverTime=0;
-                    }
                     if(serverTime>localTime){
                         const serverHasData=['customers','repairs','demos','parts','products','quotes'].some(k=>serverData[k]&&serverData[k].length>0);
                         const localHasData=['customers','repairs','demos','parts','products','quotes'].some(k=>DB[k]&&DB[k].length>0);
@@ -295,54 +268,7 @@
         async function testSync(){const url=document.getElementById('gasUrlInput').value.trim();if(!url){document.getElementById('testResult').textContent='⚠️ URLを入力してください';return;}document.getElementById('testResult').textContent='🔄 接続テスト中...';try{const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),15000);const res=await fetch(url,{method:'GET',cache:'no-cache',credentials:'omit',signal:controller.signal});clearTimeout(timer);await res.json();document.getElementById('testResult').innerHTML='<span style="color:#27ae60;font-weight:bold;">✅ 接続成功！データ共有できます</span>';}catch(e){let msg=e.name==='AbortError'?'タイムアウト（15秒）':e.message;document.getElementById('testResult').innerHTML='<span style="color:#e74c3c;">❌ 接続失敗: '+msg+'</span>';}}
         function openApiKey(){document.getElementById('apiKeyInput').value=apiKey;document.getElementById('gasUrlInput').value=gasUrl;document.getElementById('testResult').textContent='';document.getElementById('apiKeyModal').style.display='flex';}
         function closeApiKey(){document.getElementById('apiKeyModal').style.display='none';}
-        function saveApiKey(){apiKey=document.getElementById('apiKeyInput').value.trim();gasUrl=document.getElementById('gasUrlInput').value.trim();try{localStorage.setItem('agri_api_key',apiKey);}catch(e){}try{localStorage.setItem('agri_gas_url',gasUrl);}catch(e){}closeApiKey();renderAll();alert('設定を保存しました');if(gasUrl)syncToCloud(true);}
-        // ★ GAS URLを他のスマホに共有するためのコピー機能
-        function copyGasUrl(){const url=document.getElementById('gasUrlInput').value.trim();if(!url){alert('先にGAS URLを入力してください');return;}if(navigator.share){navigator.share({title:'農機管理PRO GAS URL',text:'農機管理PROのGAS URL:\n'+url+'\n\n他のスマホで🔑ボタンからこのURLを貼り付けてください。'}).catch(()=>{});return;}if(navigator.clipboard){navigator.clipboard.writeText(url).then(()=>alert('GAS URLをコピーしました！\n\n他のスマホで農機管理PROを開き、🔑ボタン→GAS URLに貼り付けてください。'));}else{prompt('以下のURLをコピーして他のスマホの🔑設定に貼り付けてください：',url);}}
-
-        // ★ 強制クラウド取得（タイムスタンプ無視でGASのデータをそのまま取得）
-        async function forceGetFromCloud(){
-            const url=document.getElementById('gasUrlInput').value.trim()||gasUrl;
-            if(!url){alert('GAS URLが未設定です');return;}
-            if(!confirm('クラウドのデータをこのスマホに強制取得します。\nローカルのデータは上書きされます。\nよろしいですか？'))return;
-            closeApiKey();
-            showSyncBar('⬇️ クラウドから強制取得中...','syncing',false);
-            try{
-                const res=await fetchWithTimeout(url,{method:'GET',cache:'no-cache'});
-                const text=await res.text();
-                let data;
-                try{data=JSON.parse(text);}catch(e){throw new Error('GASの応答が不正です: '+text.slice(0,80));}
-                if(!data||data.empty){showSyncBar('⚠️ クラウドにデータがありません','error');return;}
-                ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k=>{if(data[k])DB[k]=data[k];});
-                DB.lastModified=new Date().toISOString();
-                const removed=deduplicateCustomers();
-                try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}
-                renderAll();
-                showSyncBar('✅ クラウドから取得完了'+(removed>0?' (重複顧客'+removed+'件削除)':''),'ok');
-            }catch(e){showSyncBar('❌ 取得失敗: '+e.message,'error');}
-        }
-
-        // ★ 強制クラウド送信（このスマホのデータをGASに強制的に書き込む）
-        async function forcePushToCloud(){
-            const url=document.getElementById('gasUrlInput').value.trim()||gasUrl;
-            if(!url){alert('GAS URLが未設定です');return;}
-            const removed=deduplicateCustomers();
-            const counts='修理'+DB.repairs.length+'件 / 顧客'+DB.customers.length+'件 / 製品'+DB.products.length+'件';
-            if(!confirm('このスマホのデータをクラウドに強制送信します。\n'+counts+'\n\nクラウドの既存データは上書きされます。\nよろしいですか？'))return;
-            closeApiKey();
-            DB.lastModified=new Date().toISOString();
-            try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}
-            showSyncBar('⬆️ クラウドに強制送信中...','syncing',false);
-            try{
-                const res=await fetchWithTimeout(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(DB)});
-                const text=await res.text();
-                let result;
-                try{result=JSON.parse(text);}catch(e){result={status:text.toLowerCase().includes('ok')?'ok':'error'};}
-                if(result.status==='ok'||result.status==='conflict'){
-                    renderAll();
-                    showSyncBar('✅ クラウドに送信完了'+(removed>0?' (重複顧客'+removed+'件削除)':''),'ok');
-                }else{showSyncBar('⚠️ 応答: '+JSON.stringify(result),'error');}
-            }catch(e){showSyncBar('❌ 送信失敗: '+e.message,'error');}
-        }
+        function saveApiKey(){apiKey=document.getElementById('apiKeyInput').value.trim();gasUrl=document.getElementById('gasUrlInput').value.trim();try{localStorage.setItem('agri_api_key',apiKey);}catch(e){}try{localStorage.setItem('agri_gas_url',gasUrl);}catch(e){}closeApiKey();alert('設定を保存しました');if(gasUrl)syncToCloud(true);}
         function buildCalUrl(title,dateVal,details){let dt=dateVal||new Date().toISOString().slice(0,10);const d=dt.replace(/-/g,'');const s=new Date(dt);const e=new Date(s);e.setDate(s.getDate()+1);const dEnd=e.toISOString().slice(0,10).replace(/-/g,'');return 'https://www.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(title)+'&dates='+d+'/'+dEnd+'&details='+encodeURIComponent(details);}
 
         async function callAI(prompt){if(!apiKey.trim())throw new Error('APIキーが設定されていません。🔑ボタンから設定してください。');const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey.trim(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1500,messages:[{role:'user',content:prompt}]})});const data=await res.json();if(data.error)throw new Error(data.error.message);let raw='{}';if(data.content&&data.content[0]&&data.content[0].text)raw=data.content[0].text;return JSON.parse(raw.replace(/```json|```/g,'').trim());}
@@ -356,11 +282,7 @@
         function renderAll(){let h='';for(let i=0;i<TABS.length;i++)h+='<button class="tab-btn '+(currentTab===i?'active':'')+'" onclick="changeTab('+i+')">'+TABS[i]+'</button>';document.getElementById('tabBar').innerHTML=h;const main=document.getElementById('content_main');const qe=document.getElementById('content_quote_editor');qe.style.display='none';main.style.display='block';if(currentTab===0)main.innerHTML=renderHome();else if(currentTab===1)main.innerHTML=renderCustomers();else if(currentTab===2)main.innerHTML=renderRepairs();else if(currentTab===3)main.innerHTML=renderDemos();else if(currentTab===4)main.innerHTML=renderPartsTab();else if(currentTab===5)main.innerHTML=renderProducts();else if(currentTab===6)main.innerHTML=renderQuotesList();}
         function changeTab(i){currentTab=i;renderAll();}
 
-        function renderHome(){let target=10000000,current=0;if(DB.settings&&DB.settings[0]){target=Number(DB.settings[0].targetSales)||10000000;current=Number(DB.settings[0].currentSales)||0;}const progress=Math.min((current/target)*100,100)||0;
-        // ★ GAS URL未設定の場合は警告バナーを表示
-        let html='';
-        if(!gasUrl){html+='<div style="background:#fff3cd;border:1.5px solid #ffc107;border-radius:12px;padding:11px 14px;margin-bottom:12px;cursor:pointer;" onclick="openApiKey()">'+'<div style="font-size:13px;font-weight:900;color:#856404;margin-bottom:4px;">☁️ クラウド同期が未設定です</div>'+'<div style="font-size:11px;color:#856404;line-height:1.6;">🔑 ボタン（右上）からGAS URLを設定すると<br>複数スマホでデータを共有できます。<br><span style="text-decoration:underline;">タップして設定する →</span></div>'+'</div>';}
-        html+='<div class="dash-card"><div style="display:flex;justify-content:space-between;margin-bottom:10px;"><span>売上目標進捗</span><span style="font-weight:900;">'+progress.toFixed(1)+'%</span></div><div style="background:rgba(255,255,255,0.2);height:10px;border-radius:5px;"><div style="background:#fff;height:100%;border-radius:5px;width:'+progress+'%;"></div></div><div style="display:flex;justify-content:space-between;font-size:11px;margin-top:8px;"><span>現在: ¥'+current.toLocaleString()+'</span><span>目標: ¥'+target.toLocaleString()+'</span></div></div>';const repairAlerts=DB.repairs.filter(r=>r.status==='修理依頼'||r.status==='部品待ち'||r.status==='修理中').sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999'));const productAlerts=DB.products.filter(p=>p.status==='商談中'||p.status==='受注'||p.status==='発注済'||p.status==='入荷済').sort((a,b)=>(a.deliveryDate||'9999').localeCompare(b.deliveryDate||'9999'));const partAlerts=DB.parts.filter(p=>p.status==='発注前'||p.status==='発注済'||p.status==='入荷済').sort((a,b)=>(a.orderDate||'9999').localeCompare(b.orderDate||'9999'));const demoAlerts=DB.demos.filter(d=>d.status==='実演予定'||d.status==='見積提示中').sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));const totalAlerts=repairAlerts.length+productAlerts.length+partAlerts.length+demoAlerts.length;function renderAlertGroup(items,type){let h='';items.forEach(a=>{let tabIndex=2,titleStr='',dateLabel='',dateVal='',borderColor='#e74c3c';if(type==='repair'){tabIndex=2;titleStr=buildMachineStr(a.machine,a.maker,a.model);dateLabel='納期: ';dateVal=a.dueDate;borderColor='#e74c3c';}else if(type==='product'){tabIndex=5;titleStr=a.productName;dateLabel='納品: ';dateVal=a.deliveryDate;borderColor='#27ae60';}else if(type==='part'){tabIndex=4;titleStr=(a.maker?a.maker+' ':'')+a.name;dateLabel='発注: ';dateVal=a.orderDate;borderColor='#f39c12';}else if(type==='demo'){tabIndex=3;titleStr=buildMachineStr(a.targetMachine,a.maker,a.model);dateLabel='予定: ';dateVal=a.date;borderColor='#9b59b6';}h+='<div class="card" style="border-left:4px solid '+borderColor+';margin-bottom:7px;" onclick="openEdit(\''+a.id+'\','+tabIndex+')">'+'<div style="font-weight:bold;font-size:13px;">'+(a.customerName||a.customer||'')+(titleStr?' - '+titleStr:'')+'</div>'+'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">'+'<span class="badge" style="background:'+(STATUS_COLORS[a.status]||'#95a5a6')+';display:inline-block;">'+a.status+'</span>'+(dateVal?'<span style="font-size:10px;color:var(--text-sub);">'+dateLabel+dateVal+'</span>':'<span style="font-size:10px;color:var(--text-sub);">'+dateLabel+'未定</span>')+'</div></div>';});return h;}if(totalAlerts>0){const sectionStyle='margin-top:14px;margin-bottom:8px;display:flex;align-items:center;gap:8px;';const sectionTitleStyle='font-size:13px;font-weight:900;color:var(--text);';const countBadge=(n,color)=>'<span style="background:'+color+';color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;font-weight:700;">'+n+'件</span>';if(repairAlerts.length>0){html+='<div style="'+sectionStyle+'"><span style="'+sectionTitleStyle+'">🔧 修理</span>'+countBadge(repairAlerts.length,'#e74c3c')+'<span style="font-size:10px;color:var(--text-sub);">納期順</span></div>';html+=renderAlertGroup(repairAlerts,'repair');}if(productAlerts.length>0){html+='<div style="'+sectionStyle+'"><span style="'+sectionTitleStyle+'">🚜 製品</span>'+countBadge(productAlerts.length,'#27ae60')+'<span style="font-size:10px;color:var(--text-sub);">納品予定順</span></div>';html+=renderAlertGroup(productAlerts,'product');}if(partAlerts.length>0){html+='<div style="'+sectionStyle+'"><span style="'+sectionTitleStyle+'">⚙️ 部品</span>'+countBadge(partAlerts.length,'#f39c12')+'<span style="font-size:10px;color:var(--text-sub);">発注日順</span></div>';html+=renderAlertGroup(partAlerts,'part');}if(demoAlerts.length>0){html+='<div style="'+sectionStyle+'"><span style="'+sectionTitleStyle+'">🌾 実演</span>'+countBadge(demoAlerts.length,'#9b59b6')+'<span style="font-size:10px;color:var(--text-sub);">予定日順</span></div>';html+=renderAlertGroup(demoAlerts,'demo');}}return html;}
+        function renderHome(){let target=10000000,current=0;if(DB.settings&&DB.settings[0]){target=Number(DB.settings[0].targetSales)||10000000;current=Number(DB.settings[0].currentSales)||0;}const progress=Math.min((current/target)*100,100)||0;let html='<div class="dash-card"><div style="display:flex;justify-content:space-between;margin-bottom:10px;"><span>売上目標進捗</span><span style="font-weight:900;">'+progress.toFixed(1)+'%</span></div><div style="background:rgba(255,255,255,0.2);height:10px;border-radius:5px;"><div style="background:#fff;height:100%;border-radius:5px;width:'+progress+'%;"></div></div><div style="display:flex;justify-content:space-between;font-size:11px;margin-top:8px;"><span>現在: ¥'+current.toLocaleString()+'</span><span>目標: ¥'+target.toLocaleString()+'</span></div></div>';const repairAlerts=DB.repairs.filter(r=>r.status==='修理依頼'||r.status==='部品待ち'||r.status==='修理中').sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999'));const productAlerts=DB.products.filter(p=>p.status==='商談中'||p.status==='受注'||p.status==='発注済'||p.status==='入荷済').sort((a,b)=>(a.deliveryDate||'9999').localeCompare(b.deliveryDate||'9999'));const partAlerts=DB.parts.filter(p=>p.status==='発注前'||p.status==='発注済'||p.status==='入荷済').sort((a,b)=>(a.orderDate||'9999').localeCompare(b.orderDate||'9999'));const demoAlerts=DB.demos.filter(d=>d.status==='実演予定'||d.status==='見積提示中').sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));const totalAlerts=repairAlerts.length+productAlerts.length+partAlerts.length+demoAlerts.length;function renderAlertGroup(items,type){let h='';items.forEach(a=>{let tabIndex=2,titleStr='',dateLabel='',dateVal='',borderColor='#e74c3c';if(type==='repair'){tabIndex=2;titleStr=buildMachineStr(a.machine,a.maker,a.model);dateLabel='納期: ';dateVal=a.dueDate;borderColor='#e74c3c';}else if(type==='product'){tabIndex=5;titleStr=a.productName;dateLabel='納品: ';dateVal=a.deliveryDate;borderColor='#27ae60';}else if(type==='part'){tabIndex=4;titleStr=(a.maker?a.maker+' ':'')+a.name;dateLabel='発注: ';dateVal=a.orderDate;borderColor='#f39c12';}else if(type==='demo'){tabIndex=3;titleStr=buildMachineStr(a.targetMachine,a.maker,a.model);dateLabel='予定: ';dateVal=a.date;borderColor='#9b59b6';}h+='<div class="card" style="border-left:4px solid '+borderColor+';margin-bottom:7px;" onclick="openEdit(\''+a.id+'\','+tabIndex+')">'+'<div style="font-weight:bold;font-size:13px;">'+(a.customerName||a.customer||'')+(titleStr?' - '+titleStr:'')+'</div>'+'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">'+'<span class="badge" style="background:'+(STATUS_COLORS[a.status]||'#95a5a6')+';display:inline-block;">'+a.status+'</span>'+(dateVal?'<span style="font-size:10px;color:var(--text-sub);">'+dateLabel+dateVal+'</span>':'<span style="font-size:10px;color:var(--text-sub);">'+dateLabel+'未定</span>')+'</div></div>';});return h;}if(totalAlerts>0){const sectionStyle='margin-top:14px;margin-bottom:8px;display:flex;align-items:center;gap:8px;';const sectionTitleStyle='font-size:13px;font-weight:900;color:var(--text);';const countBadge=(n,color)=>'<span style="background:'+color+';color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;font-weight:700;">'+n+'件</span>';if(repairAlerts.length>0){html+='<div style="'+sectionStyle+'"><span style="'+sectionTitleStyle+'">🔧 修理</span>'+countBadge(repairAlerts.length,'#e74c3c')+'<span style="font-size:10px;color:var(--text-sub);">納期順</span></div>';html+=renderAlertGroup(repairAlerts,'repair');}if(productAlerts.length>0){html+='<div style="'+sectionStyle+'"><span style="'+sectionTitleStyle+'">🚜 製品</span>'+countBadge(productAlerts.length,'#27ae60')+'<span style="font-size:10px;color:var(--text-sub);">納品予定順</span></div>';html+=renderAlertGroup(productAlerts,'product');}if(partAlerts.length>0){html+='<div style="'+sectionStyle+'"><span style="'+sectionTitleStyle+'">⚙️ 部品</span>'+countBadge(partAlerts.length,'#f39c12')+'<span style="font-size:10px;color:var(--text-sub);">発注日順</span></div>';html+=renderAlertGroup(partAlerts,'part');}if(demoAlerts.length>0){html+='<div style="'+sectionStyle+'"><span style="'+sectionTitleStyle+'">🌾 実演</span>'+countBadge(demoAlerts.length,'#9b59b6')+'<span style="font-size:10px;color:var(--text-sub);">予定日順</span></div>';html+=renderAlertGroup(demoAlerts,'demo');}}return html;}
         function buildMachineStr(name,maker,model){let s='';if(maker)s+=maker+' ';if(name)s+=name+' ';if(model)s+=model;return s.trim();}
 
         function renderCustomers(){let html='<button onclick="openNew(1)" class="save-btn" style="margin-bottom:15px;width:100%;">＋ 顧客を新規登録</button>';DB.customers.forEach(item=>{const n=item.name;const rc=DB.repairs.filter(x=>x.customerName===n).length;const dc=DB.demos.filter(x=>x.customerName===n).length;const pc=DB.products.filter(x=>x.customer===n).length;const ptc=DB.parts.filter(x=>x.customerName===n).length;html+='<div class="card" onclick="openEdit(\''+item.id+'\',1)">'+'<div style="font-weight:bold;font-size:15px;margin-bottom:4px;">'+n+'　様</div>'+(item.phone?'<div style="font-size:12px;color:var(--text-sub);margin-bottom:6px;">📞 '+item.phone+'</div>':'')+'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">'+'<span class="badge-count '+(rc>0?'bc-red':'bc-gray')+'">🔧 修理 '+rc+'</span>'+'<span class="badge-count '+(dc>0?'bc-orange':'bc-gray')+'">🌾 実演 '+dc+'</span>'+'<span class="badge-count '+(pc>0?'bc-green':'bc-gray')+'">🚜 製品 '+pc+'</span>'+'<span class="badge-count '+(ptc>0?'bc-blue':'bc-gray')+'">⚙️ 部品 '+ptc+'</span>'+'</div></div>';});return html;}
@@ -395,45 +317,8 @@
         function closeModal(){document.getElementById('modalOverlay').style.display='none';}
         function closeModalOnBg(e){if(e.target.id==='modalOverlay')closeModal();}
 
-        function saveItem(){
-            const keys=['','customers','repairs','demos','parts','products'];
-            const dbKey=keys[modalState.tab];
-            const item={id:modalState.mode==='new'?'ID_'+Date.now():modalState.item.id};
-            document.querySelectorAll('#modalBody input,#modalBody select,#modalBody textarea').forEach(el=>{const key=el.id.replace('f_','');if(key)item[key]=el.value;});
-            // ★ 顧客の重複登録を防止（スペース無視で比較）
-            if(modalState.tab===1&&modalState.mode==='new'){
-                const newName=(item.name||'').trim();
-                const normalize=s=>s.replace(/\s/g,'');
-                const dup=DB.customers.find(c=>normalize(c.name||'')===normalize(newName));
-                if(dup){
-                    if(!confirm('「'+newName+'」は既に登録されています。\n重複して登録しますか？\n（通常はキャンセルを推奨）'))return;
-                }
-            }
-            if(modalState.mode==='new')DB[dbKey].push(item);
-            else DB[dbKey]=DB[dbKey].map(x=>String(x.id)===String(item.id)?item:x);
-            if(modalState.tab===5&&modalState.mode==='new'){for(let i=2;i<=10;i++){const pName=document.getElementById('f_productName'+i)?.value?.trim();if(pName){DB.products.push({id:'ID_'+(Date.now()+Math.random()),productName:pName,maker:item.maker||'',model:document.getElementById('f_model'+i)?.value||'',serialNo:document.getElementById('f_serialNo'+i)?.value||'',customer:item.customer||'',status:item.status||'受注',deliveryDate:item.deliveryDate||'',price:0});}}}
-            if(modalState.tab===4&&modalState.mode==='new'){for(let i=2;i<=10;i++){const pName=document.getElementById('f_name'+i)?.value?.trim();if(pName){DB.parts.push({id:'ID_'+(Date.now()+Math.random()),customerName:item.customerName||'',name:pName,maker:item.maker||'',partNo:document.getElementById('f_partNo'+i)?.value||'',qty:Number(document.getElementById('f_qty'+i)?.value)||0,price:Number(document.getElementById('f_price'+i)?.value)||0,status:item.status||'発注前',orderDate:item.orderDate||''});}}}
-            saveDB();closeModal();renderAll();
-        }
+        function saveItem(){const keys=['','customers','repairs','demos','parts','products'];const dbKey=keys[modalState.tab];const item={id:modalState.mode==='new'?'ID_'+Date.now():modalState.item.id};document.querySelectorAll('#modalBody input,#modalBody select,#modalBody textarea').forEach(el=>{const key=el.id.replace('f_','');if(key)item[key]=el.value;});if(modalState.mode==='new')DB[dbKey].push(item);else DB[dbKey]=DB[dbKey].map(x=>String(x.id)===String(item.id)?item:x);if(modalState.tab===5&&modalState.mode==='new'){for(let i=2;i<=10;i++){const pName=document.getElementById('f_productName'+i)?.value?.trim();if(pName){DB.products.push({id:'ID_'+(Date.now()+Math.random()),productName:pName,maker:item.maker||'',model:document.getElementById('f_model'+i)?.value||'',serialNo:document.getElementById('f_serialNo'+i)?.value||'',customer:item.customer||'',status:item.status||'受注',deliveryDate:item.deliveryDate||'',price:0});}}}if(modalState.tab===4&&modalState.mode==='new'){for(let i=2;i<=10;i++){const pName=document.getElementById('f_name'+i)?.value?.trim();if(pName){DB.parts.push({id:'ID_'+(Date.now()+Math.random()),customerName:item.customerName||'',name:pName,maker:item.maker||'',partNo:document.getElementById('f_partNo'+i)?.value||'',qty:Number(document.getElementById('f_qty'+i)?.value)||0,price:Number(document.getElementById('f_price'+i)?.value)||0,status:item.status||'発注前',orderDate:item.orderDate||''});}}}saveDB();closeModal();renderAll();}
         function delItem(){if(!confirm('削除しますか？'))return;const keys=['','customers','repairs','demos','parts','products'];DB[keys[modalState.tab]]=DB[keys[modalState.tab]].filter(x=>String(x.id)!==String(modalState.item.id));saveDB();closeModal();renderAll();}
-
-        // ★ 顧客重複を自動排除（名前のスペース無視で同一判定、最初の1件を残す）
-        function deduplicateCustomers(){
-            const normalize=s=>String(s||'').replace(/\s/g,'');
-            const seen={};
-            const deduped=[];
-            DB.customers.forEach(c=>{
-                const key=normalize(c.name);
-                if(key&&!seen[key]){seen[key]=true;deduped.push(c);}
-                else if(!key)deduped.push(c); // 名前なしはそのまま残す
-            });
-            const removed=DB.customers.length-deduped.length;
-            if(removed>0){
-                DB.customers=deduped;
-                return removed;
-            }
-            return 0;
-        }
 
         let currentQuoteId='';const ROWS=20;let qItems=[];
         function resetQItems(){qItems=[];for(let i=0;i<ROWS;i++)qItems.push({name:'',brand:'',model:'',qty:'',price:'',note:''});}
@@ -458,119 +343,11 @@
 
         function showPreview(){document.getElementById('preview-inner').innerHTML=buildEstHTML();document.getElementById('preview-modal').style.display='block';}
         function closePreview(){document.getElementById('preview-modal').style.display='none';}
-        // ★ PDF/印刷ファイル名を見積情報から自動生成
-        function getPdfFilename(){
-            const tN=(document.getElementById('toName')?.value||'').trim();
-            const estNo=(document.getElementById('estNo')?.value||'').trim();
-            const subj=(document.getElementById('subject')?.value||'').trim();
-            const dt=(document.getElementById('estDate')?.value||new Date().toISOString().slice(0,10));
-            let parts=['見積書'];
-            if(tN)parts.push(tN+'様');
-            if(estNo)parts.push(estNo);
-            else if(subj)parts.push(subj);
-            parts.push(dt);
-            // ファイル名に使えない文字を除去
-            return parts.join('_').replace(/[\\/:*?"<>|]/g,'');
-        }
-        function printDoc(){
-            const filename=getPdfFilename();
-            const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+filename+'</title><style>'+getStyles()+'</style></head><body>'+buildEstHTML()+'</body></html>';
-            const origTitle=document.title;
-            document.title=filename;
-            const win=window.open('','_blank');
-            if(win){win.document.write(html);win.document.close();setTimeout(()=>{try{win.focus();win.print();}catch(e){win.close();usePrintFrame(html,filename);}setTimeout(()=>{document.title=origTitle;},1500);},800);}
-            else{usePrintFrame(html,filename);setTimeout(()=>{document.title=origTitle;},1500);}
-        }
-        function usePrintFrame(html,filename){
-            filename=filename||getPdfFilename()||'見積書';
-            const iframe=document.getElementById('_print_frame');const doc=iframe.contentDocument||iframe.contentWindow.document;doc.open();doc.write(html);doc.close();setTimeout(()=>{try{iframe.contentWindow.focus();iframe.contentWindow.print();}catch(e){const blob=new Blob([html],{type:'text/html;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename+'.html';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);alert('「'+filename+'.html」をブラウザで開いて印刷してください。');}},800);}
+        function printDoc(){const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'+getStyles()+'</style></head><body>'+buildEstHTML()+'</body></html>';const win=window.open('','_blank');if(win){win.document.write(html);win.document.close();setTimeout(()=>{try{win.focus();win.print();}catch(e){win.close();usePrintFrame(html);}},800);}else usePrintFrame(html);}
+        function usePrintFrame(html){const iframe=document.getElementById('_print_frame');const doc=iframe.contentDocument||iframe.contentWindow.document;doc.open();doc.write(html);doc.close();setTimeout(()=>{try{iframe.contentWindow.focus();iframe.contentWindow.print();}catch(e){const blob=new Blob([html],{type:'text/html;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='見積書.html';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);alert('「見積書.html」をブラウザで開いて印刷してください。');}},800);}
         function savePDF(){printDoc();}
         function shareDoc(){const tN=document.getElementById('toName').value;const subject=document.getElementById('subject').value;const estDate=document.getElementById('estDate').value;let sub=0;for(let i=0;i<ROWS;i++)sub+=(Number(qItems[i].qty)||0)*(Number(qItems[i].price)||0);const tax=Math.floor(sub*.1);const total=sub+tax;const itemLines=qItems.filter(it=>it.name&&Number(it.qty)&&Number(it.price)).map(it=>'・'+it.name+(it.model?' '+it.model:'')+' × '+it.qty+' = ¥'+(Number(it.qty)*Number(it.price)).toLocaleString()).join('\n');const shareText='【お見積書】財部農機センター\n━━━━━━━━━━━\n'+(tN?'宛先：'+tN+' 様\n':'')+(subject?'件名：'+subject+'\n':'')+(estDate?'発行日：'+estDate+'\n':'')+'━━━━━━━━━━━\n'+(itemLines?itemLines+'\n':'')+'━━━━━━━━━━━\n小計：¥'+sub.toLocaleString()+'\n消費税(10%)：¥'+tax.toLocaleString()+'\n【合計金額】¥'+total.toLocaleString()+'\n━━━━━━━━━━━\nご確認よろしくお願いいたします。';if(navigator.share){navigator.share({title:'見積書 - 財部農機センター',text:shareText}).catch(err=>{if(err.name!=='AbortError')openLineShare(shareText);});}else openLineShare(shareText);}
         function openLineShare(text){const opened=window.open('https://line.me/R/msg/text/?'+encodeURIComponent(text),'_blank');if(!opened){if(navigator.clipboard)navigator.clipboard.writeText(text).then(()=>alert('見積内容をコピーしました！\nLINEを開いて貼り付けてください。'));else prompt('以下をコピーしてLINEに貼り付けてください：',text);}}
-
-        // ★ 動的ライブラリ読み込みヘルパー
-        function loadScript(src){
-            return new Promise((resolve,reject)=>{
-                if(document.querySelector('script[src="'+src+'"]')){resolve();return;}
-                const s=document.createElement('script');
-                s.src=src;
-                s.onload=resolve;
-                s.onerror=()=>reject(new Error('ライブラリの読み込みに失敗しました'));
-                document.head.appendChild(s);
-            });
-        }
-
-        // ★ PDF生成してLINE共有（html2canvas + jsPDF）
-        async function shareAsPDF(){
-            showSyncBar('📄 PDF生成中... しばらくお待ちください','syncing',false);
-            try{
-                // ライブラリを動的に読み込み
-                await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
-                await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-
-                // 見積書HTMLを一時的にDOMに追加してレンダリング
-                const wrap=document.createElement('div');
-                wrap.style.cssText='position:fixed;left:-9999px;top:0;width:794px;background:#fff;z-index:-9999;';
-                wrap.innerHTML=buildEstHTML();
-                document.body.appendChild(wrap);
-
-                const canvas=await html2canvas(wrap,{
-                    scale:2,
-                    useCORS:true,
-                    allowTaint:true,
-                    backgroundColor:'#ffffff',
-                    logging:false,
-                    width:794
-                });
-                document.body.removeChild(wrap);
-
-                // jsPDFでA4 PDFを生成
-                const imgData=canvas.toDataURL('image/jpeg',0.95);
-                const {jsPDF}=window.jspdf;
-                const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-                const pageW=210,pageH=297;
-                const imgH=(canvas.height/canvas.width)*pageW;
-
-                if(imgH<=pageH){
-                    // 1ページに収まる場合
-                    pdf.addImage(imgData,'JPEG',0,0,pageW,imgH);
-                }else{
-                    // 複数ページに分割
-                    let y=0;
-                    while(y<imgH){
-                        if(y>0)pdf.addPage();
-                        pdf.addImage(imgData,'JPEG',0,-y,pageW,imgH);
-                        y+=pageH;
-                    }
-                }
-
-                const filename=getPdfFilename()+'.pdf';
-                const pdfBlob=pdf.output('blob');
-                const pdfFile=new File([pdfBlob],filename,{type:'application/pdf'});
-
-                showSyncBar('','');
-
-                // Web Share API Level 2 でファイル共有（LINE等に直接送信）
-                if(navigator.share&&navigator.canShare&&navigator.canShare({files:[pdfFile]})){
-                    try{
-                        await navigator.share({title:'見積書 - 財部農機センター',files:[pdfFile]});
-                        return;
-                    }catch(e){
-                        if(e.name==='AbortError')return; // ユーザーがキャンセルした場合
-                    }
-                }
-
-                // フォールバック: PDFを端末に保存
-                const url=URL.createObjectURL(pdfBlob);
-                const a=document.createElement('a');
-                a.href=url;a.download=filename;a.click();
-                setTimeout(()=>URL.revokeObjectURL(url),2000);
-                showSyncBar('📥 PDFを保存しました。LINEから手動で送信してください','ok');
-
-            }catch(e){
-                showSyncBar('❌ PDF生成エラー: '+e.message,'error');
-            }
-        }
 
         // ================================================================
         // ★★★ 復元データ（スクリーンショット最新版 2026-05-06確認済み）★★★
