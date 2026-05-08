@@ -79,6 +79,7 @@
                 </div>
                 <button onclick="toggleDark()" style="background:none;border:none;color:#fff;font-size:17px;cursor:pointer;">🌓</button>
                 <button onclick="manualSync()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:10px;padding:7px 8px;font-size:12px;margin-left:1px;" title="今すぐ同期">☁️</button>
+                <button onclick="forcePullFromCloud()" style="background:#8e44ad;border:none;color:#fff;border-radius:10px;padding:7px 8px;font-size:11px;font-weight:800;margin-left:1px;" title="クラウドから強制取得">⬇️雲</button>
                 <button onclick="openBackupModal()" style="background:#27ae60;border:none;color:#fff;border-radius:10px;padding:7px 8px;font-size:12px;font-weight:800;margin-left:1px;" title="バックアップ管理">🛡️</button>
                 <button onclick="openSmartModal()" style="background:#e67e22;border:none;color:#fff;border-radius:10px;padding:7px 9px;font-size:12px;font-weight:800;margin-left:1px;">🎤</button>
                 <button onclick="openApiKey()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:10px;padding:7px 8px;font-size:13px;margin-left:1px;">🔑</button>
@@ -412,6 +413,30 @@ async function syncToCloud(showResult=false) {
 async function manualSync() {
     if (!gasUrl) { showSyncBar('⚠️ GAS URLが未設定です。🔑から設定してください', 'error'); return; }
     await syncToCloud(true);
+}
+
+// 強制的にクラウドから取得（タイムスタンプ無視）
+async function forcePullFromCloud() {
+    if (!gasUrl) { showSyncBar('⚠️ GAS URLが未設定です。🔑から設定してください', 'error'); return; }
+    if (!confirm('クラウドのデータを強制取得します。\nこのスマホのデータはクラウドで上書きされます。\nよろしいですか？')) return;
+    showSyncBar('☁️ クラウドから強制取得中...', 'syncing', false);
+    try {
+        const getRes = await fetchWithTimeout(gasUrl, {method:'GET', cache:'no-cache'});
+        if (!getRes.ok) throw new Error('サーバーエラー: ' + getRes.status);
+        const serverData = JSON.parse(await getRes.text());
+        if (!serverData || serverData.empty) { showSyncBar('⚠️ クラウドにデータがありません', 'error'); return; }
+        const serverHasData = ['customers','repairs','demos','parts','products'].some(k => serverData[k] && serverData[k].length > 0);
+        if (!serverHasData) { showSyncBar('⚠️ クラウドが空です', 'error'); return; }
+        saveEmergencyBackup();
+        ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k => { if (serverData[k]) DB[k] = serverData[k]; });
+        DB.lastModified = serverData.lastModified;
+        try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) {}
+        renderAll();
+        updateSyncLabel('最終同期: ' + new Date(DB.lastModified).toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'}));
+        showSyncBar('✅ クラウドから強制取得完了！', 'ok');
+    } catch(e) {
+        showSyncBar('❌ ' + (e.message||'取得失敗'), 'error');
+    }
 }
 
 async function testSync() {
