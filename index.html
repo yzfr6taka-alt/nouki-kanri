@@ -187,19 +187,13 @@
                 <button onclick="closeBackupModal()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button>
             </div>
             <div style="padding:16px 18px 40px;">
-                <!-- データ概要 -->
                 <div id="dataOverview" style="background:var(--input-bg);border-radius:12px;padding:12px;margin-bottom:14px;font-size:12px;"></div>
-
-                <!-- JSONエクスポート・インポート -->
                 <div style="display:flex;gap:8px;margin-bottom:16px;">
                     <button onclick="exportJSON()" style="flex:1;background:#2980b9;color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:800;cursor:pointer;">📥 JSONで保存</button>
                     <button onclick="importJSON()" style="flex:1;background:#27ae60;color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:800;cursor:pointer;">📤 JSONを読込</button>
                 </div>
-
                 <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:8px;">🕐 自動バックアップ（最新24時間分）</div>
                 <div id="backupList"></div>
-
-                <!-- サンプルデータ（緊急時のみ） -->
                 <div style="margin-top:16px;padding:12px;background:#fde8e8;border-radius:12px;">
                     <div style="font-size:11px;font-weight:800;color:#e74c3c;margin-bottom:6px;">⚠️ 緊急時のみ：サンプルデータ読込</div>
                     <div style="font-size:11px;color:#555;margin-bottom:8px;">現在のデータが消えます。本当に何もない時だけ使用してください。</div>
@@ -213,16 +207,6 @@
     <iframe id="_print_frame" style="position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none;"></iframe>
 
 <script>
-// =====================================================
-// 農機管理PRO V4 - 堅牢版
-// 主な修正点:
-// 1. データ消失防止（自動バックアップ、起動時クラウド優先）
-// 2. シードデータの自動上書き禁止
-// 3. PDF保存：顧客名・件名付きファイル名でダウンロード
-// 4. LINE共有：ファイル共有API対応
-// 5. バックアップ管理UI追加
-// =====================================================
-
 const TABS = ['ホーム','顧客','修理','実演','部品','製品','見積書'];
 let currentTab = 0;
 const STATUS_COLORS = {
@@ -240,10 +224,6 @@ let DB = {
 };
 let apiKey='', gasUrl='', syncTimer=null, isSyncing=false;
 
-// =====================================================
-// データ管理
-// =====================================================
-
 function hasAnyData() {
     return ['customers','repairs','demos','parts','products'].some(k => Array.isArray(DB[k]) && DB[k].length > 0);
 }
@@ -253,20 +233,17 @@ function saveDB() {
     const cur = new Date(DB.lastModified||0).getTime();
     DB.lastModified = new Date(Math.max(now, cur + 1000)).toISOString();
     try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) { console.error('saveDB失敗:', e); }
-    saveEmergencyBackup(); // ← 必ず緊急バックアップも保存
+    saveEmergencyBackup();
     scheduleSync();
 }
 
 function saveEmergencyBackup() {
-    if (!hasAnyData()) return; // データが空なら保存しない
+    if (!hasAnyData()) return;
     try {
         const snapshot = {data: DB, savedAt: new Date().toISOString()};
-        // 最新緊急バックアップ（常時上書き）
         localStorage.setItem('agri_emergency_backup', JSON.stringify(snapshot));
-        // 時間別ローリングバックアップ（1時間に1回）
         const hourKey = 'agri_backup_' + new Date().toISOString().slice(0, 13).replace('T', '_');
         localStorage.setItem(hourKey, JSON.stringify(snapshot));
-        // 古いバックアップを削除（最新24件保持）
         const keys = Object.keys(localStorage).filter(k => k.startsWith('agri_backup_')).sort();
         if (keys.length > 24) keys.slice(0, keys.length - 24).forEach(k => localStorage.removeItem(k));
     } catch(e) { console.error('緊急バックアップ失敗:', e); }
@@ -288,10 +265,6 @@ function loadDB() {
     try { const k = localStorage.getItem('agri_api_key'); if(k) apiKey = k; } catch(e) {}
     try { const g = localStorage.getItem('agri_gas_url'); if(g) gasUrl = g; } catch(e) {}
 }
-
-// =====================================================
-// 同期
-// =====================================================
 
 function showSyncBar(msg, type, autohide=true) {
     const bar = document.getElementById('syncBar');
@@ -339,7 +312,6 @@ async function syncToCloud(showResult=false) {
                 const localHasData = hasAnyData();
 
                 if (localHasData && !serverHasData) {
-                    // ローカルにデータあり・サーバーが空 → ローカル優先でアップロード
                     if (showResult) showSyncBar('⚠️ クラウドが空のためローカルデータを優先', 'conflict');
                     DB.lastModified = new Date().toISOString();
                     try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) {}
@@ -348,7 +320,6 @@ async function syncToCloud(showResult=false) {
                     return;
                 }
 
-                // サーバーが新しい → 受信前にバックアップ
                 if (localHasData) saveEmergencyBackup();
 
                 ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k => {
@@ -365,7 +336,6 @@ async function syncToCloud(showResult=false) {
             }
         }
 
-        // ローカルが新しい or サーバーが空 → アップロード
         if (!hasAnyData()) {
             if (showResult) showSyncBar('⚠️ ローカルが空のためアップロードをスキップ', 'conflict');
             isSyncing = false;
@@ -415,7 +385,6 @@ async function manualSync() {
     await syncToCloud(true);
 }
 
-// 強制的にクラウドから取得（タイムスタンプ無視）
 async function forcePullFromCloud() {
     if (!gasUrl) { showSyncBar('⚠️ GAS URLが未設定です。🔑から設定してください', 'error'); return; }
     if (!confirm('クラウドのデータを強制取得します。\nこのスマホのデータはクラウドで上書きされます。\nよろしいですか？')) return;
@@ -473,12 +442,7 @@ function saveApiKey() {
     if (gasUrl) syncToCloud(true);
 }
 
-// =====================================================
-// 🛡️ バックアップ管理
-// =====================================================
-
 function openBackupModal() {
-    // データ概要
     const overview = document.getElementById('dataOverview');
     overview.innerHTML = `
         <div style="font-weight:800;margin-bottom:6px;">📊 現在のデータ</div>
@@ -527,6 +491,7 @@ function renderBackupList() {
     container.innerHTML = html || '<div style="text-align:center;color:var(--text-sub);padding:20px;font-size:12px;">有効なバックアップなし</div>';
 }
 
+// ★★★ 修正箇所：saveDB()を呼ばずlocalStorageに直接保存 ★★★
 function restoreBackup(key) {
     if (!confirm('このバックアップに復元しますか？\n現在のデータは上書きされます。')) return;
     try {
@@ -536,7 +501,9 @@ function restoreBackup(key) {
             if (Array.isArray(data[k])) DB[k] = data[k];
         });
         if (data.lastModified) DB.lastModified = data.lastModified;
-        saveDB();
+        // saveDB()は呼ばない → タイムスタンプを現在時刻に書き換えない・クラウドに自動アップしない
+        try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) {}
+        saveEmergencyBackup();
         renderAll();
         closeBackupModal();
         showSyncBar('✅ バックアップから復元しました', 'ok');
@@ -570,7 +537,6 @@ function importJSON() {
                 const repCount = data.repairs?.length || 0;
                 const prodCount = data.products?.length || 0;
                 if (!confirm(`JSONファイルを読み込みます。\n修理 ${repCount}件 / 製品 ${prodCount}件\n現在のデータは上書きされます。よろしいですか？`)) return;
-                // 現在データを先にバックアップ
                 saveEmergencyBackup();
                 ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k => {
                     if (Array.isArray(data[k])) DB[k] = data[k];
@@ -587,37 +553,30 @@ function importJSON() {
     input.click();
 }
 
-// シードデータ（手動のみ）
 function loadSeedData() {
     if (!confirm('サンプルデータを読み込みます。\n現在のデータは上書きされます。\n本当によろしいですか？')) return;
-    saveEmergencyBackup(); // 現状をバックアップしてから
+    saveEmergencyBackup();
     DB.repairs   = SCREENSHOT_REPAIRS;
     DB.demos     = SCREENSHOT_DEMOS;
     DB.parts     = SCREENSHOT_PARTS;
     DB.products  = SCREENSHOT_PRODUCTS;
     DB.customers = SCREENSHOT_CUSTOMERS;
     DB.quotes    = SCREENSHOT_QUOTES;
-    DB.lastModified = new Date().toISOString(); // 現在時刻（クラウドに上書きされないよう）
+    DB.lastModified = new Date().toISOString();
     saveDB();
     renderAll();
     closeBackupModal();
     showSyncBar('✅ サンプルデータを読み込みました', 'ok');
 }
 
-// =====================================================
-// PDF保存（ファイル名付きダウンロード）
-// =====================================================
 function saveHTML() {
     const toName  = (document.getElementById('toName')?.value||'').trim();
     const subjectVal = (document.getElementById('subject')?.value||'').trim();
     const estDate = (document.getElementById('estDate')?.value||'').replace(/-/g, '');
-
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`;
     const blob = new Blob([html], {type:'text/html;charset=utf-8'});
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
-
-    // ファイル名：見積書_顧客名_件名_日付.html
     const namePart    = toName    ? toName + '_'    : '';
     const subjectPart = subjectVal ? subjectVal + '_' : '';
     a.download = `見積書_${namePart}${subjectPart}${estDate||new Date().toISOString().slice(0,10)}.html`;
@@ -628,9 +587,6 @@ function saveHTML() {
     setTimeout(() => URL.revokeObjectURL(url), 3000);
 }
 
-// =====================================================
-// LINE・印刷・共有
-// =====================================================
 function shareDoc() {
     const tN      = document.getElementById('toName')?.value||'';
     const subject = document.getElementById('subject')?.value||'';
@@ -648,8 +604,6 @@ function shareDoc() {
         +'━━━━━━━━━━━\n'
         +'小計：¥'+sub.toLocaleString()+'\n消費税(10%)：¥'+tax.toLocaleString()+'\n【合計金額】¥'+total.toLocaleString()+'\n'
         +'━━━━━━━━━━━\nご確認よろしくお願いいたします。';
-
-    // ファイル共有を試みる（モバイル Chrome/Safari）
     if (navigator.share) {
         const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`;
         const toN2 = (tN||'').trim();
@@ -657,11 +611,9 @@ function shareDoc() {
         const d2   = (estDate||new Date().toISOString().slice(0,10)).replace(/-/g,'');
         const fname = `見積書_${toN2?toN2+'_':''}${sub2?sub2+'_':''}${d2}.html`;
         const file  = new File([html], fname, {type:'text/html'});
-
         const shareData = navigator.canShare && navigator.canShare({files:[file]})
             ? {title:'見積書 - 財部農機センター', text:shareText, files:[file]}
             : {title:'見積書 - 財部農機センター', text:shareText};
-
         navigator.share(shareData).catch(err => {
             if (err.name !== 'AbortError') openLineShare(shareText);
         });
@@ -706,9 +658,6 @@ function usePrintFrame(html) {
     }, 800);
 }
 
-// =====================================================
-// カレンダー
-// =====================================================
 function buildCalUrl(title, dateVal, details) {
     let dt = dateVal || new Date().toISOString().slice(0,10);
     const d = dt.replace(/-/g,'');
@@ -718,9 +667,6 @@ function buildCalUrl(title, dateVal, details) {
     return 'https://www.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(title)+'&dates='+d+'/'+dEnd+'&details='+encodeURIComponent(details);
 }
 
-// =====================================================
-// AI入力
-// =====================================================
 async function callAI(prompt) {
     if (!apiKey.trim()) throw new Error('APIキーが設定されていません。🔑ボタンから設定してください。');
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -820,9 +766,6 @@ async function runSmartAI() {
     btn.disabled = false;
 }
 
-// =====================================================
-// UI
-// =====================================================
 function toggleDark() { document.body.classList.toggle('dark'); }
 function openSmartModal() { document.getElementById('smartModal').style.display='flex'; document.getElementById('smartStatus').style.display='none'; }
 function closeSmartOnBg(e) { if(e.target.id==='smartModal') document.getElementById('smartModal').style.display='none'; }
@@ -856,7 +799,6 @@ function renderHome() {
     const partAlerts    = DB.parts.filter(p=>p.status==='発注前'||p.status==='発注済'||p.status==='入荷済').sort((a,b)=>(a.orderDate||'9999').localeCompare(b.orderDate||'9999'));
     const demoAlerts    = DB.demos.filter(d=>d.status==='実演予定'||d.status==='見積提示中').sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));
     const totalAlerts = repairAlerts.length+productAlerts.length+partAlerts.length+demoAlerts.length;
-
     function renderAlertGroup(items, type) {
         let h='';
         items.forEach(a=>{
@@ -882,15 +824,10 @@ function renderHome() {
 }
 
 function renderCustomers(){let html='<button onclick="openNew(1)" class="save-btn" style="margin-bottom:15px;width:100%;">＋ 顧客を新規登録</button>';DB.customers.forEach(item=>{const n=item.name;const rc=DB.repairs.filter(x=>x.customerName===n).length;const dc=DB.demos.filter(x=>x.customerName===n).length;const pc=DB.products.filter(x=>x.customer===n).length;const ptc=DB.parts.filter(x=>x.customerName===n).length;html+='<div class="card" onclick="openEdit(\''+item.id+'\',1)">'+'<div style="font-weight:bold;font-size:15px;margin-bottom:4px;">'+n+'　様</div>'+(item.phone?'<div style="font-size:12px;color:var(--text-sub);margin-bottom:6px;">📞 '+item.phone+'</div>':'')+'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">'+'<span class="badge-count '+(rc>0?'bc-red':'bc-gray')+'">🔧 修理 '+rc+'</span>'+'<span class="badge-count '+(dc>0?'bc-orange':'bc-gray')+'">🌾 実演 '+dc+'</span>'+'<span class="badge-count '+(pc>0?'bc-green':'bc-gray')+'">🚜 製品 '+pc+'</span>'+'<span class="badge-count '+(ptc>0?'bc-blue':'bc-gray')+'">⚙️ 部品 '+ptc+'</span>'+'</div></div>';});return html;}
-
 function renderRepairs(){let html='<button onclick="openNew(2)" class="save-btn" style="margin-bottom:10px;width:100%;">＋ 修理依頼を新規登録</button>';DB.repairs.forEach(item=>{const mStr=buildMachineStr(item.machine,item.maker,item.model);html+='<div class="card" onclick="openEdit(\''+item.id+'\',2)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';">'+'<div style="font-weight:bold;font-size:15px;margin-bottom:4px;">'+item.customerName+' - '+(mStr||'機械未入力')+'</div>'+(item.serialNo?'<div style="font-size:11px;color:var(--text-sub);">製造番号: '+item.serialNo+'</div>':'')+(item.hourMeter?'<div style="font-size:11px;color:var(--text-sub);">稼働: '+item.hourMeter+'h</div>':'')+(item.issue?'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+item.issue+'</div>':'')+'<div style="display:flex;justify-content:space-between;align-items:center;">'+'<span class="badge" style="background:'+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-top:2px;display:inline-block;">'+item.status+'</span>'+(item.dueDate?'<span style="font-size:10px;color:var(--text-sub);">納期: '+item.dueDate+'</span>':'')+'</div></div>';});return html;}
-
 function renderDemos(){let html='<button onclick="openNew(3)" class="save-btn" style="margin-bottom:15px;width:100%;">＋ 実演を新規登録</button>';DB.demos.forEach(item=>{const m1=buildMachineStr(item.targetMachine,item.maker,item.model);const m2=buildMachineStr(item.targetMachine2,item.maker2,item.model2);const m3=buildMachineStr(item.targetMachine3,item.maker3,item.model3);let ms=m1?'🚜 '+m1:'🚜 未定';if(m2)ms+='<br>🚜 '+m2;if(m3)ms+='<br>🚜 '+m3;html+='<div class="card" onclick="openEdit(\''+item.id+'\',3)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';">'+'<div style="font-weight:bold;font-size:15px;margin-bottom:4px;">'+item.customerName+'</div>'+'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;line-height:1.4;">'+ms+'</div>'+'<div style="display:flex;justify-content:space-between;align-items:center;">'+'<span class="badge" style="background:'+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-top:2px;display:inline-block;">'+item.status+'</span>'+(item.date?'<span style="font-size:10px;color:var(--text-sub);">予定日: '+item.date+'</span>':'')+'</div></div>';});return html;}
-
 function renderPartsTab(){let html='<button onclick="openNew(4)" class="save-btn" style="margin-bottom:10px;width:100%;">＋ 部品を新規登録</button>';html+='<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--text-sub);">ステータス: <b style="color:#e74c3c;">発注前</b> → <b style="color:#e67e22;">発注済</b> → <b style="color:#f39c12;">入荷済</b> → <b style="color:#3498db;">納品済</b> → <b style="color:#27ae60;">完了</b> → 請求済</div>';DB.parts.forEach(item=>{html+='<div class="card" onclick="openEdit(\''+item.id+'\',4)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';">'+(item.customerName?'<div style="font-size:11px;color:#2980b9;font-weight:bold;margin-bottom:2px;">👤 '+item.customerName+' 様</div>':'')+'<div style="font-weight:bold;font-size:15px;margin-bottom:4px;">'+(item.maker?item.maker+' ':'')+item.name+'</div>'+'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;">品番: '+(item.partNo||'-')+' / 数量: '+(item.qty||0)+'個</div>'+'<div style="display:flex;justify-content:space-between;align-items:center;">'+'<span class="badge" style="background:'+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-top:2px;display:inline-block;">'+(item.status||'発注前')+'</span>'+(item.orderDate?'<span style="font-size:10px;color:var(--text-sub);">発注日: '+item.orderDate+'</span>':'')+'</div></div>';});return html;}
-
 function renderProducts(){let html='<button onclick="openNew(5)" class="save-btn" style="margin-bottom:10px;width:100%;">＋ 製品を新規登録</button>';html+='<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--text-sub);">ステータス: <b style="color:#9b59b6;">商談中</b> → <b style="color:#e67e22;">受注</b> → <b style="color:#f39c12;">発注済</b> → <b style="color:#e67e22;">入荷済</b> → <b style="color:#3498db;">納品(納車)済</b> → <b style="color:#27ae60;">完了</b> → 請求済</div>';DB.products.forEach(item=>{html+='<div class="card" onclick="openEdit(\''+item.id+'\',5)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';">'+(item.customer?'<div style="font-size:11px;color:#27ae60;font-weight:bold;margin-bottom:2px;">👤 '+item.customer+' 様</div>':'')+'<div style="font-weight:bold;font-size:15px;margin-bottom:4px;">'+item.productName+'</div>'+(item.serialNo?'<div style="font-size:11px;color:var(--text-sub);">製造番号: '+item.serialNo+'</div>':'')+'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;">メーカー: '+(item.maker||'-')+' / 型式: '+(item.model||'-')+' / 販売額: ¥'+Number(item.price||0).toLocaleString()+'</div>'+'<div style="display:flex;justify-content:space-between;align-items:center;">'+'<span class="badge" style="background:'+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-top:2px;display:inline-block;">'+(item.status||'受注')+'</span>'+(item.deliveryDate?'<span style="font-size:10px;color:var(--text-sub);">納品予定: '+item.deliveryDate+'</span>':'')+'</div></div>';});return html;}
-
 function renderQuotesList(){let html='<button onclick="openQuoteEditor(\'\')" class="save-btn" style="margin-bottom:15px;width:100%;">＋ 見積書を新規作成</button>';const sq=DB.quotes||[];if(sq.length===0){html+='<div style="text-align:center;color:var(--text-sub);padding:40px 0;">保存された見積書はありません</div>';}else{sq.slice().reverse().forEach(q=>{html+='<div class="card" onclick="openQuoteEditor(\''+q.id+'\')" style="border-left:4px solid #8e44ad;">'+'<div style="display:flex;justify-content:space-between;align-items:center;">'+'<div style="font-weight:bold;font-size:15px;margin-bottom:4px;">'+(q.toName?q.toName+' 様':'宛名なし')+'</div>'+'<div style="font-size:14px;font-weight:bold;color:#2c3e50;">¥'+Number(q.total||0).toLocaleString()+'</div>'+'</div>'+'<div style="font-size:12px;color:var(--text-sub);">'+(q.subject||'件名未入力')+'</div>'+'<div style="font-size:11px;color:var(--text-sub);margin-top:4px;">発行日: '+(q.estDate||'-')+'</div>'+'</div>';});}return html;}
 
 function regToCalendar(type){const cName=document.getElementById('f_customerName')?.value||document.getElementById('f_customer')?.value||'';let title='',dateVal='',details='';if(type==='repair'){title='【修理納期】'+cName+' 様 '+(document.getElementById('f_machine')?.value||'');dateVal=document.getElementById('f_dueDate')?.value;details='メーカー: '+(document.getElementById('f_maker')?.value||'')+'\n型式: '+(document.getElementById('f_model')?.value||'')+'\n製造番号: '+(document.getElementById('f_serialNo')?.value||'')+'\n内容: '+(document.getElementById('f_issue')?.value||'');}else if(type==='demo'){title='【実演予定】'+cName+' 様 '+(document.getElementById('f_targetMachine')?.value||'');dateVal=document.getElementById('f_date')?.value;details='メーカー: '+(document.getElementById('f_maker')?.value||'')+'\n型式: '+(document.getElementById('f_model')?.value||'');}else if(type==='part'){title='【部品発注】'+cName+' 様 '+(document.getElementById('f_name')?.value||'');dateVal=document.getElementById('f_orderDate')?.value;details='メーカー: '+(document.getElementById('f_maker')?.value||'')+'\n品番: '+(document.getElementById('f_partNo')?.value||'')+'\n数量: '+(document.getElementById('f_qty')?.value||'');}else if(type==='product'){title='【製品納品】'+cName+' 様 '+(document.getElementById('f_productName')?.value||'');dateVal=document.getElementById('f_deliveryDate')?.value;details='メーカー: '+(document.getElementById('f_maker')?.value||'')+'\n型式: '+(document.getElementById('f_model')?.value||'')+'\n製造番号: '+(document.getElementById('f_serialNo')?.value||'');}window.open(buildCalUrl(title,dateVal,details),'_blank');}
@@ -914,9 +851,6 @@ function closeModalOnBg(e){if(e.target.id==='modalOverlay')closeModal();}
 function saveItem(){const keys=['','customers','repairs','demos','parts','products'];const dbKey=keys[modalState.tab];const item={id:modalState.mode==='new'?'ID_'+Date.now():modalState.item.id};document.querySelectorAll('#modalBody input,#modalBody select,#modalBody textarea').forEach(el=>{const key=el.id.replace('f_','');if(key)item[key]=el.value;});if(modalState.mode==='new')DB[dbKey].push(item);else DB[dbKey]=DB[dbKey].map(x=>String(x.id)===String(item.id)?item:x);if(modalState.tab===5&&modalState.mode==='new'){for(let i=2;i<=10;i++){const pName=document.getElementById('f_productName'+i)?.value?.trim();if(pName){DB.products.push({id:'ID_'+(Date.now()+Math.random()),productName:pName,maker:item.maker||'',model:document.getElementById('f_model'+i)?.value||'',serialNo:document.getElementById('f_serialNo'+i)?.value||'',customer:item.customer||'',status:item.status||'受注',deliveryDate:item.deliveryDate||'',price:0});}}}if(modalState.tab===4&&modalState.mode==='new'){for(let i=2;i<=10;i++){const pName=document.getElementById('f_name'+i)?.value?.trim();if(pName){DB.parts.push({id:'ID_'+(Date.now()+Math.random()),customerName:item.customerName||'',name:pName,maker:item.maker||'',partNo:document.getElementById('f_partNo'+i)?.value||'',qty:Number(document.getElementById('f_qty'+i)?.value)||0,price:Number(document.getElementById('f_price'+i)?.value)||0,status:item.status||'発注前',orderDate:item.orderDate||''});}}}saveDB();closeModal();renderAll();}
 function delItem(){if(!confirm('削除しますか？'))return;const keys=['','customers','repairs','demos','parts','products'];DB[keys[modalState.tab]]=DB[keys[modalState.tab]].filter(x=>String(x.id)!==String(modalState.item.id));saveDB();closeModal();renderAll();}
 
-// =====================================================
-// 見積書エディタ
-// =====================================================
 let currentQuoteId='';const ROWS=20;let qItems=[];
 function resetQItems(){qItems=[];for(let i=0;i<ROWS;i++)qItems.push({name:'',brand:'',model:'',qty:'',price:'',note:''});}
 resetQItems();
@@ -932,9 +866,6 @@ function deleteCurrentQuote(){if(currentQuoteId!==''){DB.quotes=DB.quotes.filter
 function buildTable(){const tbody=document.getElementById('itemsTable');while(tbody.rows.length>1)tbody.deleteRow(1);for(let i=0;i<ROWS;i++){const tr=tbody.insertRow();tr.innerHTML='<td class="tc" style="font-size:10px;padding:4px 2px;">'+(i+1)+'</td>'+'<td><input value="'+esc(qItems[i].name)+'" onchange="qItems['+i+'].name=this.value" placeholder="品名"></td>'+'<td><input value="'+esc(qItems[i].brand)+'" onchange="qItems['+i+'].brand=this.value" placeholder="銘柄"></td>'+'<td><input value="'+esc(qItems[i].model)+'" onchange="qItems['+i+'].model=this.value" placeholder="型式"></td>'+'<td><input type="number" class="tr" value="'+qItems[i].qty+'" onchange="qItems['+i+'].qty=this.value;calcTotal()" min="0"></td>'+'<td><input type="number" class="tr" value="'+qItems[i].price+'" onchange="qItems['+i+'].price=this.value;calcTotal()" min="0"></td>'+'<td class="tr" id="amt_'+i+'" style="padding:5px;font-size:12px;font-weight:bold;">—</td>'+'<td><input value="'+esc(qItems[i].note)+'" onchange="qItems['+i+'].note=this.value" placeholder="備考"></td>';}calcTotal();}
 function calcTotal(){let sub=0;for(let i=0;i<ROWS;i++){const amt=(Number(qItems[i].qty)||0)*(Number(qItems[i].price)||0);const td=document.getElementById('amt_'+i);if(td)td.textContent=amt?'¥'+amt.toLocaleString():'—';sub+=amt;}const tax=Math.floor(sub*.1);[['subtotal',sub],['tax',tax],['total',sub+tax]].forEach(([id,v])=>{const el=document.getElementById(id);if(el)el.textContent='¥'+v.toLocaleString();});}
 
-// =====================================================
-// 見積書HTML生成
-// =====================================================
 function getStyles(){return'*{box-sizing:border-box;margin:0;padding:0;}body{font-family:\'MS Mincho\',\'Hiragino Mincho Pro\',serif;}@page{size:A4 portrait;margin:0;}@media print{body{margin:0;padding:0;-webkit-print-color-adjust:exact;color-adjust:exact;}}';}
 function fmtDate(d){if(!d)return'';const dt=new Date(d);return'令和'+(dt.getFullYear()-2018)+'年'+(dt.getMonth()+1)+'月'+dt.getDate()+'日';}
 function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -944,25 +875,18 @@ function buildEstHTML(){const[date,dD,dP,pM,tN,nt,ex]=['estDate','delivDate','de
 function showPreview(){document.getElementById('preview-inner').innerHTML=buildEstHTML();document.getElementById('preview-modal').style.display='block';}
 function closePreview(){document.getElementById('preview-modal').style.display='none';}
 
-// =====================================================
-// シードデータ（手動復元用）
-// =====================================================
-const SCREENSHOT_REPAIRS=[{id:'REC_1',customerName:'山下 林作',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'2233',status:'修理中',dueDate:'2026-07-15',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_2',customerName:'渡邊 誠',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-20',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_3',customerName:'渡邊 誠',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GRA650',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-20',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_4',customerName:'上丸 勝芳',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_5',customerName:'上丸 勝芳',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GRA650',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-20',issue:'点検整備',date:'2026-05-03',usedParts:[]},{id:'REC_6',customerName:'徳丸 秋雄',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_7',customerName:'東丸 和久',machine:'タイヤローラー',maker:'',model:'',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'回転しない',date:'2026-05-03',usedParts:[]},{id:'REC_22',customerName:'東丸 和久',machine:'ホイルローダ',maker:'古川',model:'FL302',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_8',customerName:'園田 正志',machine:'薪わり機',maker:'',model:'KT155PRO',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'油圧作動油漏れ',date:'2026-05-03',usedParts:[]},{id:'REC_9',customerName:'徳丸 秋雄',machine:'甘諸ハーベスタ',maker:'',model:'GRA650',serialNo:'',hourMeter:'1963',status:'修理依頼',dueDate:'2026-07-05',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_10',customerName:'グッドカンパニー',machine:'田植機',maker:'',model:'YR6D',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_11',customerName:'野村 治雄',machine:'田植機',maker:'ヤンマー',model:'VP50',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-05-31',issue:'縦おくりがおかしく、欠株になる',date:'2026-05-03',usedParts:[]},{id:'REC_12',customerName:'今村 三男',machine:'マニアスプレッダー',maker:'',model:'TMS1890',serialNo:'',hourMeter:'',status:'部品待ち',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_13',customerName:'吉満 忠吉',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GRA650',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-20',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_14',customerName:'徳丸 勉',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_15',customerName:'徳丸 勉',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_16',customerName:'上丸 文友',machine:'ヤンマートラクター',maker:'ヤンマー',model:'EG224',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_17',customerName:'山田',machine:'トラクター',maker:'ヤンマー',model:'EG224',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_18',customerName:'延時 暁寿',machine:'だいこん収穫機',maker:'井関',model:'VHD1250',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-04-25',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_19',customerName:'森山 光治',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'点検整備',date:'2026-05-03',usedParts:[]},{id:'REC_20',customerName:'東丸 和久',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GRA650',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'点検整備',date:'2026-05-03',usedParts:[]},{id:'REC_21',customerName:'東丸 和久',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'点検整備',date:'2026-05-03',usedParts:[]}];
+const SCREENSHOT_REPAIRS=[{id:'REC_1',customerName:'山下 林作',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'2233',status:'修理中',dueDate:'2026-07-15',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_2',customerName:'渡邊 誠',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-20',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_3',customerName:'渡邊 誠',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GRA650',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-20',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_4',customerName:'上丸 勝芳',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_5',customerName:'上丸 勝芳',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GRA650',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-20',issue:'点検整備',date:'2026-05-03',usedParts:[]},{id:'REC_6',customerName:'徳丸 秋雄',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_7',customerName:'東丸 和久',machine:'タイヤローラー',maker:'',model:'',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'回転しない',date:'2026-05-03',usedParts:[]},{id:'REC_22',customerName:'東丸 和久',machine:'ホイルローダ',maker:'古川',model:'FL302',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_8',customerName:'園田 正志',machine:'薪わり機',maker:'',model:'KT155PRO',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'油圧作動油漏れ',date:'2026-05-03',usedParts:[]},{id:'REC_9',customerName:'徳丸 秋雄',machine:'甘諸ハーベスタ',maker:'',model:'GRA650',serialNo:'',hourMeter:'1963',status:'修理依頼',dueDate:'2026-07-05',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_10',customerName:'グッドカンパニー',machine:'田植機',maker:'',model:'YR6D',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_11',customerName:'野村 治雄',machine:'田植機',maker:'ヤンマー',model:'VP50',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-05-31',issue:'縦おくりがおかしく、欠株になる',date:'2026-05-03',usedParts:[]},{id:'REC_12',customerName:'今村 三男',machine:'マニアスプレッダー',maker:'',model:'TMS1890',serialNo:'',hourMeter:'',status:'部品待ち',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_13',customerName:'吉満 忠吉',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GRA650',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-20',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_14',customerName:'徳丸 勉',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_15',customerName:'徳丸 勉',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_16',customerName:'上丸 文友',machine:'ヤンマートラクター',maker:'ヤンマー',model:'EG224',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_17',customerName:'山田',machine:'トラクター',maker:'ヤンマー',model:'EG224',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_18',customerName:'延時 暁寿',machine:'だいこん収穫機',maker:'井関',model:'VHD1250',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-04-25',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_19',customerName:'森山 光治',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'点検整備',date:'2026-05-03',usedParts:[]},{id:'REC_20',customerName:'東丸 和久',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GRA650',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'点検整備',date:'2026-05-03',usedParts:[]},{id:'REC_21',customerName:'東丸 和久',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'点検整備',date:'2026-05-03',usedParts:[]},{id:'REC_23',customerName:'満行 翼',machine:'自走ラジコン動噴',maker:'丸山製作所',model:'MSA413R3-M(10×130)',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-05-15',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_24',customerName:'飯野 孝仁',machine:'田植機',maker:'井関',model:'PRJ8',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-05-22',issue:'',date:'2026-05-03',usedParts:[]}];
 const SCREENSHOT_DEMOS=[{id:'DEMO_1',customerName:'立和田',targetMachine:'トラクター',maker:'',model:'TJW1233',targetMachine2:'プラソイラ',maker2:'',model2:'J805',targetMachine3:'',maker3:'',model3:'',date:'2026-05-15',status:'実演予定'},{id:'DEMO_2',customerName:'立和田',targetMachine:'トラクター',maker:'',model:'M135GEP',targetMachine2:'コンビソイラ',maker2:'',model2:'H604',targetMachine3:'グランドハロー',maker3:'',model3:'LXE2630HS-2LH',date:'2026-10-31',status:'実演予定'}];
 const SCREENSHOT_PARTS=[{id:'PART_1',customerName:'岩井 一昭',name:'ネット駆動スプリング',maker:'IHIアグリテック',partNo:'',qty:0,price:0,status:'発注済',orderDate:'2026-04-30'}];
 const SCREENSHOT_PRODUCTS=[{id:'PROD_N1',productName:'畦畔草刈機',maker:'',model:'',serialNo:'',customer:'野村 治雄',status:'発注済',deliveryDate:'2026-05-07',price:0},{id:'PROD_N2',productName:'チェーンソー',maker:'',model:'MC3101R',serialNo:'',customer:'柳田 忠良',status:'入荷済',deliveryDate:'2026-05-07',price:0},{id:'PROD_N3',productName:'刈払機',maker:'新ダイワ',model:'RA3021UT',serialNo:'',customer:'満行 翼',status:'受注',deliveryDate:'2026-05-08',price:55000},{id:'PROD_8',productName:'急速充電器',maker:'やまびこ',model:'LCJQ-560D',serialNo:'',customer:'社会福祉法人エンゼル会',status:'発注済',deliveryDate:'2026-05-11',price:107000},{id:'PROD_N4',productName:'電動マルチチェアー',maker:'',model:'',serialNo:'',customer:'社会福祉法人エンゼル会',status:'発注済',deliveryDate:'2026-05-11',price:0},{id:'PROD_N5',productName:'リチウムイオンバッテリー',maker:'',model:'',serialNo:'',customer:'社会福祉法人エンゼル会',status:'発注済',deliveryDate:'2026-05-11',price:0},{id:'PROD_1',productName:'ドライブハロー HS2430',maker:'ニプロ',model:'HS2430',serialNo:'',customer:'東丸 和久',status:'入荷済',deliveryDate:'2026-05-25',price:0},{id:'PROD_2',productName:'甘諸ツルキリ機 FNC1002K',maker:'ニプロ',model:'FNC1002K',serialNo:'',customer:'満行 翼',status:'受注',deliveryDate:'2026-07-20',price:0},{id:'PROD_3',productName:'甘諸ハーベスタ GZA651',maker:'ニプロ',model:'GZA651',serialNo:'',customer:'満行 翼',status:'受注',deliveryDate:'2026-07-25',price:0},{id:'PROD_7',productName:'マルチデガー',maker:'東洋農機',model:'TMD1V24',serialNo:'',customer:'延時 暁寿',status:'受注',deliveryDate:'2026-07-31',price:5026120},{id:'PROD_N6',productName:'掘取機',maker:'',model:'',serialNo:'',customer:'社会福祉法人エンゼル会',status:'受注',deliveryDate:'2026-07-31',price:0},{id:'PROD_N7',productName:'外部油圧2連キット',maker:'',model:'',serialNo:'',customer:'延時 暁寿',status:'受注',deliveryDate:'2026-07-31',price:0},{id:'PROD_4',productName:'中古トラクター YT333RJ',maker:'ヤンマー',model:'YT333RJ',serialNo:'',customer:'松元 崇',status:'受注',deliveryDate:'2026-08-31',price:0},{id:'PROD_5',productName:'中古田植機',maker:'',model:'RPQ40DL',serialNo:'',customer:'松元 崇',status:'受注',deliveryDate:'',price:0},{id:'PROD_N8',productName:'昇降機張込みホッパ',maker:'',model:'',serialNo:'',customer:'飯野 孝仁',status:'受注',deliveryDate:'',price:0},{id:'PROD_N9',productName:'農業用ドローン',maker:'',model:'',serialNo:'',customer:'西 聡一郎',status:'受注',deliveryDate:'',price:0},{id:'PROD_N10',productName:'MUFBウルトラポンプ バッテリータイプ',maker:'',model:'',serialNo:'',customer:'アールエスユニット',status:'商談中',deliveryDate:'',price:0},{id:'PROD_6',productName:'グランドソワー RS1411',maker:'',model:'RS1411',serialNo:'',customer:'',status:'受注',deliveryDate:'',price:0}];
 const SCREENSHOT_CUSTOMERS=[{id:'CUST_1',name:'山下 林作',phone:'',address:'',memo:''},{id:'CUST_2',name:'渡邊 誠',phone:'',address:'',memo:''},{id:'CUST_3',name:'上丸 勝芳',phone:'',address:'',memo:''},{id:'CUST_4',name:'徳丸 秋雄',phone:'',address:'',memo:''},{id:'CUST_5',name:'吉満 忠吉',phone:'',address:'',memo:''},{id:'CUST_6',name:'徳丸 勉',phone:'',address:'',memo:''},{id:'CUST_7',name:'東丸 和久',phone:'',address:'',memo:''},{id:'CUST_8',name:'森山 光治',phone:'',address:'',memo:''},{id:'CUST_9',name:'立和田',phone:'',address:'',memo:''},{id:'CUST_10',name:'満行 翼',phone:'',address:'',memo:''},{id:'CUST_11',name:'松元 崇',phone:'',address:'',memo:''},{id:'CUST_12',name:'上丸 文友',phone:'',address:'',memo:''},{id:'CUST_13',name:'野村 治雄',phone:'',address:'',memo:''},{id:'CUST_14',name:'園田 正志',phone:'',address:'',memo:''},{id:'CUST_15',name:'山田',phone:'',address:'',memo:''},{id:'CUST_16',name:'今村 三男',phone:'',address:'',memo:''},{id:'CUST_17',name:'延時 暁寿',phone:'',address:'',memo:''},{id:'CUST_18',name:'グッドカンパニー',phone:'',address:'',memo:''},{id:'CUST_19',name:'社会福祉法人エンゼル会',phone:'',address:'',memo:''},{id:'CUST_20',name:'川崎 ちえ子',phone:'',address:'',memo:''},{id:'CUST_21',name:'岩井 一昭',phone:'',address:'',memo:''},{id:'CUST_22',name:'飯野 孝仁',phone:'',address:'',memo:''},{id:'CUST_23',name:'西 聡一郎',phone:'',address:'',memo:''},{id:'CUST_24',name:'アールエスユニット',phone:'',address:'',memo:''},{id:'CUST_25',name:'柳田 忠良',phone:'',address:'',memo:''}];
 const SCREENSHOT_QUOTES=[{id:'Q_REC_1',estNo:'',estDate:'2026-04-30',expDate:'2026-08-31',delivDate:'2026-07-31',delivPlace:'貴指定場所',payMethod:'口座振替',toName:'延時 暁寿',subject:'マルチデガー',qItems:[{name:'マルチデガー',brand:'東洋農機',model:'TMD1V24',qty:1,price:4358000,note:''},{name:'揺さぶり前側',brand:'〃',model:'TMD1V24-B',qty:1,price:105600,note:''},{name:'揺さぶり後ろ側',brand:'〃',model:'TMD1V24-C',qty:1,price:105600,note:''}],total:5026120,note:''}];
 
-// =====================================================
-// 起動処理（修正版：クラウド優先、自動シードなし）
-// =====================================================
 window.onload = async function() {
     try {
         loadDB();
         const loadMsg = document.getElementById('loadingMsg');
 
-        // GAS URLが設定されていればクラウド同期を先に実行
         if (gasUrl) {
             loadMsg.textContent = '☁️ クラウドから最新データを確認中...';
             try {
@@ -972,7 +896,6 @@ window.onload = async function() {
             }
         }
 
-        // 同期後もデータが空の場合、緊急バックアップを確認
         if (!hasAnyData()) {
             const emergencyRaw = localStorage.getItem('agri_emergency_backup');
             if (emergencyRaw) {
@@ -994,10 +917,8 @@ window.onload = async function() {
                     }
                 } catch(e) { console.error('緊急バックアップ読込エラー:', e); }
             }
-            // ここではシードデータを自動投入しない（🛡️ボタンから手動で）
         }
 
-        // 表示開始
         document.getElementById('loading-screen').style.display = 'none';
         document.getElementById('app').style.display = 'block';
         renderAll();
@@ -1006,7 +927,6 @@ window.onload = async function() {
             showSyncBar('⚠️ データなし。🛡️ボタンからバックアップを復元できます。', 'conflict', false);
         }
 
-        // 定期同期・画面復帰時同期
         if (gasUrl) {
             setInterval(() => { if (gasUrl) syncToCloud(false); }, 30000);
             document.addEventListener('visibilitychange', () => {
