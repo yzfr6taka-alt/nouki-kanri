@@ -303,10 +303,13 @@ async function syncToCloud(showResult=false) {
         try { serverData = JSON.parse(getText); } catch(e) { serverData = {empty:true}; }
 
         if (serverData && !serverData.empty) {
-            const serverTime = new Date(serverData.lastModified||0).getTime();
-            const localTime  = new Date(DB.lastModified||0).getTime();
+            const serverTime      = new Date(serverData.lastModified||0).getTime();
+            const localTime       = new Date(DB.lastModified||0).getTime();
+            // 前回このスマホがサーバーと同期した時刻（新フィールド）
+            const lastSyncedTime  = new Date(DB.lastSyncedServerTime||0).getTime();
 
-            if (serverTime > localTime) {
+            // ★ サーバーに前回同期以降の新しいデータがある → 受信
+            if (serverTime > lastSyncedTime) {
                 const serverHasData = ['customers','repairs','demos','parts','products','quotes']
                     .some(k => serverData[k] && serverData[k].length > 0);
                 const localHasData = hasAnyData();
@@ -314,6 +317,7 @@ async function syncToCloud(showResult=false) {
                 if (localHasData && !serverHasData) {
                     if (showResult) showSyncBar('⚠️ クラウドが空のためローカルデータを優先', 'conflict');
                     DB.lastModified = new Date().toISOString();
+                    DB.lastSyncedServerTime = DB.lastModified;
                     try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) {}
                     isSyncing = false;
                     setTimeout(() => syncToCloud(false), 500);
@@ -326,6 +330,7 @@ async function syncToCloud(showResult=false) {
                     if (serverData[k]) DB[k] = serverData[k];
                 });
                 DB.lastModified = serverData.lastModified;
+                DB.lastSyncedServerTime = serverData.lastModified; // ★ 同期済み時刻を記録
                 try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) {}
                 renderAll();
                 const t = new Date(DB.lastModified).toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
@@ -334,8 +339,16 @@ async function syncToCloud(showResult=false) {
                 isSyncing = false;
                 return;
             }
+
+            // ★ ローカルに変更がない（前回同期以降に保存していない）→ アップロード不要
+            if (localTime <= lastSyncedTime) {
+                if (showResult) showSyncBar('✅ 同期済みです', 'ok');
+                isSyncing = false;
+                return;
+            }
         }
 
+        // ローカルが新しい or サーバーが空 → アップロード
         if (!hasAnyData()) {
             if (showResult) showSyncBar('⚠️ ローカルが空のためアップロードをスキップ', 'conflict');
             isSyncing = false;
@@ -356,15 +369,9 @@ async function syncToCloud(showResult=false) {
             else { throw new Error('GAS応答が不正: ' + postText.slice(0,80)); }
         }
 
-        if (result.status === 'conflict') {
-            ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k => {
-                if (result.data[k]) DB[k] = result.data[k];
-            });
-            DB.lastModified = result.data.lastModified;
+        if (result.status === 'ok') {
+            DB.lastSyncedServerTime = DB.lastModified; // ★ アップロード成功 → 同期済み時刻を記録
             try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) {}
-            renderAll();
-            if (showResult) showSyncBar('🔄 競合を解決しました（新しいデータを適用）', 'conflict');
-        } else if (result.status === 'ok') {
             const t = new Date(DB.lastModified).toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
             updateSyncLabel('最終同期: ' + t);
             if (showResult) showSyncBar('✅ 同期完了', 'ok');
@@ -399,6 +406,7 @@ async function forcePullFromCloud() {
         saveEmergencyBackup();
         ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k => { if (serverData[k]) DB[k] = serverData[k]; });
         DB.lastModified = serverData.lastModified;
+        DB.lastSyncedServerTime = serverData.lastModified; // ★ 同期済み時刻を記録
         try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) {}
         renderAll();
         updateSyncLabel('最終同期: ' + new Date(DB.lastModified).toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'}));
