@@ -7,6 +7,8 @@
     <meta name="apple-mobile-web-app-title" content="農機管理PRO">
     <meta name="theme-color" content="#1a252f">
     <title>農機業務管理＆見積 PRO V4</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root{--bg:#f2f5f7;--card-bg:#fff;--text:#2c3e50;--text-sub:#7f8c8d;--border:#eaeff3;--main:#2c3e50;--input-bg:#f9fafb;--table-th:#2c3e50;}
         body.dark{--bg:#121212;--card-bg:#1e1e1e;--text:#e0e0e0;--text-sub:#a0a0a0;--border:#333;--main:#1a252f;--input-bg:#2c2c2c;--table-th:#111;}
@@ -128,13 +130,11 @@
             <span style="color:#fff;font-weight:800;font-size:15px;flex:1;">見積書プレビュー</span>
         </div>
         <div class="action-row">
-            <button class="btn-pdf" onclick="saveHTML()">💾 HTML保存</button>
-            <button class="btn-line" onclick="shareDoc()">📤 LINE共有</button>
+            <button class="btn-pdf" onclick="savePDF()" id="btnSavePDF">📄 PDF保存</button>
+            <button class="btn-line" onclick="sharePDF()" id="btnSharePDF">📤 LINE共有</button>
             <button class="btn-print" onclick="printDoc()">🖨️ 印刷</button>
         </div>
-        <div style="background:#fff8e1;border-left:4px solid #f39c12;padding:8px 12px;margin:0 12px 8px;border-radius:8px;font-size:11px;color:#7f6000;">
-            💡 「HTML保存」でファイルをダウンロード後、ブラウザで開いて印刷・PDF変換できます。LINEへはテキスト共有、または保存したファイルを添付してください。
-        </div>
+        <div id="pdfStatus" style="display:none;background:#e8f4fd;padding:8px 12px;margin:0 12px 8px;border-radius:8px;font-size:12px;font-weight:700;text-align:center;"></div>
         <div style="overflow-x:auto;padding:8px;background:#555;"><div id="preview-inner" style="background:#fff;margin:0 auto;width:794px;"></div></div>
     </div>
 
@@ -259,6 +259,7 @@ function loadDB() {
                     if (Array.isArray(p[k])) DB[k] = p[k];
                 });
                 if (p.lastModified) DB.lastModified = p.lastModified;
+                if (p.lastSyncedServerTime) DB.lastSyncedServerTime = p.lastSyncedServerTime; // ★ 追加
             }
         }
     } catch(e) { console.error('DB読み込みエラー', e); }
@@ -303,10 +304,13 @@ async function syncToCloud(showResult=false) {
         try { serverData = JSON.parse(getText); } catch(e) { serverData = {empty:true}; }
 
         if (serverData && !serverData.empty) {
-            const serverTime = new Date(serverData.lastModified||0).getTime();
-            const localTime  = new Date(DB.lastModified||0).getTime();
+            const serverTime      = new Date(serverData.lastModified||0).getTime();
+            const localTime       = new Date(DB.lastModified||0).getTime();
+            // 前回このスマホがサーバーと同期した時刻（新フィールド）
+            const lastSyncedTime  = new Date(DB.lastSyncedServerTime||0).getTime();
 
-            if (serverTime > localTime) {
+            // ★ サーバーに前回同期以降の新しいデータがある → 受信
+            if (serverTime > lastSyncedTime) {
                 const serverHasData = ['customers','repairs','demos','parts','products','quotes']
                     .some(k => serverData[k] && serverData[k].length > 0);
                 const localHasData = hasAnyData();
@@ -314,6 +318,7 @@ async function syncToCloud(showResult=false) {
                 if (localHasData && !serverHasData) {
                     if (showResult) showSyncBar('⚠️ クラウドが空のためローカルデータを優先', 'conflict');
                     DB.lastModified = new Date().toISOString();
+                    DB.lastSyncedServerTime = DB.lastModified;
                     try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) {}
                     isSyncing = false;
                     setTimeout(() => syncToCloud(false), 500);
@@ -326,6 +331,7 @@ async function syncToCloud(showResult=false) {
                     if (serverData[k]) DB[k] = serverData[k];
                 });
                 DB.lastModified = serverData.lastModified;
+                DB.lastSyncedServerTime = serverData.lastModified; // ★ 同期済み時刻を記録
                 try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) {}
                 renderAll();
                 const t = new Date(DB.lastModified).toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
@@ -334,8 +340,16 @@ async function syncToCloud(showResult=false) {
                 isSyncing = false;
                 return;
             }
+
+            // ★ ローカルに変更がない（前回同期以降に保存していない）→ アップロード不要
+            if (localTime <= lastSyncedTime) {
+                if (showResult) showSyncBar('✅ 同期済みです', 'ok');
+                isSyncing = false;
+                return;
+            }
         }
 
+        // ローカルが新しい or サーバーが空 → アップロード
         if (!hasAnyData()) {
             if (showResult) showSyncBar('⚠️ ローカルが空のためアップロードをスキップ', 'conflict');
             isSyncing = false;
@@ -356,15 +370,9 @@ async function syncToCloud(showResult=false) {
             else { throw new Error('GAS応答が不正: ' + postText.slice(0,80)); }
         }
 
-        if (result.status === 'conflict') {
-            ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k => {
-                if (result.data[k]) DB[k] = result.data[k];
-            });
-            DB.lastModified = result.data.lastModified;
+        if (result.status === 'ok') {
+            DB.lastSyncedServerTime = DB.lastModified; // ★ アップロード成功 → 同期済み時刻を記録
             try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) {}
-            renderAll();
-            if (showResult) showSyncBar('🔄 競合を解決しました（新しいデータを適用）', 'conflict');
-        } else if (result.status === 'ok') {
             const t = new Date(DB.lastModified).toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
             updateSyncLabel('最終同期: ' + t);
             if (showResult) showSyncBar('✅ 同期完了', 'ok');
@@ -399,6 +407,7 @@ async function forcePullFromCloud() {
         saveEmergencyBackup();
         ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k => { if (serverData[k]) DB[k] = serverData[k]; });
         DB.lastModified = serverData.lastModified;
+        DB.lastSyncedServerTime = serverData.lastModified; // ★ 同期済み時刻を記録
         try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) {}
         renderAll();
         updateSyncLabel('最終同期: ' + new Date(DB.lastModified).toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'}));
@@ -491,7 +500,6 @@ function renderBackupList() {
     container.innerHTML = html || '<div style="text-align:center;color:var(--text-sub);padding:20px;font-size:12px;">有効なバックアップなし</div>';
 }
 
-// ★★★ 修正箇所：saveDB()を呼ばずlocalStorageに直接保存 ★★★
 function restoreBackup(key) {
     if (!confirm('このバックアップに復元しますか？\n現在のデータは上書きされます。')) return;
     try {
@@ -501,7 +509,6 @@ function restoreBackup(key) {
             if (Array.isArray(data[k])) DB[k] = data[k];
         });
         if (data.lastModified) DB.lastModified = data.lastModified;
-        // saveDB()は呼ばない → タイムスタンプを現在時刻に書き換えない・クラウドに自動アップしない
         try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) {}
         saveEmergencyBackup();
         renderAll();
@@ -569,93 +576,133 @@ function loadSeedData() {
     showSyncBar('✅ サンプルデータを読み込みました', 'ok');
 }
 
-function saveHTML() {
-    const toName  = (document.getElementById('toName')?.value||'').trim();
-    const subjectVal = (document.getElementById('subject')?.value||'').trim();
-    const estDate = (document.getElementById('estDate')?.value||'').replace(/-/g, '');
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`;
-    const blob = new Blob([html], {type:'text/html;charset=utf-8'});
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    const namePart    = toName    ? toName + '_'    : '';
-    const subjectPart = subjectVal ? subjectVal + '_' : '';
-    a.download = `見積書_${namePart}${subjectPart}${estDate||new Date().toISOString().slice(0,10)}.html`;
-    a.href = url;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 3000);
-}
-
-function shareDoc() {
-    const tN      = document.getElementById('toName')?.value||'';
-    const subject = document.getElementById('subject')?.value||'';
-    const estDate = document.getElementById('estDate')?.value||'';
-    let sub = 0;
-    for (let i = 0; i < ROWS; i++) sub += (Number(qItems[i].qty)||0) * (Number(qItems[i].price)||0);
-    const tax = Math.floor(sub * 0.1);
-    const total = sub + tax;
-    const itemLines = qItems.filter(it => it.name && Number(it.qty) && Number(it.price))
-        .map(it => '・'+it.name+(it.model?' '+it.model:'')+' × '+it.qty+' = ¥'+(Number(it.qty)*Number(it.price)).toLocaleString())
-        .join('\n');
-    const shareText = '【お見積書】財部農機センター\n━━━━━━━━━━━\n'
-        +(tN?'宛先：'+tN+' 様\n':'')+(subject?'件名：'+subject+'\n':'')+(estDate?'発行日：'+estDate+'\n':'')
-        +'━━━━━━━━━━━\n'+(itemLines?itemLines+'\n':'')
-        +'━━━━━━━━━━━\n'
-        +'小計：¥'+sub.toLocaleString()+'\n消費税(10%)：¥'+tax.toLocaleString()+'\n【合計金額】¥'+total.toLocaleString()+'\n'
-        +'━━━━━━━━━━━\nご確認よろしくお願いいたします。';
-    if (navigator.share) {
-        const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`;
-        const toN2 = (tN||'').trim();
-        const sub2 = (subject||'').trim();
-        const d2   = (estDate||new Date().toISOString().slice(0,10)).replace(/-/g,'');
-        const fname = `見積書_${toN2?toN2+'_':''}${sub2?sub2+'_':''}${d2}.html`;
-        const file  = new File([html], fname, {type:'text/html'});
-        const shareData = navigator.canShare && navigator.canShare({files:[file]})
-            ? {title:'見積書 - 財部農機センター', text:shareText, files:[file]}
-            : {title:'見積書 - 財部農機センター', text:shareText};
-        navigator.share(shareData).catch(err => {
-            if (err.name !== 'AbortError') openLineShare(shareText);
-        });
-        return;
-    }
-    openLineShare(shareText);
-}
-
-function openLineShare(text) {
-    const opened = window.open('https://line.me/R/msg/text/?' + encodeURIComponent(text), '_blank');
-    if (!opened) {
-        if (navigator.clipboard) {
-            navigator.clipboard.writeText(text).then(() => alert('見積内容をコピーしました！\nLINEを開いて貼り付けてください。'));
-        } else {
-            prompt('以下をコピーしてLINEに貼り付けてください：', text);
+async function generatePDFBlob() {
+    const element = document.getElementById('preview-inner');
+    const canvas = await html2canvas(element, {scale: 2, useCORS: true, backgroundColor: '#ffffff'});
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const imgW = canvas.width;
+    const imgH = canvas.height;
+    const ratio = pageW / (imgW / 3.7795);
+    const finalH = (imgH / 3.7795) * ratio;
+    const imgData = canvas.toDataURL('image/jpeg', 0.97);
+    if (finalH <= pageH) {
+        pdf.addImage(imgData, 'JPEG', 0, 0, pageW, finalH);
+    } else {
+        // 複数ページ対応
+        let y = 0;
+        while (y < finalH) {
+            if (y > 0) pdf.addPage();
+            pdf.addImage(imgData, 'JPEG', 0, -(y), pageW, finalH);
+            y += pageH;
         }
     }
+    return pdf;
+}
+
+function getPDFFilename() {
+    const tN = (document.getElementById('toName')?.value || '').trim();
+    const sub = (document.getElementById('subject')?.value || '').trim();
+    const d = (document.getElementById('estDate')?.value || '').replace(/-/g, '');
+    return `見積書_${tN ? tN + '_' : ''}${sub ? sub + '_' : ''}${d || new Date().toISOString().slice(0,10)}.pdf`;
+}
+
+function setPDFStatus(msg, color) {
+    const el = document.getElementById('pdfStatus');
+    el.style.display = msg ? 'block' : 'none';
+    el.style.background = color || '#e8f4fd';
+    el.style.color = color === '#fde8e8' ? '#e74c3c' : '#2980b9';
+    el.textContent = msg;
+}
+
+async function savePDF() {
+    const btn = document.getElementById('btnSavePDF');
+    btn.disabled = true; btn.textContent = '⏳ PDF作成中...';
+    setPDFStatus('📄 PDFを作成しています...', '#e8f4fd');
+    try {
+        const pdf = await generatePDFBlob();
+        const fname = getPDFFilename();
+        
+        // GASやLINE内ブラウザの制限を回避するため、Base64データとして出力
+        const dataUri = pdf.output('datauristring');
+        const a = document.createElement('a');
+        a.href = dataUri;
+        a.download = fname;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        setPDFStatus('✅ PDFを保存しました！', '#eafaf1');
+        setTimeout(() => setPDFStatus(''), 3000);
+    } catch(e) {
+        setPDFStatus('❌ PDF作成失敗: ' + e.message, '#fde8e8');
+    }
+    btn.disabled = false; btn.textContent = '📄 PDF保存';
+}
+
+async function sharePDF() {
+    const btn = document.getElementById('btnSharePDF');
+    btn.disabled = true; btn.textContent = '⏳ PDF作成中...';
+    setPDFStatus('📤 PDF作成中...', '#e8f4fd');
+    try {
+        const pdf = await generatePDFBlob();
+        const fname = getPDFFilename();
+        const blob = pdf.output('blob');
+        const file = new File([blob], fname, {type: 'application/pdf'});
+        
+        if (navigator.share && navigator.canShare && navigator.canShare({files: [file]})) {
+            await navigator.share({title: '見積書', text: '見積書を送付いたします。', files: [file]});
+            setPDFStatus('✅ 共有しました！', '#eafaf1');
+            setTimeout(() => setPDFStatus(''), 4000);
+        } else {
+            const dataUri = pdf.output('datauristring');
+            const a = document.createElement('a');
+            a.href = dataUri;
+            a.download = fname;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            setPDFStatus('💡 PDFを保存しました。LINEから手動で添付してください。', '#fff8e1');
+            setTimeout(() => setPDFStatus(''), 4000);
+        }
+    } catch(e) {
+        if (e.name !== 'AbortError') setPDFStatus('❌ 共有失敗: ' + e.message, '#fde8e8');
+        else setPDFStatus('');
+    }
+    btn.disabled = false; btn.textContent = '📤 LINE共有';
 }
 
 function printDoc() {
+    setPDFStatus('🖨️ 印刷準備中...', '#e8f4fd');
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`;
-    const win = window.open('', '_blank');
-    if (win) {
-        win.document.write(html);
-        win.document.close();
-        setTimeout(() => { try { win.focus(); win.print(); } catch(e) { win.close(); usePrintFrame(html); } }, 800);
-    } else { usePrintFrame(html); }
-}
-function usePrintFrame(html) {
     const iframe = document.getElementById('_print_frame');
+    iframe.style.position = 'fixed';
+    iframe.style.top = '0'; iframe.style.left = '0';
+    iframe.style.width = '210mm'; iframe.style.height = '297mm';
     const doc = iframe.contentDocument || iframe.contentWindow.document;
     doc.open(); doc.write(html); doc.close();
     setTimeout(() => {
-        try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch(e) {
-            const blob = new Blob([html], {type:'text/html;charset=utf-8'});
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = '見積書.html';
-            a.click();
-            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        try {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+            iframe.style.top = '-9999px'; iframe.style.left = '-9999px';
+            setPDFStatus('');
+        } catch(e) {
+            iframe.style.top = '-9999px'; iframe.style.left = '-9999px';
+            const win = window.open('', '_blank');
+            if (win) {
+                win.document.write(html);
+                win.document.close();
+                setTimeout(() => { win.focus(); win.print(); }, 800);
+                setPDFStatus('');
+            } else {
+                setPDFStatus('💡 ポップアップをブロックされました。ブラウザの設定でポップアップを許可してください。', '#fff8e1');
+            }
         }
-    }, 800);
+    }, 1000);
 }
 
 function buildCalUrl(title, dateVal, details) {
@@ -683,7 +730,8 @@ async function callAI(prompt) {
     if (data.error) throw new Error(data.error.message);
     let raw = '{}';
     if (data.content && data.content[0] && data.content[0].text) raw = data.content[0].text;
-    return JSON.parse(raw.replace(/```json|```/g,'').trim());
+    return JSON.parse(raw.replace(/```json|
+```/g,'').trim());
 }
 
 async function runSmartAI() {
@@ -852,25 +900,101 @@ function saveItem(){const keys=['','customers','repairs','demos','parts','produc
 function delItem(){if(!confirm('削除しますか？'))return;const keys=['','customers','repairs','demos','parts','products'];DB[keys[modalState.tab]]=DB[keys[modalState.tab]].filter(x=>String(x.id)!==String(modalState.item.id));saveDB();closeModal();renderAll();}
 
 let currentQuoteId='';const ROWS=20;let qItems=[];
-function resetQItems(){qItems=[];for(let i=0;i<ROWS;i++)qItems.push({name:'',brand:'',model:'',qty:'',price:'',note:''});}
-resetQItems();
+function resetQItems(){qItems=[];for(let i=0;i<ROWS;i++)qItems.push({name:'',brand:'',model:'',qty:'',price:'',note:''});} resetQItems(); function jumpToQuote(){const it="modalState.item;const" tab="modalState.tab;closeModal();openQuoteEditor('');if(tab===2||tab===3||tab===4)document.getElementById('toName').value=it.customerName||'';if(tab===5)document.getElementById('toName').value=it.customer||'';resetQItems();if(tab===2){qItems[0]={name:it.machine||'',brand:it.maker||'',model:it.model||'',qty:1,price:'',note:it.serialNo?'製造番号:'+it.serialNo:''};}else" if(tab="==3){let" line="0;[['targetMachine','maker','model'],['targetMachine2','maker2','model2'],['targetMachine3','maker3','model3']].forEach(([t,m,mo])=">{if(it[t]||it[m]||it[mo])qItems[line++]={name:it[t]||'',brand:it[m]||'',model:it[mo]||'',qty:1,price:'',note:''};});}else if(tab===4){qItems[0]={name:it.name||'',brand:it.maker||'',model:it.partNo||'',qty:1,price:it.price||'',note:''};}else if(tab===5){qItems[0]={name:it.productName||'',brand:it.maker||'',model:it.model||'',qty:1,price:it.price||'',note:it.serialNo?'製造番号:'+it.serialNo:''};}buildTable();}
 
-function jumpToQuote(){const it=modalState.item;const tab=modalState.tab;closeModal();openQuoteEditor('');if(tab===2||tab===3||tab===4)document.getElementById('toName').value=it.customerName||'';if(tab===5)document.getElementById('toName').value=it.customer||'';resetQItems();if(tab===2){qItems[0]={name:it.machine||'',brand:it.maker||'',model:it.model||'',qty:1,price:'',note:it.serialNo?'製造番号:'+it.serialNo:''};}else if(tab===3){let line=0;[['targetMachine','maker','model'],['targetMachine2','maker2','model2'],['targetMachine3','maker3','model3']].forEach(([t,m,mo])=>{if(it[t]||it[m]||it[mo])qItems[line++]={name:it[t]||'',brand:it[m]||'',model:it[mo]||'',qty:1,price:'',note:''};});}else if(tab===4){qItems[0]={name:it.name||'',brand:it.maker||'',model:it.partNo||'',qty:1,price:it.price||'',note:''};}else if(tab===5){qItems[0]={name:it.productName||'',brand:it.maker||'',model:it.model||'',qty:1,price:it.price||'',note:it.serialNo?'製造番号:'+it.serialNo:''};}buildTable();}
-
-function openQuoteEditor(id){document.getElementById('content_main').style.display='none';document.getElementById('content_quote_editor').style.display='block';currentTab=6;document.querySelectorAll('.tab-btn').forEach(t=>t.classList.remove('active'));const tbs=document.querySelectorAll('.tab-btn');if(tbs[6])tbs[6].classList.add('active');currentQuoteId=id;if(id===''){['estNo','delivPlace','payMethod','toName','subject','note'].forEach(i=>document.getElementById(i).value='');document.getElementById('estDate').value=new Date().toISOString().slice(0,10);const exp=new Date();exp.setMonth(exp.getMonth()+1);document.getElementById('expDate').value=exp.toISOString().slice(0,10);document.getElementById('delivDate').value='';resetQItems();}else{const q=DB.quotes.find(x=>x.id===id);if(q){['estNo','estDate','expDate','delivDate','delivPlace','payMethod','toName','subject','note'].forEach(k=>{document.getElementById(k).value=q[k]||'';});if(q.qItems){qItems=JSON.parse(JSON.stringify(q.qItems));while(qItems.length<ROWS)qItems.push({name:'',brand:'',model:'',qty:'',price:'',note:''});}else resetQItems();}}buildTable();}
-function closeQuoteEditor(){document.getElementById('content_quote_editor').style.display='none';renderAll();}
-
-function saveCurrentQuote(){let sub=0;for(let i=0;i<ROWS;i++)sub+=(Number(qItems[i].qty)||0)*(Number(qItems[i].price)||0);const tax=Math.floor(sub*.1);const qd={id:currentQuoteId||'Q_'+Date.now(),estNo:document.getElementById('estNo').value,estDate:document.getElementById('estDate').value,expDate:document.getElementById('expDate').value,delivDate:document.getElementById('delivDate').value,delivPlace:document.getElementById('delivPlace').value,payMethod:document.getElementById('payMethod').value,toName:document.getElementById('toName').value,subject:document.getElementById('subject').value,note:document.getElementById('note').value,qItems:JSON.parse(JSON.stringify(qItems)),total:sub+tax};if(currentQuoteId===''){DB.quotes.push(qd);currentQuoteId=qd.id;}else DB.quotes=DB.quotes.map(q=>q.id===qd.id?qd:q);saveDB();showSyncBar('✅ 見積書を保存しました','ok');}
+function openQuoteEditor(id){document.getElementById('content_main').style.display='none';document.getElementById('content_quote_editor').style.display='block';currentTab=6;document.querySelectorAll('.tab-btn').forEach(t=>t.classList.remove('active'));const tbs=document.querySelectorAll('.tab-btn');if(tbs[6])tbs[6].classList.add('active');currentQuoteId=id;if(id===''){['estNo','delivPlace','payMethod','toName','subject','note'].forEach(i=>document.getElementById(i).value='');document.getElementById('estDate').value=new Date().toISOString().slice(0,10);const exp=new Date();exp.setMonth(exp.getMonth()+1);document.getElementById('expDate').value=exp.toISOString().slice(0,10);document.getElementById('delivDate').value='';resetQItems();}else{const q=DB.quotes.find(x=>x.id===id);if(q){['estNo','estDate','expDate','delivDate','delivPlace','payMethod','toName','subject','note'].forEach(k=>{document.getElementById(k).value=q[k]||'';});if(q.qItems){qItems=JSON.parse(JSON.stringify(q.qItems));while(qItems.length<ROWS)qItems.push({name:'',brand:'',model:'',qty:'',price:'',note:''});}else resetQItems();}}buildTable();} function closeQuoteEditor(){document.getElementById('content_quote_editor').style.display="none" ;renderAll();} saveCurrentQuote(){let sub="0;for(let" i="0;i<ROWS;i++)sub+=(Number(qItems[i].qty)||0)*(Number(qItems[i].price)||0);const" tax="Math.floor(sub*.1);const" qd="{id:currentQuoteId||'Q_'+Date.now(),estNo:document.getElementById('estNo').value,estDate:document.getElementById('estDate').value,expDate:document.getElementById('expDate').value,delivDate:document.getElementById('delivDate').value,delivPlace:document.getElementById('delivPlace').value,payMethod:document.getElementById('payMethod').value,toName:document.getElementById('toName').value,subject:document.getElementById('subject').value,note:document.getElementById('note').value,qItems:JSON.parse(JSON.stringify(qItems)),total:sub+tax};if(currentQuoteId===''){DB.quotes.push(qd);currentQuoteId=qd.id;}else" DB.quotes="DB.quotes.map(q=">q.id===qd.id?qd:q);saveDB();showSyncBar('✅ 見積書を保存しました','ok');}
 function deleteCurrentQuote(){if(currentQuoteId!==''){DB.quotes=DB.quotes.filter(q=>q.id!==currentQuoteId);saveDB();}closeQuoteEditor();}
 
-function buildTable(){const tbody=document.getElementById('itemsTable');while(tbody.rows.length>1)tbody.deleteRow(1);for(let i=0;i<ROWS;i++){const tr=tbody.insertRow();tr.innerHTML='<td class="tc" style="font-size:10px;padding:4px 2px;">'+(i+1)+'</td>'+'<td><input value="'+esc(qItems[i].name)+'" onchange="qItems['+i+'].name=this.value" placeholder="品名"></td>'+'<td><input value="'+esc(qItems[i].brand)+'" onchange="qItems['+i+'].brand=this.value" placeholder="銘柄"></td>'+'<td><input value="'+esc(qItems[i].model)+'" onchange="qItems['+i+'].model=this.value" placeholder="型式"></td>'+'<td><input type="number" class="tr" value="'+qItems[i].qty+'" onchange="qItems['+i+'].qty=this.value;calcTotal()" min="0"></td>'+'<td><input type="number" class="tr" value="'+qItems[i].price+'" onchange="qItems['+i+'].price=this.value;calcTotal()" min="0"></td>'+'<td class="tr" id="amt_'+i+'" style="padding:5px;font-size:12px;font-weight:bold;">—</td>'+'<td><input value="'+esc(qItems[i].note)+'" onchange="qItems['+i+'].note=this.value" placeholder="備考"></td>';}calcTotal();}
-function calcTotal(){let sub=0;for(let i=0;i<ROWS;i++){const amt=(Number(qItems[i].qty)||0)*(Number(qItems[i].price)||0);const td=document.getElementById('amt_'+i);if(td)td.textContent=amt?'¥'+amt.toLocaleString():'—';sub+=amt;}const tax=Math.floor(sub*.1);[['subtotal',sub],['tax',tax],['total',sub+tax]].forEach(([id,v])=>{const el=document.getElementById(id);if(el)el.textContent='¥'+v.toLocaleString();});}
+function buildTable(){const tbody=document.getElementById('itemsTable');while(tbody.rows.length>1)tbody.deleteRow(1);for(let i=0;i<ROWS;i++){const tr="tbody.insertRow();tr.innerHTML='<td" class="tc" style="font-size:10px;padding:4px 2px;">'+(i+1)+'</td>'+'<td><input value="'+esc(qItems[i].name)+'" onchange="qItems['+i+'].name=this.value" placeholder="品名"></td>'+'<td><input value="'+esc(qItems[i].brand)+'" onchange="qItems['+i+'].brand=this.value" placeholder="銘柄"></td>'+'<td><input value="'+esc(qItems[i].model)+'" onchange="qItems['+i+'].model=this.value" placeholder="型式"></td>'+'<td><input type="number" class="tr" value="'+qItems[i].qty+'" onchange="qItems['+i+'].qty=this.value;calcTotal()" min="0"></td>'+'<td><input type="number" class="tr" value="'+qItems[i].price+'" onchange="qItems['+i+'].price=this.value;calcTotal()" min="0"></td>'+'<td class="tr" id="amt_'+i+'" style="padding:5px;font-size:12px;font-weight:bold;">—</td>'+'<td><input value="'+esc(qItems[i].note)+'" onchange="qItems['+i+'].note=this.value" placeholder="備考"></td>';}calcTotal();}
+function calcTotal(){let sub=0;for(let i=0;i<ROWS;i++){const amt="(Number(qItems[i].qty)||0)*(Number(qItems[i].price)||0);const" td="document.getElementById('amt_'+i);if(td)td.textContent=amt?'¥'+amt.toLocaleString():'—';sub+=amt;}const" tax="Math.floor(sub*.1);[['subtotal',sub],['tax',tax],['total',sub+tax]].forEach(([id,v])=">{const el=document.getElementById(id);if(el)el.textContent='¥'+v.toLocaleString();});}
 
 function getStyles(){return'*{box-sizing:border-box;margin:0;padding:0;}body{font-family:\'MS Mincho\',\'Hiragino Mincho Pro\',serif;}@page{size:A4 portrait;margin:0;}@media print{body{margin:0;padding:0;-webkit-print-color-adjust:exact;color-adjust:exact;}}';}
 function fmtDate(d){if(!d)return'';const dt=new Date(d);return'令和'+(dt.getFullYear()-2018)+'年'+(dt.getMonth()+1)+'月'+dt.getDate()+'日';}
 function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-function buildEstHTML(){const[date,dD,dP,pM,tN,nt,ex]=['estDate','delivDate','delivPlace','payMethod','toName','note','expDate'].map(id=>document.getElementById(id).value);let sub=0,emptyStartIdx=-1;const rowH=7.0;let rowsHTML='';for(let i=0;i<qItems.length;i++){const it=qItems[i];const qty=Number(it.qty)||0;const price=Number(it.price)||0;const amt=qty*price;sub+=amt;const isEmpty=!it.name&&!it.brand&&!it.model&&!it.qty&&!it.price;if(isEmpty&&emptyStartIdx===-1)emptyStartIdx=i;else if(!isEmpty)emptyStartIdx=-1;rowsHTML+='<tr style="height:'+rowH+'mm;"><td style="border:1px solid #000;text-align:center;font-size:10px;">'+(i+1)+'</td>'+'<td style="border:1px solid #000;padding:0 4px;font-size:10px;overflow:hidden;white-space:nowrap;">'+escH(it.name)+'</td>'+'<td style="border:1px solid #000;text-align:center;font-size:10px;">'+escH(it.brand)+'</td>'+'<td style="border:1px solid #000;text-align:center;font-size:10px;">'+escH(it.model)+'</td>'+'<td style="border:1px solid #000;text-align:center;font-size:10px;">'+(qty||'')+'</td>'+'<td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">'+(price?price.toLocaleString():'')+'</td>'+'<td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">'+(amt?amt.toLocaleString():'')+'</td>'+'<td style="border:1px solid #000;padding:0 4px;font-size:10px;overflow:hidden;white-space:nowrap;">'+escH(it.note)+'</td></tr>';}const tax=Math.floor(sub*.1);const total=sub+tax;let svgLine='';if(emptyStartIdx!==-1&&emptyStartIdx<ROWS){const tp=rowH+(emptyStartIdx*rowH);const ht=(ROWS-emptyStartIdx)*rowH;svgLine='<svg style="position:absolute;left:8mm;top:'+tp+'mm;width:137mm;height:'+ht+'mm;pointer-events:none;z-index:10;"><line x1="100%" y1="0" x2="0" y2="100%" stroke="#000" stroke-width="1"></line></svg>';}let h='<div style="width:210mm;min-height:296mm;padding:12mm 20mm;background:#fff;font-family:\'MS Mincho\',serif;color:#000;box-sizing:border-box;">'+'<div style="text-align:center;font-size:24px;letter-spacing:15mm;margin-bottom:8mm;padding-left:15mm;">見　積　書</div>'+'<div style="text-align:right;font-size:10px;margin-bottom:4mm;">'+fmtDate(date)+'</div>'+'<div style="margin-bottom:4mm;text-align:left;"><div style="display:inline-flex;align-items:flex-end;border-bottom:1.5px solid #000;padding-bottom:1px;margin-bottom:2mm;min-width:45mm;white-space:nowrap;"><div style="flex:1;"></div><div style="font-size:16px;font-weight:bold;text-align:justify;text-align-last:justify;min-width:25mm;">'+escH(tN)+'</div><div style="font-size:16px;font-weight:bold;margin-left:1.5mm;">様</div></div><div style="font-size:11px;letter-spacing:2px;">下　記　の　通　り　御　見　積　致　し　ま　す　。</div></div>'+'<div style="display:flex;justify-content:space-between;margin-bottom:6mm;"><div><table style="font-size:10px;border-collapse:collapse;text-align:left;"><tr><td style="padding:1.5px 0;width:15mm;text-align:justify;text-align-last:justify;">納入期日</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">'+fmtDate(dD)+'</td></tr><tr><td style="padding:1.5px 0;text-align:justify;text-align-last:justify;">納入場所</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">'+escH(dP)+'</td></tr><tr><td style="padding:1.5px 0;text-align:justify;text-align-last:justify;">取引方法</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">'+escH(pM)+'</td></tr></table></div><div style="font-size:10px;line-height:1.9;text-align:left;"><div>鹿児島県曽於市大隅町岩川5591番地</div><div style="text-align:justify;text-align-last:justify;width:54mm;">そ お 鹿 児 島 農 業 協 同 組 合</div><div style="display:flex;justify-content:space-between;width:54mm;"><span>代表理事組合長</span><span>竹　内　和　久</span></div><div style="text-align:right;margin-top:1mm;">財部農機センター</div></div></div>'+'<div style="display:flex;align-items:flex-end;margin-bottom:2mm;"><div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1.5px solid #000;width:60mm;padding-bottom:1px;"><div style="font-size:16px;font-weight:bold;">合計金額 ￥</div><div style="text-align:right;flex:1;"><span style="font-size:18px;font-weight:bold;">'+total.toLocaleString()+'</span><span style="font-size:16px;font-weight:bold;"> 円也</span></div></div><div style="font-size:10px;margin-left:4mm;padding-bottom:1px;">（内消費税　'+tax.toLocaleString()+'　円）</div></div>'+'<div style="position:relative;width:170mm;margin-top:3mm;">'+svgLine+'<table style="width:170mm;border-collapse:collapse;table-layout:fixed;"><colgroup><col style="width:8mm"><col style="width:45mm"><col style="width:15mm"><col style="width:25mm"><col style="width:12mm"><col style="width:20mm"><col style="width:20mm"><col style="width:25mm"></colgroup>'+'<tr style="height:'+rowH+'mm;background:#fff;"><th style="border:1px solid #000;font-size:10px;font-weight:normal;">No.</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">品　　名</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">銘　柄</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">型　　式</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">数量</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">単　価</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">金　額</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">備　考</th></tr>'+rowsHTML+'<tr style="height:'+rowH+'mm;"><td colspan="6" style="border:1px solid #000;text-align:center;font-size:11px;letter-spacing:10mm;padding-left:10mm;">小　計</td><td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">'+sub.toLocaleString()+'</td><td style="border:1px solid #000;"></td></tr>'+'<tr style="height:'+rowH+'mm;"><td colspan="6" style="border:1px solid #000;text-align:center;font-size:11px;letter-spacing:8mm;padding-left:8mm;">消　費　税</td><td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">'+tax.toLocaleString()+'</td><td style="border:1px solid #000;"></td></tr>'+'<tr style="height:'+rowH+'mm;"><td colspan="6" style="border:1px solid #000;text-align:center;font-size:11px;letter-spacing:10mm;padding-left:10mm;">合　計</td><td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;font-weight:bold;">'+total.toLocaleString()+'</td><td style="border:1px solid #000;"></td></tr>'+'</table></div>';if(nt)h+='<div style="margin-top:3mm;font-size:10px;border:0.5px solid #ccc;padding:4px 6px;"><strong>備考：</strong>'+escH(nt)+'</div>';if(ex)h+='<div style="margin-top:2mm;font-size:10px;">有効期限：'+fmtDate(ex)+'</div>';h+='</div>';return h;}
+function buildEstHTML(){
+const[date,dD,dP,pM,tN,nt,ex]=['estDate','delivDate','delivPlace','payMethod','toName','note','expDate'].map(id=>document.getElementById(id).value);
+let sub=0,emptyStartIdx=-1;
+const rowH=10.0;
+let rowsHTML='';
+for(let i=0;i<qItems.length;i++){
+    const it=qItems[i];const qty=Number(it.qty)||0;const price=Number(it.price)||0;const amt=qty*price;sub+=amt;
+    const isEmpty=!it.name&&!it.brand&&!it.model&&!it.qty&&!it.price;
+    if(isEmpty&&emptyStartIdx===-1)emptyStartIdx=i;else if(!isEmpty)emptyStartIdx=-1;
+    rowsHTML+='<tr style="min-height:'+rowH+'mm;">'
+        +'<td style="border:1px solid #000;text-align:center;font-size:9px;vertical-align:middle;padding:1px;">'+(i+1)+'</td>'
+        +'<td style="border:1px solid #000;padding:2px 4px;font-size:9px;word-break:break-all;vertical-align:middle;">'+escH(it.name)+'</td>'
+        +'<td style="border:1px solid #000;text-align:center;font-size:9px;word-break:break-all;vertical-align:middle;">'+escH(it.brand)+'</td>'
+        +'<td style="border:1px solid #000;text-align:center;font-size:9px;word-break:break-all;vertical-align:middle;">'+escH(it.model)+'</td>'
+        +'<td style="border:1px solid #000;text-align:center;font-size:9px;vertical-align:middle;">'+(qty||'')+'</td>'
+        +'<td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:9px;vertical-align:middle;white-space:nowrap;">'+(price?price.toLocaleString():'')+'</td>'
+        +'<td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:9px;vertical-align:middle;white-space:nowrap;">'+(amt?amt.toLocaleString():'')+'</td>'
+        +'<td style="border:1px solid #000;padding:2px 4px;font-size:9px;word-break:break-all;vertical-align:middle;">'+escH(it.note)+'</td>'
+        +'</tr>';
+}
+const tax=Math.floor(sub*.1);const total=sub+tax;
+
+// 斜線：空行エリアのみに限定
+let svgLine='';
+if(emptyStartIdx!==-1&&emptyStartIdx<ROWS){ const tp="rowH+(emptyStartIdx*rowH);" ht="(ROWS-emptyStartIdx)*rowH;" svgLine="<svg style="position:absolute;left:0;top:" +tp+'mm;width:170mm;height:'+ht+'mm;pointer-events:none;z-index:10;overflow:hidden;">'
+        +'<line x1="170mm" y1="0" x2="0" y2="'+ht+'mm" stroke="#000" stroke-width="0.8"></line>'
+        +'</svg>';
+}
+
+// 名前：文字数に合わせて幅を自動調整
+const nameChars=(tN||'').replace(/[\s\u3000]/g,'');
+const nameWidth=nameChars.length>0
+  ?(nameChars.length<=3?Math.max(nameChars.length*7,22):nameChars.length<=5?nameChars.length*8:nameChars.length*9)
+  :45;
+const nameBlock=tN
+    ?'<div style="border-bottom:1.5px solid #000;width:'+nameWidth+'mm;padding:0 3px 1px;display:inline-block;text-align:center;vertical-align:bottom;"><span style="display:inline-block;width:100%;font-size:16px;font-weight:bold;text-align:justify;text-align-last:justify;">'+escH(tN)+'</span></div><span style="font-size:16px;font-weight:bold;margin-left:2mm;vertical-align:bottom;">様</span>'
+    :'<div style="border-bottom:1.5px solid #000;width:45mm;display:inline-block;"></div>';
+
+let h='<div style="width:210mm;min-height:296mm;padding:14mm 18mm;background:#fff;font-family:\'MS Mincho\',serif;color:#000;box-sizing:border-box;">'
+    +'<div style="text-align:center;font-size:26px;letter-spacing:15mm;margin-bottom:10mm;padding-left:15mm;">見　積　書</div>'
+    +'<div style="text-align:right;font-size:10px;margin-bottom:5mm;">'+fmtDate(date)+'</div>'
+    +'<div style="margin-bottom:5mm;text-align:left;"><div style="margin-bottom:3mm;">'+nameBlock+'</div>'
+    +'<div style="font-size:11px;letter-spacing:2px;">下　記　の　通　り　御　見　積　致　し　ま　す　。</div></div>'
+    +'<div style="display:flex;justify-content:space-between;margin-bottom:7mm;">'
+    +'<div><table style="font-size:10px;border-collapse:collapse;text-align:left;">'
+    +'<tr><td style="padding:2px 0;width:15mm;text-align:justify;text-align-last:justify;">納入期日</td><td style="padding:2px 2px;">：</td><td style="border-bottom:1px solid #000;width:32mm;padding:2px 2px;text-align:right;">'+fmtDate(dD)+'</td></tr>'
+    +'<tr><td style="padding:2px 0;text-align:justify;text-align-last:justify;">納入場所</td><td style="padding:2px 2px;">：</td><td style="border-bottom:1px solid #000;width:32mm;padding:2px 2px;text-align:right;">'+escH(dP)+'</td></tr>'
+    +'<tr><td style="padding:2px 0;text-align:justify;text-align-last:justify;">取引方法</td><td style="padding:2px 2px;">：</td><td style="border-bottom:1px solid #000;width:32mm;padding:2px 2px;text-align:right;">'+escH(pM)+'</td></tr>'
+    +'</table></div>'
+    +'<div style="font-size:10px;line-height:2.0;text-align:left;">'
+    +'<div style="text-align:justify;text-align-last:justify;width:54mm;">鹿 児 島 県 曽 於 市 大 隅 町 岩 川 5591番地</div>'
+    +'<div style="text-align:justify;text-align-last:justify;width:54mm;">そ お 鹿 児 島 農 業 協 同 組 合</div>'
+    +'<div style="display:flex;justify-content:space-between;width:54mm;"><span>代表理事組合長</span><span>竹　内　和　久</span></div>'
+    +'<div style="text-align:right;margin-top:1mm;">財部農機センター</div>'
+    +'</div></div>'
+    +'<div style="display:flex;align-items:flex-end;margin-bottom:3mm;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1.5px solid #000;width:65mm;padding-bottom:1px;">'
+    +'<div style="font-size:16px;font-weight:bold;">合計金額 ￥</div>'
+    +'<div style="text-align:right;flex:1;"><span style="font-size:19px;font-weight:bold;">'+total.toLocaleString()+'</span><span style="font-size:16px;font-weight:bold;"> 円也</span></div>'
+    +'</div><div style="font-size:10px;margin-left:4mm;padding-bottom:1px;">（内消費税　'+tax.toLocaleString()+'　円）</div></div>'
+    +'<div style="position:relative;width:174mm;margin-top:3mm;overflow:hidden;">'
+    +svgLine
+    +'<table style="width:174mm;border-collapse:collapse;table-layout:fixed;">'
+    +'<colgroup><col style="width:8mm"><col style="width:48mm"><col style="width:16mm"><col style="width:26mm"><col style="width:13mm"><col style="width:21mm"><col style="width:21mm"><col style="width:21mm"></colgroup>'
+    +'<tr style="height:'+rowH+'mm;background:#fff;">'
+    +'<th style="border:1px solid #000;font-size:10px;font-weight:normal;">No.</th>'
+    +'<th style="border:1px solid #000;font-size:10px;font-weight:normal;">品　　名</th>'
+    +'<th style="border:1px solid #000;font-size:10px;font-weight:normal;">銘　柄</th>'
+    +'<th style="border:1px solid #000;font-size:10px;font-weight:normal;">型　　式</th>'
+    +'<th style="border:1px solid #000;font-size:10px;font-weight:normal;">数量</th>'
+    +'<th style="border:1px solid #000;font-size:10px;font-weight:normal;">単　価</th>'
+    +'<th style="border:1px solid #000;font-size:10px;font-weight:normal;">金　額</th>'
+    +'<th style="border:1px solid #000;font-size:10px;font-weight:normal;">備　考</th>'
+    +'</tr>'
+    +rowsHTML
+    +'<tr style="height:'+rowH+'mm;"><td colspan="6" style="border:1px solid #000;text-align:center;font-size:11px;letter-spacing:10mm;padding-left:10mm;">小　計</td><td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">'+sub.toLocaleString()+'</td><td style="border:1px solid #000;"></td></tr>'
+    +'<tr style="height:'+rowH+'mm;"><td colspan="6" style="border:1px solid #000;text-align:center;font-size:11px;letter-spacing:8mm;padding-left:8mm;">消　費　税</td><td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">'+tax.toLocaleString()+'</td><td style="border:1px solid #000;"></td></tr>'
+    +'<tr style="height:'+rowH+'mm;"><td colspan="6" style="border:1px solid #000;text-align:center;font-size:11px;letter-spacing:10mm;padding-left:10mm;">合　計</td><td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;font-weight:bold;">'+total.toLocaleString()+'</td><td style="border:1px solid #000;"></td></tr>'
+    +'</table></div>';
+if(nt)h+='<div style="margin-top:4mm;font-size:10px;border:0.5px solid #ccc;padding:4px 6px;"><strong>備考：</strong>'+escH(nt)+'</div>';
+if(ex)h+='<div style="margin-top:3mm;font-size:10px;">有効期限：'+fmtDate(ex)+'</div>';
+h+='</div>';return h;}
+
 
 function showPreview(){document.getElementById('preview-inner').innerHTML=buildEstHTML();document.getElementById('preview-modal').style.display='block';}
 function closePreview(){document.getElementById('preview-modal').style.display='none';}
