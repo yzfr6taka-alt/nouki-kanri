@@ -1056,4 +1056,32 @@ window.onload = async function() {
                                 if (Array.isArray(ebData[k])) DB[k] = ebData[k];
                             });
                             if (ebData.lastModified) DB.lastModified = ebData.lastModified;
-                            try { localStorage.setItem('agri_db', JSON.stringify(DB))
+                            try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) {}
+                        }
+                    }
+                } catch(e) { console.error('緊急バックアップ読込エラー:', e); }
+            }
+        }
+
+        document.getElementById('loading-screen').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        renderAll();
+
+        if (!hasAnyData()) {
+            showSyncBar('⚠️ データなし。🛡️ボタンからバックアップを復元できます。', 'conflict', false);
+        }
+
+        if (gasUrl) {
+            setInterval(() => { if (gasUrl) syncToCloud(false); }, 30000);
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible' && gasUrl) syncToCloud(false);
+            });
+        }
+    } catch(e) {
+        alert('起動処理中にエラーが発生しました。\n詳細: ' + e.message);
+        console.error(e);
+    }
+};
+</script>
+</body>
+</html>
