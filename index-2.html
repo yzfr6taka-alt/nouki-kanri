@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="農機管理PRO">
     <meta name="theme-color" content="#1a252f">
-    <title>農機業務管理 takaAGRI</title>
+    <title>農機業務管理＆見積 PRO V4</title>
     <style>
         :root{--bg:#f2f5f7;--card-bg:#fff;--text:#2c3e50;--text-sub:#7f8c8d;--border:#eaeff3;--main:#2c3e50;--input-bg:#f9fafb;--table-th:#2c3e50;}
         body.dark{--bg:#121212;--card-bg:#1e1e1e;--text:#e0e0e0;--text-sub:#a0a0a0;--border:#333;--main:#1a252f;--input-bg:#2c2c2c;--table-th:#111;}
@@ -60,6 +60,23 @@
         #syncBar.conflict{background:#8e44ad;color:#fff;}
         #syncBar.error{background:#e74c3c;color:#fff;}
         #_print_frame{position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none;}
+
+        /* ===== DEBUG LOG START ===== */
+        #syncLogPanel{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:2000;display:none;flex-direction:column;max-width:520px;left:50%;transform:translateX(-50%);}
+        #syncLogPanel.open{display:flex;}
+        #syncLogHeader{background:#1a252f;padding:10px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+        #syncLogHeader span{color:#fff;font-weight:800;font-size:14px;flex:1;}
+        .log-btn-sm{background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;}
+        #syncLogBody{flex:1;overflow-y:auto;padding:10px 12px;font-family:monospace;font-size:11px;line-height:1.8;}
+        .log-entry{padding:2px 0;border-bottom:1px solid rgba(255,255,255,.06);word-break:break-all;}
+        .log-time{color:#7fb3d3;margin-right:6px;}
+        .log-INFO{color:#a8d8a8;}
+        .log-WARN{color:#f9e07a;}
+        .log-ERROR{color:#f07a7a;}
+        .log-SEND{color:#aad4f5;}
+        .log-RECV{color:#c5a8f5;}
+        .log-SEP{color:#555;border-bottom:1px dashed #444;margin:4px 0;}
+        /* ===== DEBUG LOG END ===== */
     </style>
 </head>
 <body>
@@ -83,6 +100,7 @@
                 <button onclick="openBackupModal()" style="background:#27ae60;border:none;color:#fff;border-radius:10px;padding:7px 8px;font-size:12px;font-weight:800;margin-left:1px;" title="バックアップ管理">🛡️</button>
                 <button onclick="openSmartModal()" style="background:#e67e22;border:none;color:#fff;border-radius:10px;padding:7px 9px;font-size:12px;font-weight:800;margin-left:1px;">🎤</button>
                 <button onclick="openApiKey()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:10px;padding:7px 8px;font-size:13px;margin-left:1px;">🔑</button>
+                <!-- DEBUG LOG BUTTON --> <button onclick="openSyncLog()" id="logBtn" style="background:#c0392b;border:none;color:#fff;border-radius:10px;padding:7px 8px;font-size:13px;margin-left:1px;" title="同期ログ">📋</button>
             </div>
             <div class="tab-wrap" id="tabBar"></div>
         </div>
@@ -204,6 +222,18 @@
     </div>
 
     <div id="syncBar"></div>
+
+    <!-- ===== DEBUG LOG START ===== -->
+    <div id="syncLogPanel">
+        <div id="syncLogHeader">
+            <span>📋 同期ログ</span>
+            <button class="log-btn-sm" onclick="clearSyncLog()">🗑️ クリア</button>
+            <button class="log-btn-sm" onclick="copySyncLog()">📋 コピー</button>
+            <button class="log-btn-sm" onclick="closeSyncLog()">✕ 閉じる</button>
+        </div>
+        <div id="syncLogBody"><div style="color:#555;text-align:center;padding:20px;font-size:12px;">ログが溜まるとここに表示されます</div></div>
+    </div>
+    <!-- ===== DEBUG LOG END ===== -->
     <iframe id="_print_frame" style="position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none;"></iframe>
 
 <script>
@@ -223,6 +253,39 @@ let DB = {
     lastModified: new Date().toISOString()
 };
 let apiKey='', gasUrl='', syncTimer=null, isSyncing=false;
+
+// ===== DEBUG LOG START =====
+const _syncLogs = [];
+function _log(level, msg) {
+    const now = new Date();
+    const ts = now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) +
+               '.' + String(now.getMilliseconds()).padStart(3,'0');
+    _syncLogs.push({ts, level, msg});
+    const body = document.getElementById('syncLogBody');
+    if (!body) return;
+    if (_syncLogs.length === 1) body.innerHTML = '';
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    if (level === 'SEP') {
+        entry.className += ' log-SEP';
+        entry.textContent = '─────────────────────────────';
+    } else {
+        entry.innerHTML = `<span class="log-time">${ts}</span><span class="log-${level}">[${level}] ${msg}</span>`;
+    }
+    body.appendChild(entry);
+    body.scrollTop = body.scrollHeight;
+    // バッジ更新
+    const btn = document.getElementById('logBtn');
+    if (btn && (level === 'ERROR' || level === 'WARN')) btn.style.background = level==='ERROR'?'#c0392b':'#d35400';
+}
+function openSyncLog()  { document.getElementById('syncLogPanel').classList.add('open'); }
+function closeSyncLog() { document.getElementById('syncLogPanel').classList.remove('open'); }
+function clearSyncLog() { _syncLogs.length=0; document.getElementById('syncLogBody').innerHTML='<div style="color:#555;text-align:center;padding:20px;font-size:12px;">クリアしました</div>'; }
+function copySyncLog()  {
+    const txt = _syncLogs.map(l => l.level==='SEP'?'---':`${l.ts} [${l.level}] ${l.msg}`).join('\n');
+    navigator.clipboard.writeText(txt).then(()=>alert('ログをコピーしました')).catch(()=>alert('コピー失敗\n'+txt.slice(0,200)));
+}
+// ===== DEBUG LOG END =====
 
 function hasAnyData() {
     return ['customers','repairs','demos','parts','products'].some(k => Array.isArray(DB[k]) && DB[k].length > 0);
@@ -294,24 +357,45 @@ async function fetchWithTimeout(url, options, timeoutMs=15000) {
 async function syncToCloud(showResult=false) {
     if (!gasUrl || isSyncing) return;
     isSyncing = true;
+    // ===== DEBUG LOG =====
+    _log('SEP','');
+    _log('INFO', `syncToCloud 開始 (showResult=${showResult})`);
+    _log('INFO', `GAS URL: ${gasUrl.slice(0,60)}...`);
+    _log('INFO', `ローカル lastModified: ${DB.lastModified}`);
+    _log('INFO', `ローカルデータ件数 → 修理:${DB.repairs?.length||0} 顧客:${DB.customers?.length||0} 製品:${DB.products?.length||0} 部品:${DB.parts?.length||0} 実演:${DB.demos?.length||0}`);
+    // =====================
     if (showResult) showSyncBar('☁️ 同期中...', 'syncing', false);
     try {
+        // --- GET ---
+        _log('SEND', 'GET リクエスト送信中...');  // DEBUG LOG
         const getRes = await fetchWithTimeout(gasUrl, {method:'GET', cache:'no-cache'});
+        _log('RECV', `GET レスポンス status=${getRes.status} ok=${getRes.ok}`);  // DEBUG LOG
         if (!getRes.ok) throw new Error('サーバーエラー: ' + getRes.status);
         const getText = await getRes.text();
+        _log('RECV', `GET レスポンス本文(先頭200文字): ${getText.slice(0,200)}`);  // DEBUG LOG
         let serverData;
-        try { serverData = JSON.parse(getText); } catch(e) { serverData = {empty:true}; }
+        try {
+            serverData = JSON.parse(getText);
+            _log('INFO', `GASデータ解析OK → lastModified=${serverData.lastModified||'なし'} empty=${serverData.empty||false}`);  // DEBUG LOG
+            _log('INFO', `GASデータ件数 → 修理:${serverData.repairs?.length??'なし'} 顧客:${serverData.customers?.length??'なし'} 製品:${serverData.products?.length??'なし'}`);  // DEBUG LOG
+        } catch(e) {
+            _log('WARN', `GET応答のJSON解析失敗: ${e.message} → empty扱い`);  // DEBUG LOG
+            serverData = {empty:true};
+        }
 
         if (serverData && !serverData.empty) {
             const serverTime = new Date(serverData.lastModified||0).getTime();
             const localTime  = new Date(DB.lastModified||0).getTime();
+            _log('INFO', `タイムスタンプ比較 → サーバー:${serverTime} ローカル:${localTime} → ${serverTime>localTime?'サーバーが新しい':'ローカルが新しい or 同じ'}`);  // DEBUG LOG
 
             if (serverTime > localTime) {
                 const serverHasData = ['customers','repairs','demos','parts','products','quotes']
                     .some(k => serverData[k] && serverData[k].length > 0);
                 const localHasData = hasAnyData();
+                _log('INFO', `serverHasData=${serverHasData} localHasData=${localHasData}`);  // DEBUG LOG
 
                 if (localHasData && !serverHasData) {
+                    _log('WARN', 'クラウドが空・ローカルにデータあり → ローカル優先でPUSH予定');  // DEBUG LOG
                     if (showResult) showSyncBar('⚠️ クラウドが空のためローカルデータを優先', 'conflict');
                     DB.lastModified = new Date().toISOString();
                     try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) {}
@@ -321,7 +405,7 @@ async function syncToCloud(showResult=false) {
                 }
 
                 if (localHasData) saveEmergencyBackup();
-
+                _log('INFO', 'サーバーデータでローカルを上書き（ダウンロード）');  // DEBUG LOG
                 ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k => {
                     if (serverData[k]) DB[k] = serverData[k];
                 });
@@ -331,32 +415,42 @@ async function syncToCloud(showResult=false) {
                 const t = new Date(DB.lastModified).toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
                 updateSyncLabel('最終同期: ' + t);
                 if (showResult) showSyncBar('✅ 最新データを受信しました', 'ok');
+                _log('INFO', 'ダウンロード完了・処理終了');  // DEBUG LOG
                 isSyncing = false;
                 return;
             }
         }
 
         if (!hasAnyData()) {
+            _log('WARN', 'ローカルが空 → アップロードをスキップ');  // DEBUG LOG
             if (showResult) showSyncBar('⚠️ ローカルが空のためアップロードをスキップ', 'conflict');
             isSyncing = false;
             return;
         }
 
+        // --- POST ---
+        const postBody = JSON.stringify(DB);
+        _log('SEND', `POST リクエスト送信中... ボディサイズ=${postBody.length}バイト`);  // DEBUG LOG
         const postRes = await fetchWithTimeout(gasUrl, {
             method: 'POST',
             headers: {'Content-Type': 'text/plain;charset=utf-8'},
-            body: JSON.stringify(DB)
+            body: postBody
         });
+        _log('RECV', `POST レスポンス status=${postRes.status} ok=${postRes.ok}`);  // DEBUG LOG
         if (!postRes.ok) throw new Error('保存エラー: ' + postRes.status);
         const postText = await postRes.text();
+        _log('RECV', `POST レスポンス本文(先頭200文字): ${postText.slice(0,200)}`);  // DEBUG LOG
         let result;
         try { result = JSON.parse(postText); } catch(e) {
             const t = postText.trim().toLowerCase();
+            _log('WARN', `POSTレスポンスJSON解析失敗: ${e.message} → テキスト判定: "${t.slice(0,50)}"`);  // DEBUG LOG
             if (t === 'success' || t.includes('"success"') || t.includes('ok')) { result = {status:'ok'}; }
             else { throw new Error('GAS応答が不正: ' + postText.slice(0,80)); }
         }
 
+        _log('INFO', `POST結果 status=${result?.status}`);  // DEBUG LOG
         if (result.status === 'conflict') {
+            _log('WARN', '競合検出 → サーバーデータを適用');  // DEBUG LOG
             ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k => {
                 if (result.data[k]) DB[k] = result.data[k];
             });
@@ -368,42 +462,56 @@ async function syncToCloud(showResult=false) {
             const t = new Date(DB.lastModified).toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
             updateSyncLabel('最終同期: ' + t);
             if (showResult) showSyncBar('✅ 同期完了', 'ok');
+            _log('INFO', 'アップロード完了');  // DEBUG LOG
         } else {
+            _log('WARN', `不明なGAS応答status: ${result.status}`);  // DEBUG LOG
             if (showResult) showSyncBar('⚠️ GAS応答エラー（接続設定を確認）', 'error');
         }
     } catch(e) {
         let errMsg = e.message || String(e);
         if (e.name === 'AbortError') errMsg = '接続タイムアウト（15秒）';
         else if (errMsg === 'Failed to fetch') errMsg = '接続失敗（GASのアクセス権限を確認してください）';
+        _log('ERROR', `例外発生: ${e.name}: ${e.message}`);  // DEBUG LOG
         if (showResult) showSyncBar('❌ ' + errMsg, 'error');
     }
+    _log('INFO', 'syncToCloud 終了');  // DEBUG LOG
     isSyncing = false;
 }
 
 async function manualSync() {
     if (!gasUrl) { showSyncBar('⚠️ GAS URLが未設定です。🔑から設定してください', 'error'); return; }
+    _log('INFO', '手動同期ボタン押下');  // DEBUG LOG
     await syncToCloud(true);
 }
 
 async function forcePullFromCloud() {
     if (!gasUrl) { showSyncBar('⚠️ GAS URLが未設定です。🔑から設定してください', 'error'); return; }
     if (!confirm('クラウドのデータを強制取得します。\nこのスマホのデータはクラウドで上書きされます。\nよろしいですか？')) return;
+    _log('SEP','');  // DEBUG LOG
+    _log('INFO', '強制ダウンロード開始');  // DEBUG LOG
     showSyncBar('☁️ クラウドから強制取得中...', 'syncing', false);
     try {
+        _log('SEND', 'GET リクエスト送信中（強制取得）');  // DEBUG LOG
         const getRes = await fetchWithTimeout(gasUrl, {method:'GET', cache:'no-cache'});
+        _log('RECV', `GET status=${getRes.status} ok=${getRes.ok}`);  // DEBUG LOG
         if (!getRes.ok) throw new Error('サーバーエラー: ' + getRes.status);
-        const serverData = JSON.parse(await getRes.text());
-        if (!serverData || serverData.empty) { showSyncBar('⚠️ クラウドにデータがありません', 'error'); return; }
+        const rawText = await getRes.text();
+        _log('RECV', `レスポンス本文(先頭200文字): ${rawText.slice(0,200)}`);  // DEBUG LOG
+        const serverData = JSON.parse(rawText);
+        if (!serverData || serverData.empty) { _log('WARN','クラウドにデータなし'); showSyncBar('⚠️ クラウドにデータがありません', 'error'); return; }  // DEBUG LOG
         const serverHasData = ['customers','repairs','demos','parts','products'].some(k => serverData[k] && serverData[k].length > 0);
-        if (!serverHasData) { showSyncBar('⚠️ クラウドが空です', 'error'); return; }
+        if (!serverHasData) { _log('WARN','クラウドが空'); showSyncBar('⚠️ クラウドが空です', 'error'); return; }  // DEBUG LOG
+        _log('INFO', `クラウドデータ確認OK → 修理:${serverData.repairs?.length||0} 顧客:${serverData.customers?.length||0}`);  // DEBUG LOG
         saveEmergencyBackup();
         ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k => { if (serverData[k]) DB[k] = serverData[k]; });
         DB.lastModified = serverData.lastModified;
         try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) {}
         renderAll();
         updateSyncLabel('最終同期: ' + new Date(DB.lastModified).toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'}));
+        _log('INFO', '強制ダウンロード完了');  // DEBUG LOG
         showSyncBar('✅ クラウドから強制取得完了！', 'ok');
     } catch(e) {
+        _log('ERROR', `強制取得エラー: ${e.name}: ${e.message}`);  // DEBUG LOG
         showSyncBar('❌ ' + (e.message||'取得失敗'), 'error');
     }
 }
@@ -412,15 +520,23 @@ async function testSync() {
     const url = document.getElementById('gasUrlInput').value.trim();
     if (!url) { document.getElementById('testResult').textContent = '⚠️ URLを入力してください'; return; }
     document.getElementById('testResult').textContent = '🔄 接続テスト中...';
+    _log('SEP','');  // DEBUG LOG
+    _log('INFO', `接続テスト開始: ${url.slice(0,60)}...`);  // DEBUG LOG
     try {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 15000);
+        _log('SEND', 'GET リクエスト送信中（テスト）');  // DEBUG LOG
         const res = await fetch(url, {method:'GET', cache:'no-cache', credentials:'omit', signal:controller.signal});
         clearTimeout(timer);
-        await res.json();
+        _log('RECV', `テスト GET status=${res.status} ok=${res.ok}`);  // DEBUG LOG
+        const rawText = await res.text();
+        _log('RECV', `テスト レスポンス本文(先頭300文字): ${rawText.slice(0,300)}`);  // DEBUG LOG
+        const data = JSON.parse(rawText);
+        _log('INFO', `テスト JSON解析OK → lastModified=${data.lastModified||'なし'}`);  // DEBUG LOG
         document.getElementById('testResult').innerHTML = '<span style="color:#27ae60;font-weight:bold;">✅ 接続成功！データ共有できます</span>';
     } catch(e) {
         let msg = e.name === 'AbortError' ? 'タイムアウト（15秒）' : e.message;
+        _log('ERROR', `テスト失敗: ${e.name}: ${e.message}`);  // DEBUG LOG
         document.getElementById('testResult').innerHTML = '<span style="color:#e74c3c;">❌ 接続失敗: ' + msg + '</span>';
     }
 }
@@ -878,66 +994,4 @@ function closePreview(){document.getElementById('preview-modal').style.display='
 const SCREENSHOT_REPAIRS=[{id:'REC_1',customerName:'山下 林作',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'2233',status:'修理中',dueDate:'2026-07-15',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_2',customerName:'渡邊 誠',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-20',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_3',customerName:'渡邊 誠',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GRA650',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-20',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_4',customerName:'上丸 勝芳',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_5',customerName:'上丸 勝芳',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GRA650',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-20',issue:'点検整備',date:'2026-05-03',usedParts:[]},{id:'REC_6',customerName:'徳丸 秋雄',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_7',customerName:'東丸 和久',machine:'タイヤローラー',maker:'',model:'',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'回転しない',date:'2026-05-03',usedParts:[]},{id:'REC_22',customerName:'東丸 和久',machine:'ホイルローダ',maker:'古川',model:'FL302',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_8',customerName:'園田 正志',machine:'薪わり機',maker:'',model:'KT155PRO',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'油圧作動油漏れ',date:'2026-05-03',usedParts:[]},{id:'REC_9',customerName:'徳丸 秋雄',machine:'甘諸ハーベスタ',maker:'',model:'GRA650',serialNo:'',hourMeter:'1963',status:'修理依頼',dueDate:'2026-07-05',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_10',customerName:'グッドカンパニー',machine:'田植機',maker:'',model:'YR6D',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_11',customerName:'野村 治雄',machine:'田植機',maker:'ヤンマー',model:'VP50',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-05-31',issue:'縦おくりがおかしく、欠株になる',date:'2026-05-03',usedParts:[]},{id:'REC_12',customerName:'今村 三男',machine:'マニアスプレッダー',maker:'',model:'TMS1890',serialNo:'',hourMeter:'',status:'部品待ち',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_13',customerName:'吉満 忠吉',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GRA650',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-20',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_14',customerName:'徳丸 勉',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_15',customerName:'徳丸 勉',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_16',customerName:'上丸 文友',machine:'ヤンマートラクター',maker:'ヤンマー',model:'EG224',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_17',customerName:'山田',machine:'トラクター',maker:'ヤンマー',model:'EG224',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_18',customerName:'延時 暁寿',machine:'だいこん収穫機',maker:'井関',model:'VHD1250',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-04-25',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_19',customerName:'森山 光治',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'点検整備',date:'2026-05-03',usedParts:[]},{id:'REC_20',customerName:'東丸 和久',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GRA650',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'点検整備',date:'2026-05-03',usedParts:[]},{id:'REC_21',customerName:'東丸 和久',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'点検整備',date:'2026-05-03',usedParts:[]},{id:'REC_23',customerName:'満行 翼',machine:'自走ラジコン動噴',maker:'丸山製作所',model:'MSA413R3-M(10×130)',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-05-15',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_24',customerName:'飯野 孝仁',machine:'田植機',maker:'井関',model:'PRJ8',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-05-22',issue:'',date:'2026-05-03',usedParts:[]}];
 const SCREENSHOT_DEMOS=[{id:'DEMO_1',customerName:'立和田',targetMachine:'トラクター',maker:'',model:'TJW1233',targetMachine2:'プラソイラ',maker2:'',model2:'J805',targetMachine3:'',maker3:'',model3:'',date:'2026-05-15',status:'実演予定'},{id:'DEMO_2',customerName:'立和田',targetMachine:'トラクター',maker:'',model:'M135GEP',targetMachine2:'コンビソイラ',maker2:'',model2:'H604',targetMachine3:'グランドハロー',maker3:'',model3:'LXE2630HS-2LH',date:'2026-10-31',status:'実演予定'}];
 const SCREENSHOT_PARTS=[{id:'PART_1',customerName:'岩井 一昭',name:'ネット駆動スプリング',maker:'IHIアグリテック',partNo:'',qty:0,price:0,status:'発注済',orderDate:'2026-04-30'}];
-const SCREENSHOT_PRODUCTS=[{id:'PROD_N1',productName:'畦畔草刈機',maker:'',model:'',serialNo:'',customer:'野村 治雄',status:'発注済',deliveryDate:'2026-05-07',price:0},{id:'PROD_N2',productName:'チェーンソー',maker:'',model:'MC3101R',serialNo:'',customer:'柳田 忠良',status:'入荷済',deliveryDate:'2026-05-07',price:0},{id:'PROD_N3',productName:'刈払機',maker:'新ダイワ',model:'RA3021UT',serialNo:'',customer:'満行 翼',status:'受注',deliveryDate:'2026-05-08',price:55000},{id:'PROD_8',productName:'急速充電器',maker:'やまびこ',model:'LCJQ-560D',serialNo:'',customer:'社会福祉法人エンゼル会',status:'発注済',deliveryDate:'2026-05-11',price:107000},{id:'PROD_N4',productName:'電動マルチチェアー',maker:'',model:'',serialNo:'',customer:'社会福祉法人エンゼル会',status:'発注済',deliveryDate:'2026-05-11',price:0},{id:'PROD_N5',productName:'リチウムイオンバッテリー',maker:'',model:'',serialNo:'',customer:'社会福祉法人エンゼル会',status:'発注済',deliveryDate:'2026-05-11',price:0},{id:'PROD_1',productName:'ドライブハロー HS2430',maker:'ニプロ',model:'HS2430',serialNo:'',customer:'東丸 和久',status:'入荷済',deliveryDate:'2026-05-25',price:0},{id:'PROD_2',productName:'甘諸ツルキリ機 FNC1002K',maker:'ニプロ',model:'FNC1002K',serialNo:'',customer:'満行 翼',status:'受注',deliveryDate:'2026-07-20',price:0},{id:'PROD_3',productName:'甘諸ハーベスタ GZA651',maker:'ニプロ',model:'GZA651',serialNo:'',customer:'満行 翼',status:'受注',deliveryDate:'2026-07-25',price:0},{id:'PROD_7',productName:'マルチデガー',maker:'東洋農機',model:'TMD1V24',serialNo:'',customer:'延時 暁寿',status:'受注',deliveryDate:'2026-07-31',price:5026120},{id:'PROD_N6',productName:'掘取機',maker:'',model:'',serialNo:'',customer:'社会福祉法人エンゼル会',status:'受注',deliveryDate:'2026-07-31',price:0},{id:'PROD_N7',productName:'外部油圧2連キット',maker:'',model:'',serialNo:'',customer:'延時 暁寿',status:'受注',deliveryDate:'2026-07-31',price:0},{id:'PROD_4',productName:'中古トラクター YT333RJ',maker:'ヤンマー',model:'YT333RJ',serialNo:'',customer:'松元 崇',status:'受注',deliveryDate:'2026-08-31',price:0},{id:'PROD_5',productName:'中古田植機',maker:'',model:'RPQ40DL',serialNo:'',customer:'松元 崇',status:'受注',deliveryDate:'',price:0},{id:'PROD_N8',productName:'昇降機張込みホッパ',maker:'',model:'',serialNo:'',customer:'飯野 孝仁',status:'受注',deliveryDate:'',price:0},{id:'PROD_N9',productName:'農業用ドローン',maker:'',model:'',serialNo:'',customer:'西 聡一郎',status:'受注',deliveryDate:'',price:0},{id:'PROD_N10',productName:'MUFBウルトラポンプ バッテリータイプ',maker:'',model:'',serialNo:'',customer:'アールエスユニット',status:'商談中',deliveryDate:'',price:0},{id:'PROD_6',productName:'グランドソワー RS1411',maker:'',model:'RS1411',serialNo:'',customer:'',status:'受注',deliveryDate:'',price:0}];
-const SCREENSHOT_CUSTOMERS=[{id:'CUST_1',name:'山下 林作',phone:'',address:'',memo:''},{id:'CUST_2',name:'渡邊 誠',phone:'',address:'',memo:''},{id:'CUST_3',name:'上丸 勝芳',phone:'',address:'',memo:''},{id:'CUST_4',name:'徳丸 秋雄',phone:'',address:'',memo:''},{id:'CUST_5',name:'吉満 忠吉',phone:'',address:'',memo:''},{id:'CUST_6',name:'徳丸 勉',phone:'',address:'',memo:''},{id:'CUST_7',name:'東丸 和久',phone:'',address:'',memo:''},{id:'CUST_8',name:'森山 光治',phone:'',address:'',memo:''},{id:'CUST_9',name:'立和田',phone:'',address:'',memo:''},{id:'CUST_10',name:'満行 翼',phone:'',address:'',memo:''},{id:'CUST_11',name:'松元 崇',phone:'',address:'',memo:''},{id:'CUST_12',name:'上丸 文友',phone:'',address:'',memo:''},{id:'CUST_13',name:'野村 治雄',phone:'',address:'',memo:''},{id:'CUST_14',name:'園田 正志',phone:'',address:'',memo:''},{id:'CUST_15',name:'山田',phone:'',address:'',memo:''},{id:'CUST_16',name:'今村 三男',phone:'',address:'',memo:''},{id:'CUST_17',name:'延時 暁寿',phone:'',address:'',memo:''},{id:'CUST_18',name:'グッドカンパニー',phone:'',address:'',memo:''},{id:'CUST_19',name:'社会福祉法人エンゼル会',phone:'',address:'',memo:''},{id:'CUST_20',name:'川崎 ちえ子',phone:'',address:'',memo:''},{id:'CUST_21',name:'岩井 一昭',phone:'',address:'',memo:''},{id:'CUST_22',name:'飯野 孝仁',phone:'',address:'',memo:''},{id:'CUST_23',name:'西 聡一郎',phone:'',address:'',memo:''},{id:'CUST_24',name:'アールエスユニット',phone:'',address:'',memo:''},{id:'CUST_25',name:'柳田 忠良',phone:'',address:'',memo:''}];
-const SCREENSHOT_QUOTES=[{id:'Q_REC_1',estNo:'',estDate:'2026-04-30',expDate:'2026-08-31',delivDate:'2026-07-31',delivPlace:'貴指定場所',payMethod:'口座振替',toName:'延時 暁寿',subject:'マルチデガー',qItems:[{name:'マルチデガー',brand:'東洋農機',model:'TMD1V24',qty:1,price:4358000,note:''},{name:'揺さぶり前側',brand:'〃',model:'TMD1V24-B',qty:1,price:105600,note:''},{name:'揺さぶり後ろ側',brand:'〃',model:'TMD1V24-C',qty:1,price:105600,note:''}],total:5026120,note:''}];
-
-window.onload = async function() {
-    try {
-        loadDB();
-        const loadMsg = document.getElementById('loadingMsg');
-
-        if (gasUrl) {
-            loadMsg.textContent = '☁️ クラウドから最新データを確認中...';
-            try {
-                await syncToCloud(false);
-            } catch(e) {
-                console.error('起動時同期エラー:', e);
-            }
-        }
-
-        if (!hasAnyData()) {
-            const emergencyRaw = localStorage.getItem('agri_emergency_backup');
-            if (emergencyRaw) {
-                try {
-                    const eb = JSON.parse(emergencyRaw);
-                    const ebData = eb.data || eb;
-                    const ebHasData = ['customers','repairs','demos','parts','products']
-                        .some(k => Array.isArray(ebData[k]) && ebData[k].length > 0);
-                    if (ebHasData) {
-                        const savedAt = eb.savedAt ? new Date(eb.savedAt).toLocaleString('ja-JP') : '不明';
-                        const repCount = ebData.repairs?.length || 0;
-                        if (confirm(`⚠️ データが見つかりません！\n\n緊急バックアップが見つかりました。\n保存日時: ${savedAt}\n修理 ${repCount}件\n\n復元しますか？`)) {
-                            ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k => {
-                                if (Array.isArray(ebData[k])) DB[k] = ebData[k];
-                            });
-                            if (ebData.lastModified) DB.lastModified = ebData.lastModified;
-                            try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) {}
-                        }
-                    }
-                } catch(e) { console.error('緊急バックアップ読込エラー:', e); }
-            }
-        }
-
-        document.getElementById('loading-screen').style.display = 'none';
-        document.getElementById('app').style.display = 'block';
-        renderAll();
-
-        if (!hasAnyData()) {
-            showSyncBar('⚠️ データなし。🛡️ボタンからバックアップを復元できます。', 'conflict', false);
-        }
-
-        if (gasUrl) {
-            setInterval(() => { if (gasUrl) syncToCloud(false); }, 30000);
-            document.addEventListener('visibilitychange', () => {
-                if (document.visibilityState === 'visible' && gasUrl) syncToCloud(false);
-            });
-        }
-    } catch(e) {
-        alert('起動処理中にエラーが発生しました。\n詳細: ' + e.message);
-        console.error(e);
-    }
-};
-</script>
-</body
-</html>
+const SCREENSHOT_PRODUCTS=[{id:'PROD_N1',productName:'畦畔草刈機',maker:'',model:'',serialNo:'',customer:'野村 治雄',status:'発注済',deliveryDate:'2026-05-07',price:0},{id:'PROD_N2',productName:'チェーンソー',maker:'',model:'MC3101R',serialNo:'',customer:'柳田 忠良',status:'入荷済',deliveryDate:'2026-05-07',price:0},{id:'PROD_N3',productName:'刈払機',maker:'新ダイワ',model:'RA3021UT',serialNo:'',customer:'満行 翼',status:'受注',deliveryDate:'2026-05-08',price:55000},{id:'PROD_8',productName:'急速充電器',maker:'やまびこ',model:'LCJQ-560D',serialNo:'',customer:'社会福祉法人エンゼル会',status:'発注済',deliveryDate:'2026-05-11',price:107000},{id:'PROD_N4',productName:'電動マルチチェアー',maker:'',model:'',serialNo:'',customer:'社会福祉法人エンゼル会',status:'発注済',deliveryDate:'2026-05-11',price:0},{id:'PROD_N5',productName:'リチウムイオンバッテリー',maker:'',model:'',serialNo:'',customer:'社会福祉法人エンゼル会',status:'発注済',deliveryDate:'2026-05-11',price:0},{id:'PROD_1',productName:'ドライブハロー HS2430',maker:'ニプロ',model:'HS2430',serialNo:'',customer:'東丸 和久',status:'入荷済',deliveryDate:'2026-05-25',price:0},{id:'PROD_2',productName:'甘諸ツルキリ機 FNC1002K',maker:'ニプロ',model:'FNC1002K',serialNo:'',customer:'満行 翼',status:'受注',deliveryDate:'2026-07-20',price:0},{id:'PROD_3',productName:'甘諸ハーベスタ GZA651',maker:'ニプロ',model:'GZA651',serialNo:'',customer:'満行 翼',status:'受注',deliveryDate:'2026-07-25',price:0},{id:'PROD_7',productName:'マルチデガー',maker:'東洋農機',model:'TMD1V24',serialNo:'',customer:
