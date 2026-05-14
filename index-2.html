@@ -69,6 +69,28 @@
         <p id="loadingMsg" style="font-size:12px;color:gray;">データを読み込んでいます</p>
     </div>
 
+    <!-- ★ ここからデバッグ用のスクリプトを追加 ★ -->
+    <script>
+        // 通常のエラーをキャッチして画面に表示
+        window.onerror = function(msg, url, line, col, error) {
+            var errEl = document.getElementById('loadingMsg');
+            if(errEl) {
+                errEl.innerHTML = '<span style="color:#e74c3c; font-weight:bold;">❌ エラー発生<br>' + msg + '<br>行番号: ' + line + '</span>';
+            }
+            return false;
+        };
+        
+        // 非同期処理（Promise）のエラーをキャッチして画面に表示
+        window.onunhandledrejection = function(event) {
+            var errEl = document.getElementById('loadingMsg');
+            if(errEl) {
+                var reason = event.reason ? (event.reason.message || event.reason) : '不明なエラー';
+                errEl.innerHTML = '<span style="color:#e74c3c; font-weight:bold;">❌ 非同期エラー<br>' + reason + '</span>';
+            }
+        };
+    </script>
+    <!-- ★ ここまで ★ -->
+
     <div id="app" style="display:none;">
         <div style="background:var(--main);padding-top:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.2);">
             <div style="display:flex;align-items:center;gap:6px;padding:0 10px 12px;">
