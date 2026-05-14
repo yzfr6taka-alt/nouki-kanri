@@ -60,24 +60,8 @@
         #syncBar.conflict{background:#8e44ad;color:#fff;}
         #syncBar.error{background:#e74c3c;color:#fff;}
         #_print_frame{position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none;}
-
-        /* ===== DEBUG LOG START ===== */
-        #syncLogPanel{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:2000;display:none;flex-direction:column;max-width:520px;left:50%;transform:translateX(-50%);}
-        #syncLogPanel.open{display:flex;}
-        #syncLogHeader{background:#1a252f;padding:10px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0;}
-        #syncLogHeader span{color:#fff;font-weight:800;font-size:14px;flex:1;}
-        .log-btn-sm{background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;}
-        #syncLogBody{flex:1;overflow-y:auto;padding:10px 12px;font-family:monospace;font-size:11px;line-height:1.8;}
-        .log-entry{padding:2px 0;border-bottom:1px solid rgba(255,255,255,.06);word-break:break-all;}
-        .log-time{color:#7fb3d3;margin-right:6px;}
-        .log-INFO{color:#a8d8a8;}
-        .log-WARN{color:#f9e07a;}
-        .log-ERROR{color:#f07a7a;}
-        .log-SEND{color:#aad4f5;}
-        .log-RECV{color:#c5a8f5;}
-        .log-SEP{color:#555;border-bottom:1px dashed #444;margin:4px 0;}
-        /* ===== DEBUG LOG END ===== */
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
     <div id="loading-screen" style="text-align:center;padding:80px 20px;color:var(--text);">
@@ -92,7 +76,7 @@
                 <span style="font-size:20px;">🚜</span>
                 <div style="flex:1;min-width:0;">
                     <div style="color:#fff;font-weight:900;font-size:14px;">農機管理＆見積 PRO</div>
-                    <div style="color:#6fa8c8;font-size:10px;margin-top:1px;" id="syncLabel">財部農機センター</div>
+                    <div style="color:#6fa8c8;font-size:10px;margin-top:1px;" id="syncLabel">農機センター</div>
                 </div>
                 <button onclick="toggleDark()" style="background:none;border:none;color:#fff;font-size:17px;cursor:pointer;">🌓</button>
                 <button onclick="manualSync()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:10px;padding:7px 8px;font-size:12px;margin-left:1px;" title="今すぐ同期">☁️</button>
@@ -100,7 +84,6 @@
                 <button onclick="openBackupModal()" style="background:#27ae60;border:none;color:#fff;border-radius:10px;padding:7px 8px;font-size:12px;font-weight:800;margin-left:1px;" title="バックアップ管理">🛡️</button>
                 <button onclick="openSmartModal()" style="background:#e67e22;border:none;color:#fff;border-radius:10px;padding:7px 9px;font-size:12px;font-weight:800;margin-left:1px;">🎤</button>
                 <button onclick="openApiKey()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:10px;padding:7px 8px;font-size:13px;margin-left:1px;">🔑</button>
-                <!-- DEBUG LOG BUTTON --> <button onclick="openSyncLog()" id="logBtn" style="background:#c0392b;border:none;color:#fff;border-radius:10px;padding:7px 8px;font-size:11px;font-weight:800;margin-left:1px;" title="同期ログ">📋LOG</button>
             </div>
             <div class="tab-wrap" id="tabBar"></div>
         </div>
@@ -139,24 +122,22 @@
         </div>
     </div>
 
-    <!-- プレビューモーダル -->
     <div id="preview-modal">
         <div style="background:#1a252f;padding:12px 16px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:1001;">
             <button onclick="closePreview()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer;">← 戻る</button>
             <span style="color:#fff;font-weight:800;font-size:15px;flex:1;">見積書プレビュー</span>
         </div>
         <div class="action-row">
-            <button class="btn-pdf" onclick="saveHTML()">💾 HTML保存</button>
-            <button class="btn-line" onclick="shareDoc()">📤 LINE共有</button>
+            <button class="btn-pdf" onclick="downloadPDF()">💾 PDF保存</button>
+            <button class="btn-line" onclick="sharePDFToLine()">📤 LINEでPDF共有</button>
             <button class="btn-print" onclick="printDoc()">🖨️ 印刷</button>
         </div>
-        <div style="background:#fff8e1;border-left:4px solid #f39c12;padding:8px 12px;margin:0 12px 8px;border-radius:8px;font-size:11px;color:#7f6000;">
-            💡 「HTML保存」でファイルをダウンロード後、ブラウザで開いて印刷・PDF変換できます。LINEへはテキスト共有、または保存したファイルを添付してください。
+        <div style="background:#e8f4fd;border-left:4px solid #3498db;padding:8px 12px;margin:0 12px 8px;border-radius:8px;font-size:11px;color:#2980b9;">
+            💡 スマホの場合は「LINEでPDF共有」から直接相手に送信できます（一部非対応機種あり）。うまく送れない場合は「PDF保存」を行ってからLINEでファイル添付してください。
         </div>
         <div style="overflow-x:auto;padding:8px;background:#555;"><div id="preview-inner" style="background:#fff;margin:0 auto;width:794px;"></div></div>
     </div>
 
-    <!-- 通常モーダル -->
     <div class="modal-overlay" id="modalOverlay" style="display:none;" onclick="closeModalOnBg(event)">
         <div class="modal-box">
             <div class="modal-header"><h3 id="modalTitle" style="font-size:15px;font-weight:800;color:var(--text);"></h3><button onclick="closeModal()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button></div>
@@ -164,7 +145,6 @@
         </div>
     </div>
 
-    <!-- AI一括入力モーダル -->
     <div class="modal-overlay" id="smartModal" style="display:none;" onclick="closeSmartOnBg(event)">
         <div class="modal-box">
             <div class="modal-header"><h3 style="font-size:15px;font-weight:800;color:var(--text);">🎤 AI音声・一括入力</h3><button onclick="document.getElementById('smartModal').style.display='none'" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button></div>
@@ -177,7 +157,6 @@
         </div>
     </div>
 
-    <!-- APIキー・同期設定モーダル -->
     <div class="modal-overlay" id="apiKeyModal" style="display:none;" onclick="if(event.target.id==='apiKeyModal')closeApiKey()">
         <div class="modal-box">
             <div class="modal-header"><h3 style="font-size:15px;font-weight:800;color:var(--text);">🔑 APIキー・同期設定</h3><button onclick="closeApiKey()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button></div>
@@ -197,7 +176,6 @@
         </div>
     </div>
 
-    <!-- 🛡️ バックアップ管理モーダル -->
     <div class="modal-overlay" id="backupModal" style="display:none;" onclick="if(event.target.id==='backupModal')closeBackupModal()">
         <div class="modal-box">
             <div class="modal-header">
@@ -222,18 +200,6 @@
     </div>
 
     <div id="syncBar"></div>
-
-    <!-- ===== DEBUG LOG START ===== -->
-    <div id="syncLogPanel">
-        <div id="syncLogHeader">
-            <span>📋 同期ログ</span>
-            <button class="log-btn-sm" onclick="clearSyncLog()">🗑️ クリア</button>
-            <button class="log-btn-sm" onclick="copySyncLog()">📋 コピー</button>
-            <button class="log-btn-sm" onclick="closeSyncLog()">✕ 閉じる</button>
-        </div>
-        <div id="syncLogBody"><div style="color:#555;text-align:center;padding:20px;font-size:12px;">ログが溜まるとここに表示されます</div></div>
-    </div>
-    <!-- ===== DEBUG LOG END ===== -->
     <iframe id="_print_frame" style="position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none;"></iframe>
 
 <script>
@@ -253,39 +219,6 @@ let DB = {
     lastModified: new Date().toISOString()
 };
 let apiKey='', gasUrl='', syncTimer=null, isSyncing=false;
-
-// ===== DEBUG LOG START =====
-const _syncLogs = [];
-function _log(level, msg) {
-    const now = new Date();
-    const ts = now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) +
-               '.' + String(now.getMilliseconds()).padStart(3,'0');
-    _syncLogs.push({ts, level, msg});
-    const body = document.getElementById('syncLogBody');
-    if (!body) return;
-    if (_syncLogs.length === 1) body.innerHTML = '';
-    const entry = document.createElement('div');
-    entry.className = 'log-entry';
-    if (level === 'SEP') {
-        entry.className += ' log-SEP';
-        entry.textContent = '─────────────────────────────';
-    } else {
-        entry.innerHTML = `<span class="log-time">${ts}</span><span class="log-${level}">[${level}] ${msg}</span>`;
-    }
-    body.appendChild(entry);
-    body.scrollTop = body.scrollHeight;
-    // バッジ更新
-    const btn = document.getElementById('logBtn');
-    if (btn && (level === 'ERROR' || level === 'WARN')) btn.style.background = level==='ERROR'?'#c0392b':'#d35400';
-}
-function openSyncLog()  { document.getElementById('syncLogPanel').classList.add('open'); }
-function closeSyncLog() { document.getElementById('syncLogPanel').classList.remove('open'); }
-function clearSyncLog() { _syncLogs.length=0; document.getElementById('syncLogBody').innerHTML='<div style="color:#555;text-align:center;padding:20px;font-size:12px;">クリアしました</div>'; }
-function copySyncLog()  {
-    const txt = _syncLogs.map(l => l.level==='SEP'?'---':`${l.ts} [${l.level}] ${l.msg}`).join('\n');
-    navigator.clipboard.writeText(txt).then(()=>alert('ログをコピーしました')).catch(()=>alert('コピー失敗\n'+txt.slice(0,200)));
-}
-// ===== DEBUG LOG END =====
 
 function hasAnyData() {
     return ['customers','repairs','demos','parts','products'].some(k => Array.isArray(DB[k]) && DB[k].length > 0);
@@ -357,45 +290,24 @@ async function fetchWithTimeout(url, options, timeoutMs=15000) {
 async function syncToCloud(showResult=false) {
     if (!gasUrl || isSyncing) return;
     isSyncing = true;
-    // ===== DEBUG LOG =====
-    _log('SEP','');
-    _log('INFO', `syncToCloud 開始 (showResult=${showResult})`);
-    _log('INFO', `GAS URL: ${gasUrl.slice(0,60)}...`);
-    _log('INFO', `ローカル lastModified: ${DB.lastModified}`);
-    _log('INFO', `ローカルデータ件数 → 修理:${DB.repairs?.length||0} 顧客:${DB.customers?.length||0} 製品:${DB.products?.length||0} 部品:${DB.parts?.length||0} 実演:${DB.demos?.length||0}`);
-    // =====================
     if (showResult) showSyncBar('☁️ 同期中...', 'syncing', false);
     try {
-        // --- GET ---
-        _log('SEND', 'GET リクエスト送信中...');  // DEBUG LOG
         const getRes = await fetchWithTimeout(gasUrl, {method:'GET', cache:'no-cache'});
-        _log('RECV', `GET レスポンス status=${getRes.status} ok=${getRes.ok}`);  // DEBUG LOG
         if (!getRes.ok) throw new Error('サーバーエラー: ' + getRes.status);
         const getText = await getRes.text();
-        _log('RECV', `GET レスポンス本文(先頭200文字): ${getText.slice(0,200)}`);  // DEBUG LOG
         let serverData;
-        try {
-            serverData = JSON.parse(getText);
-            _log('INFO', `GASデータ解析OK → lastModified=${serverData.lastModified||'なし'} empty=${serverData.empty||false}`);  // DEBUG LOG
-            _log('INFO', `GASデータ件数 → 修理:${serverData.repairs?.length??'なし'} 顧客:${serverData.customers?.length??'なし'} 製品:${serverData.products?.length??'なし'}`);  // DEBUG LOG
-        } catch(e) {
-            _log('WARN', `GET応答のJSON解析失敗: ${e.message} → empty扱い`);  // DEBUG LOG
-            serverData = {empty:true};
-        }
+        try { serverData = JSON.parse(getText); } catch(e) { serverData = {empty:true}; }
 
         if (serverData && !serverData.empty) {
             const serverTime = new Date(serverData.lastModified||0).getTime();
             const localTime  = new Date(DB.lastModified||0).getTime();
-            _log('INFO', `タイムスタンプ比較 → サーバー:${serverTime} ローカル:${localTime} → ${serverTime>localTime?'サーバーが新しい':'ローカルが新しい or 同じ'}`);  // DEBUG LOG
 
             if (serverTime > localTime) {
                 const serverHasData = ['customers','repairs','demos','parts','products','quotes']
                     .some(k => serverData[k] && serverData[k].length > 0);
                 const localHasData = hasAnyData();
-                _log('INFO', `serverHasData=${serverHasData} localHasData=${localHasData}`);  // DEBUG LOG
 
                 if (localHasData && !serverHasData) {
-                    _log('WARN', 'クラウドが空・ローカルにデータあり → ローカル優先でPUSH予定');  // DEBUG LOG
                     if (showResult) showSyncBar('⚠️ クラウドが空のためローカルデータを優先', 'conflict');
                     DB.lastModified = new Date().toISOString();
                     try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) {}
@@ -405,7 +317,7 @@ async function syncToCloud(showResult=false) {
                 }
 
                 if (localHasData) saveEmergencyBackup();
-                _log('INFO', 'サーバーデータでローカルを上書き（ダウンロード）');  // DEBUG LOG
+
                 ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k => {
                     if (serverData[k]) DB[k] = serverData[k];
                 });
@@ -415,42 +327,32 @@ async function syncToCloud(showResult=false) {
                 const t = new Date(DB.lastModified).toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
                 updateSyncLabel('最終同期: ' + t);
                 if (showResult) showSyncBar('✅ 最新データを受信しました', 'ok');
-                _log('INFO', 'ダウンロード完了・処理終了');  // DEBUG LOG
                 isSyncing = false;
                 return;
             }
         }
 
         if (!hasAnyData()) {
-            _log('WARN', 'ローカルが空 → アップロードをスキップ');  // DEBUG LOG
             if (showResult) showSyncBar('⚠️ ローカルが空のためアップロードをスキップ', 'conflict');
             isSyncing = false;
             return;
         }
 
-        // --- POST ---
-        const postBody = JSON.stringify(DB);
-        _log('SEND', `POST リクエスト送信中... ボディサイズ=${postBody.length}バイト`);  // DEBUG LOG
         const postRes = await fetchWithTimeout(gasUrl, {
             method: 'POST',
             headers: {'Content-Type': 'text/plain;charset=utf-8'},
-            body: postBody
+            body: JSON.stringify(DB)
         });
-        _log('RECV', `POST レスポンス status=${postRes.status} ok=${postRes.ok}`);  // DEBUG LOG
         if (!postRes.ok) throw new Error('保存エラー: ' + postRes.status);
         const postText = await postRes.text();
-        _log('RECV', `POST レスポンス本文(先頭200文字): ${postText.slice(0,200)}`);  // DEBUG LOG
         let result;
         try { result = JSON.parse(postText); } catch(e) {
             const t = postText.trim().toLowerCase();
-            _log('WARN', `POSTレスポンスJSON解析失敗: ${e.message} → テキスト判定: "${t.slice(0,50)}"`);  // DEBUG LOG
             if (t === 'success' || t.includes('"success"') || t.includes('ok')) { result = {status:'ok'}; }
             else { throw new Error('GAS応答が不正: ' + postText.slice(0,80)); }
         }
 
-        _log('INFO', `POST結果 status=${result?.status}`);  // DEBUG LOG
         if (result.status === 'conflict') {
-            _log('WARN', '競合検出 → サーバーデータを適用');  // DEBUG LOG
             ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k => {
                 if (result.data[k]) DB[k] = result.data[k];
             });
@@ -462,56 +364,42 @@ async function syncToCloud(showResult=false) {
             const t = new Date(DB.lastModified).toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
             updateSyncLabel('最終同期: ' + t);
             if (showResult) showSyncBar('✅ 同期完了', 'ok');
-            _log('INFO', 'アップロード完了');  // DEBUG LOG
         } else {
-            _log('WARN', `不明なGAS応答status: ${result.status}`);  // DEBUG LOG
             if (showResult) showSyncBar('⚠️ GAS応答エラー（接続設定を確認）', 'error');
         }
     } catch(e) {
         let errMsg = e.message || String(e);
         if (e.name === 'AbortError') errMsg = '接続タイムアウト（15秒）';
         else if (errMsg === 'Failed to fetch') errMsg = '接続失敗（GASのアクセス権限を確認してください）';
-        _log('ERROR', `例外発生: ${e.name}: ${e.message}`);  // DEBUG LOG
         if (showResult) showSyncBar('❌ ' + errMsg, 'error');
     }
-    _log('INFO', 'syncToCloud 終了');  // DEBUG LOG
     isSyncing = false;
 }
 
 async function manualSync() {
     if (!gasUrl) { showSyncBar('⚠️ GAS URLが未設定です。🔑から設定してください', 'error'); return; }
-    _log('INFO', '手動同期ボタン押下');  // DEBUG LOG
     await syncToCloud(true);
 }
 
 async function forcePullFromCloud() {
     if (!gasUrl) { showSyncBar('⚠️ GAS URLが未設定です。🔑から設定してください', 'error'); return; }
     if (!confirm('クラウドのデータを強制取得します。\nこのスマホのデータはクラウドで上書きされます。\nよろしいですか？')) return;
-    _log('SEP','');  // DEBUG LOG
-    _log('INFO', '強制ダウンロード開始');  // DEBUG LOG
     showSyncBar('☁️ クラウドから強制取得中...', 'syncing', false);
     try {
-        _log('SEND', 'GET リクエスト送信中（強制取得）');  // DEBUG LOG
         const getRes = await fetchWithTimeout(gasUrl, {method:'GET', cache:'no-cache'});
-        _log('RECV', `GET status=${getRes.status} ok=${getRes.ok}`);  // DEBUG LOG
         if (!getRes.ok) throw new Error('サーバーエラー: ' + getRes.status);
-        const rawText = await getRes.text();
-        _log('RECV', `レスポンス本文(先頭200文字): ${rawText.slice(0,200)}`);  // DEBUG LOG
-        const serverData = JSON.parse(rawText);
-        if (!serverData || serverData.empty) { _log('WARN','クラウドにデータなし'); showSyncBar('⚠️ クラウドにデータがありません', 'error'); return; }  // DEBUG LOG
+        const serverData = JSON.parse(await getRes.text());
+        if (!serverData || serverData.empty) { showSyncBar('⚠️ クラウドにデータがありません', 'error'); return; }
         const serverHasData = ['customers','repairs','demos','parts','products'].some(k => serverData[k] && serverData[k].length > 0);
-        if (!serverHasData) { _log('WARN','クラウドが空'); showSyncBar('⚠️ クラウドが空です', 'error'); return; }  // DEBUG LOG
-        _log('INFO', `クラウドデータ確認OK → 修理:${serverData.repairs?.length||0} 顧客:${serverData.customers?.length||0}`);  // DEBUG LOG
+        if (!serverHasData) { showSyncBar('⚠️ クラウドが空です', 'error'); return; }
         saveEmergencyBackup();
         ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k => { if (serverData[k]) DB[k] = serverData[k]; });
         DB.lastModified = serverData.lastModified;
         try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) {}
         renderAll();
         updateSyncLabel('最終同期: ' + new Date(DB.lastModified).toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'}));
-        _log('INFO', '強制ダウンロード完了');  // DEBUG LOG
         showSyncBar('✅ クラウドから強制取得完了！', 'ok');
     } catch(e) {
-        _log('ERROR', `強制取得エラー: ${e.name}: ${e.message}`);  // DEBUG LOG
         showSyncBar('❌ ' + (e.message||'取得失敗'), 'error');
     }
 }
@@ -520,23 +408,15 @@ async function testSync() {
     const url = document.getElementById('gasUrlInput').value.trim();
     if (!url) { document.getElementById('testResult').textContent = '⚠️ URLを入力してください'; return; }
     document.getElementById('testResult').textContent = '🔄 接続テスト中...';
-    _log('SEP','');  // DEBUG LOG
-    _log('INFO', `接続テスト開始: ${url.slice(0,60)}...`);  // DEBUG LOG
     try {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 15000);
-        _log('SEND', 'GET リクエスト送信中（テスト）');  // DEBUG LOG
         const res = await fetch(url, {method:'GET', cache:'no-cache', credentials:'omit', signal:controller.signal});
         clearTimeout(timer);
-        _log('RECV', `テスト GET status=${res.status} ok=${res.ok}`);  // DEBUG LOG
-        const rawText = await res.text();
-        _log('RECV', `テスト レスポンス本文(先頭300文字): ${rawText.slice(0,300)}`);  // DEBUG LOG
-        const data = JSON.parse(rawText);
-        _log('INFO', `テスト JSON解析OK → lastModified=${data.lastModified||'なし'}`);  // DEBUG LOG
+        await res.json();
         document.getElementById('testResult').innerHTML = '<span style="color:#27ae60;font-weight:bold;">✅ 接続成功！データ共有できます</span>';
     } catch(e) {
         let msg = e.name === 'AbortError' ? 'タイムアウト（15秒）' : e.message;
-        _log('ERROR', `テスト失敗: ${e.name}: ${e.message}`);  // DEBUG LOG
         document.getElementById('testResult').innerHTML = '<span style="color:#e74c3c;">❌ 接続失敗: ' + msg + '</span>';
     }
 }
@@ -607,7 +487,6 @@ function renderBackupList() {
     container.innerHTML = html || '<div style="text-align:center;color:var(--text-sub);padding:20px;font-size:12px;">有効なバックアップなし</div>';
 }
 
-// ★★★ 修正箇所：saveDB()を呼ばずlocalStorageに直接保存 ★★★
 function restoreBackup(key) {
     if (!confirm('このバックアップに復元しますか？\n現在のデータは上書きされます。')) return;
     try {
@@ -617,7 +496,6 @@ function restoreBackup(key) {
             if (Array.isArray(data[k])) DB[k] = data[k];
         });
         if (data.lastModified) DB.lastModified = data.lastModified;
-        // saveDB()は呼ばない → タイムスタンプを現在時刻に書き換えない・クラウドに自動アップしない
         try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) {}
         saveEmergencyBackup();
         renderAll();
@@ -685,66 +563,68 @@ function loadSeedData() {
     showSyncBar('✅ サンプルデータを読み込みました', 'ok');
 }
 
-function saveHTML() {
-    const toName  = (document.getElementById('toName')?.value||'').trim();
-    const subjectVal = (document.getElementById('subject')?.value||'').trim();
-    const estDate = (document.getElementById('estDate')?.value||'').replace(/-/g, '');
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`;
-    const blob = new Blob([html], {type:'text/html;charset=utf-8'});
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    const namePart    = toName    ? toName + '_'    : '';
-    const subjectPart = subjectVal ? subjectVal + '_' : '';
-    a.download = `見積書_${namePart}${subjectPart}${estDate||new Date().toISOString().slice(0,10)}.html`;
-    a.href = url;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 3000);
+// ====== PDF出力・共有機能 ======
+function getPDFOptions() {
+    const tN = document.getElementById('toName')?.value || '';
+    const subject = document.getElementById('subject')?.value || '';
+    const estDate = (document.getElementById('estDate')?.value || '').replace(/-/g, '');
+    const filename = `見積書_${tN ? tN + '_' : ''}${subject ? subject + '_' : ''}${estDate || new Date().toISOString().slice(0,10)}.pdf`;
+    
+    return {
+        margin:       0,
+        filename:     filename,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
 }
 
-function shareDoc() {
-    const tN      = document.getElementById('toName')?.value||'';
-    const subject = document.getElementById('subject')?.value||'';
-    const estDate = document.getElementById('estDate')?.value||'';
-    let sub = 0;
-    for (let i = 0; i < ROWS; i++) sub += (Number(qItems[i].qty)||0) * (Number(qItems[i].price)||0);
-    const tax = Math.floor(sub * 0.1);
-    const total = sub + tax;
-    const itemLines = qItems.filter(it => it.name && Number(it.qty) && Number(it.price))
-        .map(it => '・'+it.name+(it.model?' '+it.model:'')+' × '+it.qty+' = ¥'+(Number(it.qty)*Number(it.price)).toLocaleString())
-        .join('\n');
-    const shareText = '【お見積書】財部農機センター\n━━━━━━━━━━━\n'
-        +(tN?'宛先：'+tN+' 様\n':'')+(subject?'件名：'+subject+'\n':'')+(estDate?'発行日：'+estDate+'\n':'')
-        +'━━━━━━━━━━━\n'+(itemLines?itemLines+'\n':'')
-        +'━━━━━━━━━━━\n'
-        +'小計：¥'+sub.toLocaleString()+'\n消費税(10%)：¥'+tax.toLocaleString()+'\n【合計金額】¥'+total.toLocaleString()+'\n'
-        +'━━━━━━━━━━━\nご確認よろしくお願いいたします。';
-    if (navigator.share) {
-        const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`;
-        const toN2 = (tN||'').trim();
-        const sub2 = (subject||'').trim();
-        const d2   = (estDate||new Date().toISOString().slice(0,10)).replace(/-/g,'');
-        const fname = `見積書_${toN2?toN2+'_':''}${sub2?sub2+'_':''}${d2}.html`;
-        const file  = new File([html], fname, {type:'text/html'});
-        const shareData = navigator.canShare && navigator.canShare({files:[file]})
-            ? {title:'見積書 - 財部農機センター', text:shareText, files:[file]}
-            : {title:'見積書 - 財部農機センター', text:shareText};
-        navigator.share(shareData).catch(err => {
-            if (err.name !== 'AbortError') openLineShare(shareText);
-        });
+async function downloadPDF() {
+    const element = document.getElementById('preview-inner');
+    const opt = getPDFOptions();
+    
+    showSyncBar('⏳ PDFを作成しています...', 'syncing', false);
+    try {
+        await html2pdf().set(opt).from(element).save();
+        showSyncBar('✅ PDFを保存しました', 'ok');
+    } catch(e) {
+        alert('PDF作成エラー: ' + e.message);
+    }
+}
+
+async function sharePDFToLine() {
+    const element = document.getElementById('preview-inner');
+    const opt = getPDFOptions();
+    
+    // ブラウザがファイル共有(Web Share API)に対応しているかチェック
+    if (!navigator.canShare || !navigator.share) {
+        alert('お使いのブラウザは直接のファイル共有に対応していません。\n「PDF保存」でダウンロード後、LINEアプリからファイルを送信してください。');
         return;
     }
-    openLineShare(shareText);
-}
 
-function openLineShare(text) {
-    const opened = window.open('https://line.me/R/msg/text/?' + encodeURIComponent(text), '_blank');
-    if (!opened) {
-        if (navigator.clipboard) {
-            navigator.clipboard.writeText(text).then(() => alert('見積内容をコピーしました！\nLINEを開いて貼り付けてください。'));
+    showSyncBar('⏳ PDFを準備しています...', 'syncing', false);
+    try {
+        // PDFをBlob（ファイルデータ）として生成
+        const pdfBlob = await html2pdf().set(opt).from(element).output('blob');
+        const file = new File([pdfBlob], opt.filename, { type: 'application/pdf' });
+        
+        const shareData = {
+            title: opt.filename,
+            text: '見積書をお送りします。\nご確認よろしくお願いいたします。',
+            files: [file]
+        };
+        
+        // 共有可能か再度チェックして共有ダイアログを開く
+        if (navigator.canShare(shareData)) {
+            document.getElementById('syncBar').className = ''; // 通知バーを隠す
+            await navigator.share(shareData);
         } else {
-            prompt('以下をコピーしてLINEに貼り付けてください：', text);
+            alert('お使いの端末・ブラウザはPDFファイルの共有に未対応です。「PDF保存」をご利用ください。');
+        }
+    } catch (e) {
+        // ユーザーが共有をキャンセルした場合はエラーを出さない
+        if (e.name !== 'AbortError') {
+            alert('PDF共有エラー: ' + e.message);
         }
     }
 }
@@ -986,7 +866,7 @@ function getStyles(){return'*{box-sizing:border-box;margin:0;padding:0;}body{fon
 function fmtDate(d){if(!d)return'';const dt=new Date(d);return'令和'+(dt.getFullYear()-2018)+'年'+(dt.getMonth()+1)+'月'+dt.getDate()+'日';}
 function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-function buildEstHTML(){const[date,dD,dP,pM,tN,nt,ex]=['estDate','delivDate','delivPlace','payMethod','toName','note','expDate'].map(id=>document.getElementById(id).value);let sub=0,emptyStartIdx=-1;const rowH=7.0;let rowsHTML='';for(let i=0;i<qItems.length;i++){const it=qItems[i];const qty=Number(it.qty)||0;const price=Number(it.price)||0;const amt=qty*price;sub+=amt;const isEmpty=!it.name&&!it.brand&&!it.model&&!it.qty&&!it.price;if(isEmpty&&emptyStartIdx===-1)emptyStartIdx=i;else if(!isEmpty)emptyStartIdx=-1;rowsHTML+='<tr style="height:'+rowH+'mm;"><td style="border:1px solid #000;text-align:center;font-size:10px;">'+(i+1)+'</td>'+'<td style="border:1px solid #000;padding:0 4px;font-size:10px;overflow:hidden;white-space:nowrap;">'+escH(it.name)+'</td>'+'<td style="border:1px solid #000;text-align:center;font-size:10px;">'+escH(it.brand)+'</td>'+'<td style="border:1px solid #000;text-align:center;font-size:10px;">'+escH(it.model)+'</td>'+'<td style="border:1px solid #000;text-align:center;font-size:10px;">'+(qty||'')+'</td>'+'<td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">'+(price?price.toLocaleString():'')+'</td>'+'<td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">'+(amt?amt.toLocaleString():'')+'</td>'+'<td style="border:1px solid #000;padding:0 4px;font-size:10px;overflow:hidden;white-space:nowrap;">'+escH(it.note)+'</td></tr>';}const tax=Math.floor(sub*.1);const total=sub+tax;let svgLine='';if(emptyStartIdx!==-1&&emptyStartIdx<ROWS){const tp=rowH+(emptyStartIdx*rowH);const ht=(ROWS-emptyStartIdx)*rowH;svgLine='<svg style="position:absolute;left:8mm;top:'+tp+'mm;width:137mm;height:'+ht+'mm;pointer-events:none;z-index:10;"><line x1="100%" y1="0" x2="0" y2="100%" stroke="#000" stroke-width="1"></line></svg>';}let h='<div style="width:210mm;min-height:296mm;padding:12mm 20mm;background:#fff;font-family:\'MS Mincho\',serif;color:#000;box-sizing:border-box;">'+'<div style="text-align:center;font-size:24px;letter-spacing:15mm;margin-bottom:8mm;padding-left:15mm;">見　積　書</div>'+'<div style="text-align:right;font-size:10px;margin-bottom:4mm;">'+fmtDate(date)+'</div>'+'<div style="margin-bottom:4mm;text-align:left;"><div style="display:inline-flex;align-items:flex-end;border-bottom:1.5px solid #000;padding-bottom:1px;margin-bottom:2mm;min-width:45mm;white-space:nowrap;"><div style="flex:1;"></div><div style="font-size:16px;font-weight:bold;text-align:justify;text-align-last:justify;min-width:25mm;">'+escH(tN)+'</div><div style="font-size:16px;font-weight:bold;margin-left:1.5mm;">様</div></div><div style="font-size:11px;letter-spacing:2px;">下　記　の　通　り　御　見　積　致　し　ま　す　。</div></div>'+'<div style="display:flex;justify-content:space-between;margin-bottom:6mm;"><div><table style="font-size:10px;border-collapse:collapse;text-align:left;"><tr><td style="padding:1.5px 0;width:15mm;text-align:justify;text-align-last:justify;">納入期日</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">'+fmtDate(dD)+'</td></tr><tr><td style="padding:1.5px 0;text-align:justify;text-align-last:justify;">納入場所</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">'+escH(dP)+'</td></tr><tr><td style="padding:1.5px 0;text-align:justify;text-align-last:justify;">取引方法</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">'+escH(pM)+'</td></tr></table></div><div style="font-size:10px;line-height:1.9;text-align:left;"><div>鹿児島県曽於市大隅町岩川5591番地</div><div style="text-align:justify;text-align-last:justify;width:54mm;">そ お 鹿 児 島 農 業 協 同 組 合</div><div style="display:flex;justify-content:space-between;width:54mm;"><span>代表理事組合長</span><span>竹　内　和　久</span></div><div style="text-align:right;margin-top:1mm;">財部農機センター</div></div></div>'+'<div style="display:flex;align-items:flex-end;margin-bottom:2mm;"><div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1.5px solid #000;width:60mm;padding-bottom:1px;"><div style="font-size:16px;font-weight:bold;">合計金額 ￥</div><div style="text-align:right;flex:1;"><span style="font-size:18px;font-weight:bold;">'+total.toLocaleString()+'</span><span style="font-size:16px;font-weight:bold;"> 円也</span></div></div><div style="font-size:10px;margin-left:4mm;padding-bottom:1px;">（内消費税　'+tax.toLocaleString()+'　円）</div></div>'+'<div style="position:relative;width:170mm;margin-top:3mm;">'+svgLine+'<table style="width:170mm;border-collapse:collapse;table-layout:fixed;"><colgroup><col style="width:8mm"><col style="width:45mm"><col style="width:15mm"><col style="width:25mm"><col style="width:12mm"><col style="width:20mm"><col style="width:20mm"><col style="width:25mm"></colgroup>'+'<tr style="height:'+rowH+'mm;background:#fff;"><th style="border:1px solid #000;font-size:10px;font-weight:normal;">No.</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">品　　名</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">銘　柄</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">型　　式</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">数量</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">単　価</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">金　額</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">備　考</th></tr>'+rowsHTML+'<tr style="height:'+rowH+'mm;"><td colspan="6" style="border:1px solid #000;text-align:center;font-size:11px;letter-spacing:10mm;padding-left:10mm;">小　計</td><td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">'+sub.toLocaleString()+'</td><td style="border:1px solid #000;"></td></tr>'+'<tr style="height:'+rowH+'mm;"><td colspan="6" style="border:1px solid #000;text-align:center;font-size:11px;letter-spacing:8mm;padding-left:8mm;">消　費　税</td><td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">'+tax.toLocaleString()+'</td><td style="border:1px solid #000;"></td></tr>'+'<tr style="height:'+rowH+'mm;"><td colspan="6" style="border:1px solid #000;text-align:center;font-size:11px;letter-spacing:10mm;padding-left:10mm;">合　計</td><td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;font-weight:bold;">'+total.toLocaleString()+'</td><td style="border:1px solid #000;"></td></tr>'+'</table></div>';if(nt)h+='<div style="margin-top:3mm;font-size:10px;border:0.5px solid #ccc;padding:4px 6px;"><strong>備考：</strong>'+escH(nt)+'</div>';if(ex)h+='<div style="margin-top:2mm;font-size:10px;">有効期限：'+fmtDate(ex)+'</div>';h+='</div>';return h;}
+function buildEstHTML(){const[date,dD,dP,pM,tN,nt,ex]=['estDate','delivDate','delivPlace','payMethod','toName','note','expDate'].map(id=>document.getElementById(id).value);let sub=0,emptyStartIdx=-1;const rowH=7.0;let rowsHTML='';for(let i=0;i<qItems.length;i++){const it=qItems[i];const qty=Number(it.qty)||0;const price=Number(it.price)||0;const amt=qty*price;sub+=amt;const isEmpty=!it.name&&!it.brand&&!it.model&&!it.qty&&!it.price;if(isEmpty&&emptyStartIdx===-1)emptyStartIdx=i;else if(!isEmpty)emptyStartIdx=-1;rowsHTML+='<tr style="height:'+rowH+'mm;"><td style="border:1px solid #000;text-align:center;font-size:10px;">'+(i+1)+'</td>'+'<td style="border:1px solid #000;padding:0 4px;font-size:10px;overflow:hidden;white-space:nowrap;">'+escH(it.name)+'</td>'+'<td style="border:1px solid #000;text-align:center;font-size:10px;">'+escH(it.brand)+'</td>'+'<td style="border:1px solid #000;text-align:center;font-size:10px;">'+escH(it.model)+'</td>'+'<td style="border:1px solid #000;text-align:center;font-size:10px;">'+(qty||'')+'</td>'+'<td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">'+(price?price.toLocaleString():'')+'</td>'+'<td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">'+(amt?amt.toLocaleString():'')+'</td>'+'<td style="border:1px solid #000;padding:0 4px;font-size:10px;overflow:hidden;white-space:nowrap;">'+escH(it.note)+'</td></tr>';}const tax=Math.floor(sub*.1);const total=sub+tax;let svgLine='';if(emptyStartIdx!==-1&&emptyStartIdx<ROWS){const tp=rowH+(emptyStartIdx*rowH);const ht=(ROWS-emptyStartIdx)*rowH;svgLine='<svg style="position:absolute;left:8mm;top:'+tp+'mm;width:137mm;height:'+ht+'mm;pointer-events:none;z-index:10;"><line x1="100%" y1="0" x2="0" y2="100%" stroke="#000" stroke-width="1"></line></svg>';}let h='<div style="width:210mm;min-height:296mm;padding:12mm 20mm;background:#fff;font-family:\'MS Mincho\',serif;color:#000;box-sizing:border-box;">'+'<div style="text-align:center;font-size:24px;letter-spacing:15mm;margin-bottom:8mm;padding-left:15mm;">見　積　書</div>'+'<div style="text-align:right;font-size:10px;margin-bottom:4mm;">'+fmtDate(date)+'</div>'+'<div style="margin-bottom:4mm;text-align:left;"><div style="display:inline-flex;align-items:flex-end;border-bottom:1.5px solid #000;padding-bottom:1px;margin-bottom:2mm;min-width:45mm;white-space:nowrap;"><div style="flex:1;"></div><div style="font-size:16px;font-weight:bold;text-align:justify;text-align-last:justify;min-width:25mm;">'+escH(tN)+'</div><div style="font-size:16px;font-weight:bold;margin-left:1.5mm;">様</div></div><div style="font-size:11px;letter-spacing:2px;">下　記　の　通　り　御　見　積　致　し　ま　す　。</div></div>'+'<div style="display:flex;justify-content:space-between;margin-bottom:6mm;"><div><table style="font-size:10px;border-collapse:collapse;text-align:left;"><tr><td style="padding:1.5px 0;width:15mm;text-align:justify;text-align-last:justify;">納入期日</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">'+fmtDate(dD)+'</td></tr><tr><td style="padding:1.5px 0;text-align:justify;text-align-last:justify;">納入場所</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">'+escH(dP)+'</td></tr><tr><td style="padding:1.5px 0;text-align:justify;text-align-last:justify;">取引方法</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">'+escH(pM)+'</td></tr></table></div><div style="font-size:10px;line-height:1.9;text-align:left;"><div>鹿児島県曽於市大隅町岩川5591番地</div><div style="text-align:justify;text-align-last:justify;width:54mm;">そ お 鹿 児 島 農 業 協 同 組 合</div><div style="display:flex;justify-content:space-between;width:54mm;"><span>代表理事組合長</span><span>竹　内　和　久</span></div><div style="text-align:right;margin-top:1mm;">農機センター</div></div></div>'+'<div style="display:flex;align-items:flex-end;margin-bottom:2mm;"><div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1.5px solid #000;width:60mm;padding-bottom:1px;"><div style="font-size:16px;font-weight:bold;">合計金額 ￥</div><div style="text-align:right;flex:1;"><span style="font-size:18px;font-weight:bold;">'+total.toLocaleString()+'</span><span style="font-size:16px;font-weight:bold;"> 円也</span></div></div><div style="font-size:10px;margin-left:4mm;padding-bottom:1px;">（内消費税　'+tax.toLocaleString()+'　円）</div></div>'+'<div style="position:relative;width:170mm;margin-top:3mm;">'+svgLine+'<table style="width:170mm;border-collapse:collapse;table-layout:fixed;"><colgroup><col style="width:8mm"><col style="width:45mm"><col style="width:15mm"><col style="width:25mm"><col style="width:12mm"><col style="width:20mm"><col style="width:20mm"><col style="width:25mm"></colgroup>'+'<tr style="height:'+rowH+'mm;background:#fff;"><th style="border:1px solid #000;font-size:10px;font-weight:normal;">No.</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">品　　名</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">銘　柄</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">型　　式</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">数量</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">単　価</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">金　額</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">備　考</th></tr>'+rowsHTML+'<tr style="height:'+rowH+'mm;"><td colspan="6" style="border:1px solid #000;text-align:center;font-size:11px;letter-spacing:10mm;padding-left:10mm;">小　計</td><td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">'+sub.toLocaleString()+'</td><td style="border:1px solid #000;"></td></tr>'+'<tr style="height:'+rowH+'mm;"><td colspan="6" style="border:1px solid #000;text-align:center;font-size:11px;letter-spacing:8mm;padding-left:8mm;">消　費　税</td><td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">'+tax.toLocaleString()+'</td><td style="border:1px solid #000;"></td></tr>'+'<tr style="height:'+rowH+'mm;"><td colspan="6" style="border:1px solid #000;text-align:center;font-size:11px;letter-spacing:10mm;padding-left:10mm;">合　計</td><td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;font-weight:bold;">'+total.toLocaleString()+'</td><td style="border:1px solid #000;"></td></tr>'+'</table></div>';if(nt)h+='<div style="margin-top:3mm;font-size:10px;border:0.5px solid #ccc;padding:4px 6px;"><strong>備考：</strong>'+escH(nt)+'</div>';if(ex)h+='<div style="margin-top:2mm;font-size:10px;">有効期限：'+fmtDate(ex)+'</div>';h+='</div>';return h;}
 
 function showPreview(){document.getElementById('preview-inner').innerHTML=buildEstHTML();document.getElementById('preview-modal').style.display='block';}
 function closePreview(){document.getElementById('preview-modal').style.display='none';}
@@ -1002,20 +882,14 @@ window.onload = async function() {
     try {
         loadDB();
         const loadMsg = document.getElementById('loadingMsg');
-        _log('INFO', `アプリ起動 → ローカルDB読込完了 (修理:${DB.repairs?.length||0} 顧客:${DB.customers?.length||0})`);  // DEBUG LOG
-        _log('INFO', `GAS URL設定: ${gasUrl ? gasUrl.slice(0,60)+'...' : '未設定'}`);  // DEBUG LOG
 
         if (gasUrl) {
             loadMsg.textContent = '☁️ クラウドから最新データを確認中...';
-            _log('INFO', '起動時クラウド同期を開始');  // DEBUG LOG
             try {
                 await syncToCloud(false);
             } catch(e) {
-                _log('ERROR', `起動時同期エラー: ${e.name}: ${e.message}`);  // DEBUG LOG
                 console.error('起動時同期エラー:', e);
             }
-        } else {
-            _log('WARN', 'GAS URL未設定のためクラウド同期スキップ');  // DEBUG LOG
         }
 
         if (!hasAnyData()) {
