@@ -69,12 +69,11 @@
         <p id="loadingMsg" style="font-size:12px;color:gray;">データを読み込んでいます</p>
     </div>
 
-    <!-- デバッグ用スクリプト -->
     <script>
         window.onerror = function(msg, url, line, col, error) {
             var errEl = document.getElementById('loadingMsg');
             if(errEl) {
-                errEl.innerHTML = '<span style="color:#e74c3c; font-weight:bold;">❌ エラー発生<br>' + msg + '<br>行番号: ' + line + '</span>';
+                errEl.innerHTML = '<span style="color:#e74c3c; font-weight:bold;">❌ エラー発生<br>' + msg + '<br>行番号: ' + line + '<\x2Fspan>';
             }
             return false;
         };
@@ -82,7 +81,7 @@
             var errEl = document.getElementById('loadingMsg');
             if(errEl) {
                 var reason = event.reason ? (event.reason.message || event.reason) : '不明なエラー';
-                errEl.innerHTML = '<span style="color:#e74c3c; font-weight:bold;">❌ 非同期エラー<br>' + reason + '</span>';
+                errEl.innerHTML = '<span style="color:#e74c3c; font-weight:bold;">❌ 非同期エラー<br>' + reason + '<\x2Fspan>';
             }
         };
     </script>
@@ -139,7 +138,6 @@
         </div>
     </div>
 
-    <!-- プレビューモーダル -->
     <div id="preview-modal">
         <div style="background:#1a252f;padding:12px 16px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:1001;">
             <button onclick="closePreview()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer;">← 戻る</button>
@@ -156,7 +154,6 @@
         <div style="overflow-x:auto;padding:8px;background:#555;"><div id="preview-inner" style="background:#fff;margin:0 auto;width:794px;"></div></div>
     </div>
 
-    <!-- 通常モーダル -->
     <div class="modal-overlay" id="modalOverlay" style="display:none;" onclick="closeModalOnBg(event)">
         <div class="modal-box">
             <div class="modal-header"><h3 id="modalTitle" style="font-size:15px;font-weight:800;color:var(--text);"></h3><button onclick="closeModal()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button></div>
@@ -164,7 +161,6 @@
         </div>
     </div>
 
-    <!-- AI一括入力モーダル -->
     <div class="modal-overlay" id="smartModal" style="display:none;" onclick="closeSmartOnBg(event)">
         <div class="modal-box">
             <div class="modal-header"><h3 style="font-size:15px;font-weight:800;color:var(--text);">🎤 AI音声・一括入力</h3><button onclick="document.getElementById('smartModal').style.display='none'" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button></div>
@@ -177,7 +173,6 @@
         </div>
     </div>
 
-    <!-- APIキー・同期設定モーダル -->
     <div class="modal-overlay" id="apiKeyModal" style="display:none;" onclick="if(event.target.id==='apiKeyModal')closeApiKey()">
         <div class="modal-box">
             <div class="modal-header"><h3 style="font-size:15px;font-weight:800;color:var(--text);">🔑 APIキー・同期設定</h3><button onclick="closeApiKey()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button></div>
@@ -197,7 +192,6 @@
         </div>
     </div>
 
-    <!-- 🛡️ バックアップ管理モーダル -->
     <div class="modal-overlay" id="backupModal" style="display:none;" onclick="if(event.target.id==='backupModal')closeBackupModal()">
         <div class="modal-box">
             <div class="modal-header">
@@ -436,10 +430,10 @@ async function testSync() {
         const res = await fetch(url, {method:'GET', cache:'no-cache', credentials:'omit', signal:controller.signal});
         clearTimeout(timer);
         await res.json();
-        document.getElementById('testResult').innerHTML = '<span style="color:#27ae60;font-weight:bold;">✅ 接続成功！データ共有できます</span>';
+        document.getElementById('testResult').innerHTML = '<span style="color:#27ae60;font-weight:bold;">✅ 接続成功！データ共有できます<\x2Fspan>';
     } catch(e) {
         let msg = e.name === 'AbortError' ? 'タイムアウト（15秒）' : e.message;
-        document.getElementById('testResult').innerHTML = '<span style="color:#e74c3c;">❌ 接続失敗: ' + msg + '</span>';
+        document.getElementById('testResult').innerHTML = '<span style="color:#e74c3c;">❌ 接続失敗: ' + msg + '<\x2Fspan>';
     }
 }
 
@@ -588,8 +582,8 @@ function loadSeedData() {
 function saveHTML() {
     const toName  = (document.getElementById('toName')?.value||'').trim();
     const subjectVal = (document.getElementById('subject')?.value||'').trim();
-    const estDate = (document.getElementById('estDate')?.value||'').replace(/-/g, '');
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${getStyles()}</` + `style></head><body>${buildEstHTML()}</` + `body></html>`;
+    const estDate = (document.getElementById('estDate')?.value||'').replace(new RegExp('-', 'g'), '');
+    const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' + getStyles() + '<\x2Fstyle><\x2Fhead><body>' + buildEstHTML() + '<\x2Fbody><\x2Fhtml>';
     const blob = new Blob([html], {type:'text/html;charset=utf-8'});
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
@@ -621,11 +615,10 @@ function shareDoc() {
         +'小計：¥'+sub.toLocaleString()+'\n消費税(10%)：¥'+tax.toLocaleString()+'\n【合計金額】¥'+total.toLocaleString()+'\n'
         +'━━━━━━━━━━━\nご確認よろしくお願いいたします。';
     if (navigator.share) {
-        // スクリプト閉じタグの誤認識を防ぐために分割して記述しています
-        const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${getStyles()}</` + `style></head><body>${buildEstHTML()}</` + `body></html>`;
+        const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' + getStyles() + '<\x2Fstyle><\x2Fhead><body>' + buildEstHTML() + '<\x2Fbody><\x2Fhtml>';
         const toN2 = (tN||'').trim();
         const sub2 = (subject||'').trim();
-        const d2   = (estDate||new Date().toISOString().slice(0,10)).replace(/-/g,'');
+        const d2   = (estDate||new Date().toISOString().slice(0,10)).replace(new RegExp('-', 'g'),'');
         const fname = `見積書_${toN2?toN2+'_':''}${sub2?sub2+'_':''}${d2}.html`;
         const file  = new File([html], fname, {type:'text/html'});
         const shareData = navigator.canShare && navigator.canShare({files:[file]})
@@ -651,7 +644,7 @@ function openLineShare(text) {
 }
 
 function printDoc() {
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${getStyles()}</` + `style></head><body>${buildEstHTML()}</` + `body></html>`;
+    const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' + getStyles() + '<\x2Fstyle><\x2Fhead><body>' + buildEstHTML() + '<\x2Fbody><\x2Fhtml>';
     const win = window.open('', '_blank');
     if (win) {
         win.document.write(html);
@@ -678,10 +671,10 @@ function usePrintFrame(html) {
 
 function buildCalUrl(title, dateVal, details) {
     let dt = dateVal || new Date().toISOString().slice(0,10);
-    const d = dt.replace(/-/g,'');
+    const d = dt.replace(new RegExp('-', 'g'),'');
     const s = new Date(dt);
     const e = new Date(s); e.setDate(s.getDate()+1);
-    const dEnd = e.toISOString().slice(0,10).replace(/-/g,'');
+    const dEnd = e.toISOString().slice(0,10).replace(new RegExp('-', 'g'),'');
     return 'https://www.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(title)+'&dates='+d+'/'+dEnd+'&details='+encodeURIComponent(details);
 }
 
@@ -701,8 +694,9 @@ async function callAI(prompt) {
     if (data.error) throw new Error(data.error.message);
     let raw = '{}';
     if (data.content && data.content[0] && data.content[0].text) raw = data.content[0].text;
-    return JSON.parse(raw.replace(/```json|
-```/g, '').trim());
+    
+    // AIの返答からJSON部分だけを安全に抽出（正規表現のバグを防ぐため new RegExp を使用）
+    return JSON.parse(raw.replace(new RegExp('```json|```', 'g'), '').trim());
 }
 
 async function runSmartAI() {
@@ -1168,11 +1162,11 @@ function sel(id, label, options, cur) {
 }
 
 function esc(s) {
-    return String(s || '').replace(/"/g, '&quot;').replace(new RegExp('<', 'g'), '&lt;').replace(new RegExp('>', 'g'), '&gt;');
+    return String(s || '').replace(new RegExp('"', 'g'), '&quot;').replace(new RegExp('<', 'g'), '&lt;').replace(new RegExp('>', 'g'), '&gt;');
 }
 
 function escH(s) {
-    return String(s || '').replace(/&/g, '&amp;').replace(new RegExp('<', 'g'), '&lt;').replace(new RegExp('>', 'g'), '&gt;');
+    return String(s || '').replace(new RegExp('&', 'g'), '&amp;').replace(new RegExp('<', 'g'), '&lt;').replace(new RegExp('>', 'g'), '&gt;');
 }
 
 function closeModal() { document.getElementById('modalOverlay').style.display = 'none'; }
@@ -1369,7 +1363,7 @@ function calcTotal() {
 }
 
 function getStyles() {
-    return '*{box-sizing:border-box;margin:0;padding:0;}body{font-family:\'MS Mincho\',\'Hiragino Mincho Pro\',serif;}@page{size:A4 portrait;margin:0;}@media print{body{margin:0;padding:0;-webkit-print-color-adjust:exact;color-adjust:exact;}}';
+    return '*{box-sizing:border-box;margin:0;padding:0;}body{font-family:"MS Mincho","Hiragino Mincho Pro",serif;}@page{size:A4 portrait;margin:0;}@media print{body{margin:0;padding:0;-webkit-print-color-adjust:exact;color-adjust:exact;}}';
 }
 
 function fmtDate(d) {
@@ -1413,15 +1407,14 @@ function buildEstHTML() {
     if (emptyStartIdx !== -1 && emptyStartIdx < ROWS) {
         const tp = rowH + (emptyStartIdx * rowH);
         const ht = (ROWS - emptyStartIdx) * rowH;
-        // スクリプト閉じタグの誤認識を防ぐために分割して記述しています
-        svgLine = '<svg style="position:absolute;left:8mm;top:' + tp + 'mm;width:137mm;height:' + ht + 'mm;pointer-events:none;z-index:10;"><line x1="100%" y1="0" x2="0" y2="100%" stroke="#000" stroke-width="1"></' + 'line></' + 'svg>';
+        svgLine = '<svg style="position:absolute;left:8mm;top:' + tp + 'mm;width:137mm;height:' + ht + 'mm;pointer-events:none;z-index:10;"><line x1="100%" y1="0" x2="0" y2="100%" stroke="#000" stroke-width="1"><\x2Fline><\x2Fsvg>';
     }
     
     let h = '<div style="width:210mm;min-height:296mm;padding:12mm 20mm;background:#fff;font-family:\'MS Mincho\',serif;color:#000;box-sizing:border-box;">' +
             '<div style="text-align:center;font-size:24px;letter-spacing:15mm;margin-bottom:8mm;padding-left:15mm;">見　積　書</div>' +
             '<div style="text-align:right;font-size:10px;margin-bottom:4mm;">' + fmtDate(date) + '</div>' +
             '<div style="margin-bottom:4mm;text-align:left;"><div style="display:inline-flex;align-items:flex-end;border-bottom:1.5px solid #000;padding-bottom:1px;margin-bottom:2mm;min-width:45mm;white-space:nowrap;"><div style="flex:1;"></div><div style="font-size:16px;font-weight:bold;text-align:justify;text-align-last:justify;min-width:25mm;">' + escH(tN) + '</div><div style="font-size:16px;font-weight:bold;margin-left:1.5mm;">様</div></div><div style="font-size:11px;letter-spacing:2px;">下　記　の　通　り　御　見　積　致　し　ま　す　。</div></div>' +
-            '<div style="display:flex;justify-content:space-between;margin-bottom:6mm;"><div><table style="font-size:10px;border-collapse:collapse;text-align:left;"><tr><td style="padding:1.5px 0;width:15mm;text-align:justify;text-align-last:justify;">納入期日</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">' + fmtDate(dD) + '</td></tr><tr><td style="padding:1.5px 0;text-align:justify;text-align-last:justify;">納入場所</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">' + escH(dP) + '</td></tr><tr><td style="padding:1.5px 0;text-align:justify;text-align-last:justify;">取引方法</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">' + escH(pM) + '</td></tr></table></div><div style="font-size:10px;line-height:1.9;text-align:left;"><div>鹿児島県曽於市大隅町岩川5591番地</div><div style="text-align:justify;text-align-last:justify;width:54mm;">そ お 鹿 児 島 農 業 協 同 組 বৃত্ত</div><div style="display:flex;justify-content:space-between;width:54mm;"><span>代表理事組合長</span><span>竹　内　和　久</span></div><div style="text-align:right;margin-top:1mm;">財部農機センター</div></div></div>' +
+            '<div style="display:flex;justify-content:space-between;margin-bottom:6mm;"><div><table style="font-size:10px;border-collapse:collapse;text-align:left;"><tr><td style="padding:1.5px 0;width:15mm;text-align:justify;text-align-last:justify;">納入期日</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">' + fmtDate(dD) + '</td></tr><tr><td style="padding:1.5px 0;text-align:justify;text-align-last:justify;">納入場所</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">' + escH(dP) + '</td></tr><tr><td style="padding:1.5px 0;text-align:justify;text-align-last:justify;">取引方法</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">' + escH(pM) + '</td></tr></table></div><div style="font-size:10px;line-height:1.9;text-align:left;"><div>鹿児島県曽於市大隅町岩川5591番地</div><div style="text-align:justify;text-align-last:justify;width:54mm;">そ お 鹿 児 島 農 業 協 同 組 合</div><div style="display:flex;justify-content:space-between;width:54mm;"><span>代表理事組合長</span><span>竹　内　和　久</span></div><div style="text-align:right;margin-top:1mm;">財部農機センター</div></div></div>' +
             '<div style="display:flex;align-items:flex-end;margin-bottom:2mm;"><div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1.5px solid #000;width:60mm;padding-bottom:1px;"><div style="font-size:16px;font-weight:bold;">合計金額 ￥</div><div style="text-align:right;flex:1;"><span style="font-size:18px;font-weight:bold;">' + total.toLocaleString() + '</span><span style="font-size:16px;font-weight:bold;"> 円也</span></div></div><div style="font-size:10px;margin-left:4mm;padding-bottom:1px;">（内消費税　' + tax.toLocaleString() + '　円）</div></div>' +
             '<div style="position:relative;width:170mm;margin-top:3mm;">' + svgLine + '<table style="width:170mm;border-collapse:collapse;table-layout:fixed;"><colgroup><col style="width:8mm"><col style="width:45mm"><col style="width:15mm"><col style="width:25mm"><col style="width:12mm"><col style="width:20mm"><col style="width:20mm"><col style="width:25mm"></colgroup>' +
             '<tr style="height:' + rowH + 'mm;background:#fff;"><th style="border:1px solid #000;font-size:10px;font-weight:normal;">No.</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">品　　名</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">銘　柄</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">型　　式</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">数量</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">単　価</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">金　額</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">備　考</th></tr>' +
