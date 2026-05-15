@@ -580,26 +580,22 @@ function loadSeedData() {
 
 async function generatePDFBlob() {
     const element = document.getElementById('preview-inner');
-    const canvas = await html2canvas(element, {scale: 2, useCORS: true, backgroundColor: '#ffffff'});
+    // A4高さ(297mm)だけキャプチャして必ず1ページに収める
+    const A4H = Math.round(297 * 3.7795); // 1122px
+    const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        height: A4H,
+        windowHeight: A4H + 200
+    });
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF('p', 'mm', 'a4');
     const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
-    const imgW = canvas.width;
-    const imgH = canvas.height;
-    const ratio = pageW / (imgW / 3.7795);
-    const finalH = (imgH / 3.7795) * ratio;
+    const ratio = pageW / (canvas.width / 3.7795);
+    const finalH = (canvas.height / 3.7795) * ratio;
     const imgData = canvas.toDataURL('image/jpeg', 0.97);
-    if (finalH <= pageH) {
-        pdf.addImage(imgData, 'JPEG', 0, 0, pageW, finalH);
-    } else {
-        let y = 0;
-        while (y < finalH) {
-            if (y > 0) pdf.addPage();
-            pdf.addImage(imgData, 'JPEG', 0, -y, pageW, finalH);
-            y += pageH;
-        }
-    }
+    pdf.addImage(imgData, 'JPEG', 0, 0, pageW, finalH);
     return pdf;
 }
 
@@ -941,7 +937,7 @@ for(let i=0;i<qItems.length;i++){
         +'<td style="border:1px solid #000;text-align:center;font-size:9px;vertical-align:middle;overflow:hidden;">'+(qty||'')+'</td>'
         +'<td style="border:1px solid #000;text-align:right;padding-right:3px;font-size:9px;vertical-align:middle;overflow:hidden;white-space:nowrap;">'+(price?price.toLocaleString():'')+'</td>'
         +'<td style="border:1px solid #000;text-align:right;padding-right:3px;font-size:9px;vertical-align:middle;overflow:hidden;white-space:nowrap;">'+(amt?amt.toLocaleString():'')+'</td>'
-        +'<td style="border:1px solid #000;padding:1px 2px;font-size:8px;word-break:break-all;vertical-align:middle;overflow:hidden;line-height:1.2;">'+nl2br(it.note)+'</td>'
+        +'<td style="border:1px solid #000;padding:1px 2px;font-size:7.5px;word-break:break-all;vertical-align:middle;overflow:hidden;line-height:1.2;">'+nl2br(it.note)+'</td>'
         +'</tr>';
 }
 const tax=Math.floor(sub*.1);const total=sub+tax;
@@ -964,8 +960,11 @@ let nameBlock;
 if(tN&&nc>0){
     const flexItems=nameChars.split('').map(c=>'<span>'+escH(c)+'</span>').join('');
     const flexStyle=nc>1?'display:inline-flex;justify-content:space-between;':'display:inline-flex;justify-content:center;';
-    nameBlock='<div style="'+flexStyle+'border-bottom:1.5px solid #000;width:'+nameWidth+'mm;font-size:16px;font-weight:bold;padding:0 0 1px;vertical-align:bottom;box-sizing:border-box;">'+flexItems+'</div>'
-        +'<span style="font-size:16px;font-weight:bold;margin-left:2mm;vertical-align:bottom;">様</span>';
+    // align-items:baselineで名前文字と「様」のベースラインを揃える
+    nameBlock='<div style="display:inline-flex;align-items:baseline;">'
+        +'<div style="'+flexStyle+'border-bottom:1.5px solid #000;width:'+nameWidth+'mm;font-size:16px;font-weight:bold;padding:0 0 1px;box-sizing:border-box;">'+flexItems+'</div>'
+        +'<span style="font-size:16px;font-weight:bold;margin-left:2mm;">様</span>'
+        +'</div>';
 }else{
     nameBlock='<div style="border-bottom:1.5px solid #000;width:45mm;display:inline-block;"></div>';
 }
@@ -998,7 +997,7 @@ let h='<div style="width:210mm;height:297mm;padding:10mm 18mm;background:#fff;fo
     +'<div style="position:relative;width:174mm;overflow:hidden;">'
     +svgLine
     +'<table style="width:174mm;border-collapse:collapse;table-layout:fixed;">'
-    +'<colgroup><col style="width:8mm"><col style="width:46mm"><col style="width:18mm"><col style="width:26mm"><col style="width:12mm"><col style="width:21mm"><col style="width:21mm"><col style="width:22mm"></colgroup>'
+    +'<colgroup><col style="width:8mm"><col style="width:42mm"><col style="width:18mm"><col style="width:26mm"><col style="width:12mm"><col style="width:21mm"><col style="width:21mm"><col style="width:26mm"></colgroup>'
     +'<tr style="height:'+rowH+'mm;background:#f5f5f5;">'
     +'<th style="border:1px solid #000;font-size:9px;font-weight:bold;">No.</th>'
     +'<th style="border:1px solid #000;font-size:9px;font-weight:bold;">品　　名</th>'
