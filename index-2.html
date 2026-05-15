@@ -60,17 +60,29 @@
         #syncBar.conflict{background:#8e44ad;color:#fff;}
         #syncBar.error{background:#e74c3c;color:#fff;}
         #_print_frame{position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none;}
+        
+        /* ボタンエリア用 */
+        .header-btns { display:flex; align-items:center; gap:3px; overflow-x:auto; padding-bottom:2px; }
+        .header-btns::-webkit-scrollbar { display:none; }
+        .h-btn { background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:6px 7px;font-size:12px;white-space:nowrap;cursor:pointer;font-weight:bold; }
     </style>
 </head>
 <body>
-    <div id="loading-screen" style="text-align:center;padding:80px 20px;color:var(--text);">
-        <div style="font-size:48px;margin-bottom:16px;">🚜</div>
-        <h2 style="margin-bottom:8px;">農機管理PRO 起動中...</h2>
-        <p id="loadingMsg" style="font-size:12px;color:gray;">データを読み込んでいます</p>
-    </div>
-
     <script>
+        let appLogs = [];
+        function addLog(msg, type='INFO') {
+            const d = new Date();
+            const t = d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0')+':'+d.getSeconds().toString().padStart(2,'0');
+            const logStr = `[${t}] [${type}] ${msg}`;
+            appLogs.push(logStr);
+            if (appLogs.length > 200) appLogs.shift(); // 最大件数制限
+            console.log(logStr);
+            const lc = document.getElementById('logContent');
+            if(lc) lc.textContent = appLogs.join('\n');
+        }
+
         window.onerror = function(msg, url, line, col, error) {
+            addLog(`${msg} (line: ${line})`, 'ERROR');
             var errEl = document.getElementById('loadingMsg');
             if(errEl) {
                 errEl.innerHTML = '<span style="color:#e74c3c; font-weight:bold;">❌ エラー発生<br>' + msg + '<br>行番号: ' + line + '<\x2Fspan>';
@@ -78,28 +90,38 @@
             return false;
         };
         window.onunhandledrejection = function(event) {
+            var reason = event.reason ? (event.reason.message || event.reason) : '不明なエラー';
+            addLog(`Promise Error: ${reason}`, 'ERROR');
             var errEl = document.getElementById('loadingMsg');
             if(errEl) {
-                var reason = event.reason ? (event.reason.message || event.reason) : '不明なエラー';
                 errEl.innerHTML = '<span style="color:#e74c3c; font-weight:bold;">❌ 非同期エラー<br>' + reason + '<\x2Fspan>';
             }
         };
     </script>
 
+    <div id="loading-screen" style="text-align:center;padding:80px 20px;color:var(--text);">
+        <div style="font-size:48px;margin-bottom:16px;">🚜</div>
+        <h2 style="margin-bottom:8px;">農機管理PRO 起動中...</h2>
+        <p id="loadingMsg" style="font-size:12px;color:gray;">データを読み込んでいます</p>
+    </div>
+
     <div id="app" style="display:none;">
         <div style="background:var(--main);padding-top:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.2);">
-            <div style="display:flex;align-items:center;gap:6px;padding:0 10px 12px;">
+            <div style="display:flex;align-items:center;gap:6px;padding:0 10px 8px;">
                 <span style="font-size:20px;">🚜</span>
                 <div style="flex:1;min-width:0;">
                     <div style="color:#fff;font-weight:900;font-size:14px;">農機管理＆見積 PRO</div>
                     <div style="color:#6fa8c8;font-size:10px;margin-top:1px;" id="syncLabel">財部農機センター</div>
                 </div>
-                <button onclick="toggleDark()" style="background:none;border:none;color:#fff;font-size:17px;cursor:pointer;">🌓</button>
-                <button onclick="manualSync()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:10px;padding:7px 8px;font-size:12px;margin-left:1px;" title="今すぐ同期">☁️</button>
-                <button onclick="forcePullFromCloud()" style="background:#8e44ad;border:none;color:#fff;border-radius:10px;padding:7px 8px;font-size:11px;font-weight:800;margin-left:1px;" title="クラウドから強制取得">⬇️雲</button>
-                <button onclick="openBackupModal()" style="background:#27ae60;border:none;color:#fff;border-radius:10px;padding:7px 8px;font-size:12px;font-weight:800;margin-left:1px;" title="バックアップ管理">🛡️</button>
-                <button onclick="openSmartModal()" style="background:#e67e22;border:none;color:#fff;border-radius:10px;padding:7px 9px;font-size:12px;font-weight:800;margin-left:1px;">🎤</button>
-                <button onclick="openApiKey()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:10px;padding:7px 8px;font-size:13px;margin-left:1px;">🔑</button>
+            </div>
+            <div class="header-btns" style="padding:0 10px 10px;">
+                <button onclick="toggleDark()" class="h-btn">🌓</button>
+                <button onclick="manualSync()" class="h-btn">☁️</button>
+                <button onclick="forcePullFromCloud()" class="h-btn" style="background:#8e44ad;">⬇️雲</button>
+                <button onclick="openBackupModal()" class="h-btn" style="background:#27ae60;">🛡️</button>
+                <button onclick="openSmartModal()" class="h-btn" style="background:#e67e22;">🎤</button>
+                <button onclick="openApiKey()" class="h-btn">🔑</button>
+                <button onclick="openLogModal()" class="h-btn" style="background:#c0392b;">🐛</button>
             </div>
             <div class="tab-wrap" id="tabBar"></div>
         </div>
@@ -138,6 +160,23 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="logModal" style="display:none;" onclick="if(event.target.id==='logModal')closeLogModal()">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 style="font-size:15px;font-weight:800;color:var(--text);">🐛 デバッグログ解析</h3>
+                <button onclick="closeLogModal()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button>
+            </div>
+            <div style="padding:16px 18px 40px;">
+                <div style="display:flex;gap:8px;margin-bottom:12px;">
+                    <button onclick="copyLogs()" style="flex:1;background:#2980b9;color:#fff;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:bold;">📋 ログをコピー</button>
+                    <button onclick="clearLogs()" style="flex:1;background:#e74c3c;color:#fff;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:bold;">🗑️ クリア</button>
+                </div>
+                <div id="logContent" style="background:#1e1e1e;color:#00ff00;font-family:monospace;font-size:11px;padding:12px;border-radius:8px;height:60vh;overflow-y:auto;white-space:pre-wrap;word-wrap:break-word;line-height:1.4;">
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="preview-modal">
         <div style="background:#1a252f;padding:12px 16px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:1001;">
             <button onclick="closePreview()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer;">← 戻る</button>
@@ -147,9 +186,6 @@
             <button class="btn-pdf" onclick="saveHTML()">💾 HTML保存</button>
             <button class="btn-line" onclick="shareDoc()">📤 LINE共有</button>
             <button class="btn-print" onclick="printDoc()">🖨️ 印刷</button>
-        </div>
-        <div style="background:#fff8e1;border-left:4px solid #f39c12;padding:8px 12px;margin:0 12px 8px;border-radius:8px;font-size:11px;color:#7f6000;">
-            💡 「HTML保存」でファイルをダウンロード後、ブラウザで開いて印刷・PDF変換できます。LINEへはテキスト共有、または保存したファイルを添付してください。
         </div>
         <div style="overflow-x:auto;padding:8px;background:#555;"><div id="preview-inner" style="background:#fff;margin:0 auto;width:794px;"></div></div>
     </div>
@@ -165,8 +201,7 @@
         <div class="modal-box">
             <div class="modal-header"><h3 style="font-size:15px;font-weight:800;color:var(--text);">🎤 AI音声・一括入力</h3><button onclick="document.getElementById('smartModal').style.display='none'" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button></div>
             <div style="padding:16px 18px 30px;">
-                <div style="background:#fff8e1;border:1.5px solid #ffe082;border-radius:12px;padding:12px;margin-bottom:12px;"><div style="font-size:12px;color:#f57f17;font-weight:800;margin-bottom:4px;">💡 使い方</div><div style="font-size:12px;color:#555;line-height:1.7;">テキスト入力 → AIが自動振り分け・登録！<br>金額が含まれると見積書も自動作成</div></div>
-                <textarea id="smartText" placeholder="例：山田さんのヤンマーYT222 製造番号A12345 修理代85000円で見積もり作って" rows="4" class="field-textarea"></textarea>
+                <textarea id="smartText" placeholder="例：山田さんのヤンマーYT222 修理代85000円で見積もり作って" rows="4" class="field-textarea"></textarea>
                 <button onclick="runSmartAI()" id="smartBtn" class="save-btn" style="width:100%;background:#e67e22;margin-bottom:10px;">🤖 AI自動振り分け・登録</button>
                 <div id="smartStatus" style="font-size:12px;margin-top:8px;display:none;padding:10px;border-radius:8px;line-height:2.2;"></div>
             </div>
@@ -175,19 +210,15 @@
 
     <div class="modal-overlay" id="apiKeyModal" style="display:none;" onclick="if(event.target.id==='apiKeyModal')closeApiKey()">
         <div class="modal-box">
-            <div class="modal-header"><h3 style="font-size:15px;font-weight:800;color:var(--text);">🔑 APIキー・同期設定</h3><button onclick="closeApiKey()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button></div>
+            <div class="modal-header"><h3 style="font-size:15px;font-weight:800;color:var(--text);">🔑 設定</h3><button onclick="closeApiKey()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button></div>
             <div style="padding:16px 18px 40px;">
-                <label class="field-label">Claude APIキー（AI一括入力用）</label>
+                <label class="field-label">Claude APIキー</label>
                 <input type="password" id="apiKeyInput" class="field-input" placeholder="sk-ant-...">
-                <div style="background:#e8f4fd;border-radius:12px;padding:14px;margin-bottom:14px;">
-                    <div style="font-size:13px;font-weight:800;color:#2980b9;margin-bottom:6px;">☁️ クラウド同期設定</div>
-                    <div style="font-size:11px;color:#555;line-height:1.7;margin-bottom:10px;">複数スマホでデータを共有できます。<br>Google Apps ScriptのURLを入力してください。</div>
-                    <label class="field-label">GAS デプロイ URL</label>
-                    <input type="url" id="gasUrlInput" class="field-input" placeholder="https://script.google.com/macros/s/...">
-                    <button onclick="testSync()" style="background:#2980b9;color:#fff;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;width:100%;margin-bottom:8px;">🔗 接続テスト</button>
-                    <div id="testResult" style="font-size:12px;min-height:18px;"></div>
-                </div>
-                <button onclick="saveApiKey()" class="save-btn" style="width:100%;">💾 保存する</button>
+                <label class="field-label">GAS デプロイ URL</label>
+                <input type="url" id="gasUrlInput" class="field-input" placeholder="https://script.google.com/...">
+                <button onclick="testSync()" style="background:#2980b9;color:#fff;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;width:100%;margin-bottom:8px;">🔗 接続テスト</button>
+                <div id="testResult" style="font-size:12px;min-height:18px;margin-bottom:12px;"></div>
+                <button onclick="saveApiKey()" class="save-btn" style="width:100%;">💾 保存</button>
             </div>
         </div>
     </div>
@@ -195,22 +226,17 @@
     <div class="modal-overlay" id="backupModal" style="display:none;" onclick="if(event.target.id==='backupModal')closeBackupModal()">
         <div class="modal-box">
             <div class="modal-header">
-                <h3 style="font-size:15px;font-weight:800;color:var(--text);">🛡️ バックアップ・データ管理</h3>
+                <h3 style="font-size:15px;font-weight:800;color:var(--text);">🛡️ バックアップ管理</h3>
                 <button onclick="closeBackupModal()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button>
             </div>
             <div style="padding:16px 18px 40px;">
                 <div id="dataOverview" style="background:var(--input-bg);border-radius:12px;padding:12px;margin-bottom:14px;font-size:12px;"></div>
                 <div style="display:flex;gap:8px;margin-bottom:16px;">
-                    <button onclick="exportJSON()" style="flex:1;background:#2980b9;color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:800;cursor:pointer;">📥 JSONで保存</button>
-                    <button onclick="importJSON()" style="flex:1;background:#27ae60;color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:800;cursor:pointer;">📤 JSONを読込</button>
+                    <button onclick="exportJSON()" style="flex:1;background:#2980b9;color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:800;cursor:pointer;">📥 保存</button>
+                    <button onclick="importJSON()" style="flex:1;background:#27ae60;color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:800;cursor:pointer;">📤 読込</button>
                 </div>
-                <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:8px;">🕐 自動バックアップ（最新24時間分）</div>
                 <div id="backupList"></div>
-                <div style="margin-top:16px;padding:12px;background:#fde8e8;border-radius:12px;">
-                    <div style="font-size:11px;font-weight:800;color:#e74c3c;margin-bottom:6px;">⚠️ 緊急時のみ：サンプルデータ読込</div>
-                    <div style="font-size:11px;color:#555;margin-bottom:8px;">現在のデータが消えます。本当に何もない時だけ使用してください。</div>
-                    <button onclick="loadSeedData()" style="background:#e74c3c;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;width:100%;">🔴 サンプルデータを読み込む（上書き）</button>
-                </div>
+                <button onclick="loadSeedData()" style="margin-top:16px;background:#e74c3c;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;width:100%;">🔴 サンプルデータを読み込む（上書き）</button>
             </div>
         </div>
     </div>
@@ -219,6 +245,28 @@
     <iframe id="_print_frame" style="position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none;"></iframe>
 
 <script>
+// --- ログモーダル用関数 ---
+function openLogModal() {
+    document.getElementById('logContent').textContent = appLogs.join('\n');
+    document.getElementById('logModal').style.display = 'flex';
+}
+function closeLogModal() {
+    document.getElementById('logModal').style.display = 'none';
+}
+function clearLogs() {
+    appLogs = [];
+    document.getElementById('logContent').textContent = '';
+    addLog('ログをクリアしました', 'INFO');
+}
+function copyLogs() {
+    const text = appLogs.join('\n');
+    if(navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => alert('ログをコピーしました！開発者に共有してください。'));
+    } else {
+        alert('コピー非対応のブラウザです。手動で選択してコピーしてください。');
+    }
+}
+
 const TABS = ['ホーム','顧客','修理','実演','部品','製品','見積書'];
 let currentTab = 0;
 const STATUS_COLORS = {
@@ -244,7 +292,7 @@ function saveDB() {
     const now = Date.now();
     const cur = new Date(DB.lastModified||0).getTime();
     DB.lastModified = new Date(Math.max(now, cur + 1000)).toISOString();
-    try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) { console.error('saveDB失敗:', e); }
+    try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) { addLog('saveDB失敗: '+e.message, 'ERROR'); }
     saveEmergencyBackup();
     scheduleSync();
 }
@@ -258,10 +306,11 @@ function saveEmergencyBackup() {
         localStorage.setItem(hourKey, JSON.stringify(snapshot));
         const keys = Object.keys(localStorage).filter(k => k.startsWith('agri_backup_')).sort();
         if (keys.length > 24) keys.slice(0, keys.length - 24).forEach(k => localStorage.removeItem(k));
-    } catch(e) { console.error('緊急バックアップ失敗:', e); }
+    } catch(e) { addLog('緊急バックアップ失敗: '+e.message, 'ERROR'); }
 }
 
 function loadDB() {
+    addLog('loadDB() 開始');
     try {
         const d = localStorage.getItem('agri_db');
         if (d) {
@@ -273,9 +322,10 @@ function loadDB() {
                 if (p.lastModified) DB.lastModified = p.lastModified;
             }
         }
-    } catch(e) { console.error('DB読み込みエラー', e); }
+    } catch(e) { addLog('DB読み込みエラー: '+e.message, 'ERROR'); }
     try { const k = localStorage.getItem('agri_api_key'); if(k) apiKey = k; } catch(e) {}
     try { const g = localStorage.getItem('agri_gas_url'); if(g) gasUrl = g; } catch(e) {}
+    addLog('loadDB() 完了 (gasUrl=' + !!gasUrl + ')');
 }
 
 function showSyncBar(msg, type, autohide=true) {
@@ -304,26 +354,42 @@ async function fetchWithTimeout(url, options, timeoutMs=15000) {
 }
 
 async function syncToCloud(showResult=false) {
-    if (!gasUrl || isSyncing) return;
+    addLog(`syncToCloud(showResult=${showResult}) called.`);
+    if (!gasUrl) {
+        addLog('syncToCloud skip: gasUrl is empty', 'WARN');
+        return;
+    }
+    if (isSyncing) {
+        addLog('syncToCloud skip: already syncing', 'WARN');
+        return;
+    }
+    
     isSyncing = true;
     if (showResult) showSyncBar('☁️ 同期中...', 'syncing', false);
+    
     try {
+        addLog('fetch GET start -> ' + gasUrl.substring(0, 40) + '...');
         const getRes = await fetchWithTimeout(gasUrl, {method:'GET', cache:'no-cache'});
         if (!getRes.ok) throw new Error('サーバーエラー: ' + getRes.status);
         const getText = await getRes.text();
+        addLog('fetch GET success. length=' + getText.length);
+        
         let serverData;
         try { serverData = JSON.parse(getText); } catch(e) { serverData = {empty:true}; }
 
         if (serverData && !serverData.empty) {
             const serverTime = new Date(serverData.lastModified||0).getTime();
             const localTime  = new Date(DB.lastModified||0).getTime();
+            addLog(`Time check: Server=${serverTime}, Local=${localTime}`);
 
             if (serverTime > localTime) {
+                addLog('Server is newer. Applying server data.');
                 const serverHasData = ['customers','repairs','demos','parts','products','quotes']
                     .some(k => serverData[k] && serverData[k].length > 0);
                 const localHasData = hasAnyData();
 
                 if (localHasData && !serverHasData) {
+                    addLog('Server empty but local has data. Forcing local priority.', 'WARN');
                     if (showResult) showSyncBar('⚠️ クラウドが空のためローカルデータを優先', 'conflict');
                     DB.lastModified = new Date().toISOString();
                     try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) {}
@@ -349,11 +415,13 @@ async function syncToCloud(showResult=false) {
         }
 
         if (!hasAnyData()) {
+            addLog('Local is empty. Skipping upload.', 'WARN');
             if (showResult) showSyncBar('⚠️ ローカルが空のためアップロードをスキップ', 'conflict');
             isSyncing = false;
             return;
         }
 
+        addLog('fetch POST start (Upload data)');
         const postRes = await fetchWithTimeout(gasUrl, {
             method: 'POST',
             headers: {'Content-Type': 'text/plain;charset=utf-8'},
@@ -361,6 +429,8 @@ async function syncToCloud(showResult=false) {
         });
         if (!postRes.ok) throw new Error('保存エラー: ' + postRes.status);
         const postText = await postRes.text();
+        addLog('fetch POST success. Res: ' + postText.substring(0, 50));
+        
         let result;
         try { result = JSON.parse(postText); } catch(e) {
             const t = postText.trim().toLowerCase();
@@ -369,6 +439,7 @@ async function syncToCloud(showResult=false) {
         }
 
         if (result.status === 'conflict') {
+            addLog('Conflict detected. Resolving from server.', 'WARN');
             ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k => {
                 if (result.data[k]) DB[k] = result.data[k];
             });
@@ -381,33 +452,41 @@ async function syncToCloud(showResult=false) {
             updateSyncLabel('最終同期: ' + t);
             if (showResult) showSyncBar('✅ 同期完了', 'ok');
         } else {
+            addLog('GAS Response Error.', 'ERROR');
             if (showResult) showSyncBar('⚠️ GAS応答エラー（接続設定を確認）', 'error');
         }
     } catch(e) {
         let errMsg = e.message || String(e);
         if (e.name === 'AbortError') errMsg = '接続タイムアウト（15秒）';
         else if (errMsg === 'Failed to fetch') errMsg = '接続失敗（GASのアクセス権限を確認してください）';
+        addLog(`syncToCloud Error: ${errMsg}`, 'ERROR');
         if (showResult) showSyncBar('❌ ' + errMsg, 'error');
     }
     isSyncing = false;
+    addLog('syncToCloud finished.');
 }
 
 async function manualSync() {
+    addLog('manualSync() called');
     if (!gasUrl) { showSyncBar('⚠️ GAS URLが未設定です。🔑から設定してください', 'error'); return; }
     await syncToCloud(true);
 }
 
 async function forcePullFromCloud() {
+    addLog('forcePullFromCloud() called');
     if (!gasUrl) { showSyncBar('⚠️ GAS URLが未設定です。🔑から設定してください', 'error'); return; }
     if (!confirm('クラウドのデータを強制取得します。\nこのスマホのデータはクラウドで上書きされます。\nよろしいですか？')) return;
     showSyncBar('☁️ クラウドから強制取得中...', 'syncing', false);
+    
     try {
+        addLog('forcePull GET start');
         const getRes = await fetchWithTimeout(gasUrl, {method:'GET', cache:'no-cache'});
         if (!getRes.ok) throw new Error('サーバーエラー: ' + getRes.status);
         const serverData = JSON.parse(await getRes.text());
         if (!serverData || serverData.empty) { showSyncBar('⚠️ クラウドにデータがありません', 'error'); return; }
         const serverHasData = ['customers','repairs','demos','parts','products'].some(k => serverData[k] && serverData[k].length > 0);
         if (!serverHasData) { showSyncBar('⚠️ クラウドが空です', 'error'); return; }
+        
         saveEmergencyBackup();
         ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k => { if (serverData[k]) DB[k] = serverData[k]; });
         DB.lastModified = serverData.lastModified;
@@ -415,12 +494,15 @@ async function forcePullFromCloud() {
         renderAll();
         updateSyncLabel('最終同期: ' + new Date(DB.lastModified).toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'}));
         showSyncBar('✅ クラウドから強制取得完了！', 'ok');
+        addLog('forcePull success');
     } catch(e) {
+        addLog('forcePullFromCloud Error: ' + e.message, 'ERROR');
         showSyncBar('❌ ' + (e.message||'取得失敗'), 'error');
     }
 }
 
 async function testSync() {
+    addLog('testSync() called');
     const url = document.getElementById('gasUrlInput').value.trim();
     if (!url) { document.getElementById('testResult').textContent = '⚠️ URLを入力してください'; return; }
     document.getElementById('testResult').textContent = '🔄 接続テスト中...';
@@ -431,9 +513,11 @@ async function testSync() {
         clearTimeout(timer);
         await res.json();
         document.getElementById('testResult').innerHTML = '<span style="color:#27ae60;font-weight:bold;">✅ 接続成功！データ共有できます<\x2Fspan>';
+        addLog('testSync success');
     } catch(e) {
         let msg = e.name === 'AbortError' ? 'タイムアウト（15秒）' : e.message;
         document.getElementById('testResult').innerHTML = '<span style="color:#e74c3c;">❌ 接続失敗: ' + msg + '<\x2Fspan>';
+        addLog('testSync Error: ' + msg, 'ERROR');
     }
 }
 
@@ -695,7 +779,6 @@ async function callAI(prompt) {
     let raw = '{}';
     if (data.content && data.content[0] && data.content[0].text) raw = data.content[0].text;
     
-    // AIの返答からJSON部分だけを安全に抽出（正規表現のバグを防ぐため new RegExp を使用）
     return JSON.parse(raw.replace(new RegExp('```json|```', 'g'), '').trim());
 }
 
@@ -1447,7 +1530,7 @@ const SCREENSHOT_CUSTOMERS=[{id:'CUST_1',name:'山下 林作',phone:'',address:'
 const SCREENSHOT_QUOTES=[{id:'Q_REC_1',estNo:'',estDate:'2026-04-30',expDate:'2026-08-31',delivDate:'2026-07-31',delivPlace:'貴指定場所',payMethod:'口座振替',toName:'延時 暁寿',subject:'マルチデガー',qItems:[{name:'マルチデガー',brand:'東洋農機',model:'TMD1V24',qty:1,price:4358000,note:''},{name:'揺さぶり前側',brand:'〃',model:'TMD1V24-B',qty:1,price:105600,note:''},{name:'揺さぶり後ろ側',brand:'〃',model:'TMD1V24-C',qty:1,price:105600,note:''}],total:5026120,note:''}];
 
 window.onload = async function() {
-    console.log(`[DEBUG] window.onload started.`);
+    addLog('window.onload started.', 'INFO');
     try {
         loadDB();
         const loadMsg = document.getElementById('loadingMsg');
@@ -1455,11 +1538,13 @@ window.onload = async function() {
         if (gasUrl) {
             loadMsg.textContent = '☁️ クラウドから最新データを確認中...';
             try {
-                console.log(`[DEBUG] Starting initial syncToCloud...`);
+                addLog('Starting initial syncToCloud...', 'INFO');
                 await syncToCloud(false);
             } catch(e) {
-                console.error('起動時同期エラー:', e);
+                addLog('起動時同期エラー: ' + e.message, 'ERROR');
             }
+        } else {
+            addLog('No GAS URL. Skipping initial sync.', 'WARN');
         }
 
         if (!hasAnyData()) {
@@ -1479,9 +1564,10 @@ window.onload = async function() {
                             });
                             if (ebData.lastModified) DB.lastModified = ebData.lastModified;
                             try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) {}
+                            addLog('緊急バックアップを復元しました', 'INFO');
                         }
                     }
-                } catch(e) { console.error('緊急バックアップ読込エラー:', e); }
+                } catch(e) { addLog('緊急バックアップ読込エラー: ' + e.message, 'ERROR'); }
             }
         }
 
@@ -1491,9 +1577,10 @@ window.onload = async function() {
 
         if (!hasAnyData()) {
             showSyncBar('⚠️ データなし。🛡️ボタンからバックアップを復元できます。', 'conflict', false);
+            addLog('No data to render.', 'WARN');
         }
 
-        console.log(`[DEBUG] Initial rendering complete.`);
+        addLog('Initial rendering complete.', 'INFO');
 
         if (gasUrl) {
             setInterval(() => { if (gasUrl) syncToCloud(false); }, 30000);
@@ -1502,9 +1589,8 @@ window.onload = async function() {
             });
         }
     } catch(e) {
-        console.error(`[DEBUG] window.onload Error:`, e);
-        alert('起動処理中にエラーが発生しました。\n詳細: ' + e.message);
-        console.error(e);
+        addLog('window.onload Error: ' + e.message, 'ERROR');
+        alert('起動処理中にエラーが発生しました。\n🐛ボタンからログを確認してください。');
     }
 };
 </script>
