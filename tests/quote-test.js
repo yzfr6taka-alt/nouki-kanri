@@ -2,7 +2,13 @@ const puppeteer = require('puppeteer');
 
 (async () => {
   console.log("🚜 見えないブラウザを起動してテストを開始します...");
-  const browser = await puppeteer.launch({ headless: true });
+  
+  // ★修正: GitHub Actions上で動かすためのオプションを追加
+  const browser = await puppeteer.launch({ 
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  });
+  
   const page = await browser.newPage();
   
   // GitHubアクション上のローカルファイル（index.html）を読み込む
@@ -30,7 +36,7 @@ const puppeteer = require('puppeteer');
       const htmlOutput = buildEstHTML();
       
       assert(htmlOutput.includes('2,750,000'), "合計金額 (2,750,000円) が正常");
-      assert(htmlOutput.includes('height:296mm') && htmlOutput.includes('overflow:hidden'), "A4サイズ超過防止が適用済");
+      assert(htmlOutput.includes('height:295mm') && htmlOutput.includes('overflow:hidden'), "A4サイズ超過防止が適用済");
       assert(htmlOutput.includes('<svg'), "余白の斜線SVGが生成済");
       assert(htmlOutput.includes('text-overflow:ellipsis'), "文字溢れ防止(...)が適用済");
       
