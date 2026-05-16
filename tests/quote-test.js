@@ -3,7 +3,6 @@ const puppeteer = require('puppeteer');
 (async () => {
   console.log("🚜 見えないブラウザを起動してテストを開始します...");
   
-  // ★修正: GitHub Actions上で動かすためのオプションを追加
   const browser = await puppeteer.launch({ 
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox']
@@ -11,10 +10,8 @@ const puppeteer = require('puppeteer');
   
   const page = await browser.newPage();
   
-  // GitHubアクション上のローカルファイル（index.html）を読み込む
   await page.goto(`file://${process.cwd()}/index.html`, { waitUntil: 'networkidle0' });
 
-  // ページ内でテスト用のJavaScriptを実行する
   const testResult = await page.evaluate(() => {
     let passed = 0; let failed = 0; let logs = [];
     function assert(condition, msg) {
@@ -28,7 +25,6 @@ const puppeteer = require('puppeteer');
       document.getElementById('subject').value = 'トラクター一式';
       document.getElementById('estDate').value = '2026-05-16';
 
-      // ダミーデータ注入
       qItems[0] = { name: 'トラクター', brand: 'ヤンマー', model: 'YT222', qty: 1, price: 2000000, note: '' };
       qItems[1] = { name: 'ロータリー', brand: 'ニプロ', model: 'SX1705', qty: 1, price: 500000, note: '' };
       calcTotal();
@@ -46,18 +42,17 @@ const puppeteer = require('puppeteer');
     }
   });
 
-  // テスト結果をコンソールに出力
   testResult.logs.forEach(log => console.log(log));
   console.log(`\n📊 結果: ${testResult.passed}件成功 / ${testResult.failed}件失敗`);
 
-  await browser.close();
-
-  // 失敗が1つでもあればエラーとして終了（GitHubに異常を知らせる）
-  if (!testResult.success) {
-    console.error("⚠️ テストに失敗しました。レイアウトや計算ロジックが壊れている可能性があります。");
-    process.exit(1);
-  } else {
+  // 判定が成功していれば、ブラウザの終了状態に関わらず強制的に「成功」として終了する
+  if (testResult.success) {
     console.log("🎉 全テスト成功！見積書ロジックは完璧です。");
+    try { await browser.close(); } catch(e) {}
     process.exit(0);
+  } else {
+    console.error("⚠️ テストに失敗しました。レイアウトや計算ロジックが壊れている可能性があります。");
+    try { await browser.close(); } catch(e) {}
+    process.exit(1);
   }
 })();
