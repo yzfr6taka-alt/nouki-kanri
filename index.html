@@ -491,6 +491,7 @@ function renderBackupList() {
     container.innerHTML = html || '<div style="text-align:center;color:var(--text-sub);padding:20px;font-size:12px;">有効なバックアップなし</div>';
 }
 
+// ★★★ 修正箇所：saveDB()を呼ばずlocalStorageに直接保存 ★★★
 function restoreBackup(key) {
     if (!confirm('このバックアップに復元しますか？\n現在のデータは上書きされます。')) return;
     try {
@@ -500,6 +501,7 @@ function restoreBackup(key) {
             if (Array.isArray(data[k])) DB[k] = data[k];
         });
         if (data.lastModified) DB.lastModified = data.lastModified;
+        // saveDB()は呼ばない → タイムスタンプを現在時刻に書き換えない・クラウドに自動アップしない
         try { localStorage.setItem('agri_db', JSON.stringify(DB)); } catch(e) {}
         saveEmergencyBackup();
         renderAll();
@@ -866,147 +868,9 @@ function calcTotal(){let sub=0;for(let i=0;i<ROWS;i++){const amt=(Number(qItems[
 
 function getStyles(){return'*{box-sizing:border-box;margin:0;padding:0;}body{font-family:\'MS Mincho\',\'Hiragino Mincho Pro\',serif;}@page{size:A4 portrait;margin:0;}@media print{body{margin:0;padding:0;-webkit-print-color-adjust:exact;color-adjust:exact;}}';}
 function fmtDate(d){if(!d)return'';const dt=new Date(d);return'令和'+(dt.getFullYear()-2018)+'年'+(dt.getMonth()+1)+'月'+dt.getDate()+'日';}
-function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');}
+function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-// =====================================================================
-// ★★★ buildEstHTML 修正版 ★★★
-// 修正①：空行への斜線 — left:0 / width:170mm / 左上→右下方向
-// 修正②：備考欄 — 常に表示・min-height確保・改行対応・印刷時も高さ自動拡張
-// =====================================================================
-function buildEstHTML(){
-    const[date,dD,dP,pM,tN,nt,ex]=['estDate','delivDate','delivPlace','payMethod','toName','note','expDate'].map(id=>document.getElementById(id).value);
-    let sub=0, emptyStartIdx=-1;
-    const rowH=7.0;
-    let rowsHTML='';
-
-    for(let i=0;i<qItems.length;i++){
-        const it=qItems[i];
-        const qty=Number(it.qty)||0;
-        const price=Number(it.price)||0;
-        const amt=qty*price;
-        sub+=amt;
-        const isEmpty=!it.name&&!it.brand&&!it.model&&!it.qty&&!it.price;
-        // 最初の空行の開始インデックスを記録（途中でデータがあれば再探索）
-        if(isEmpty && emptyStartIdx===-1) emptyStartIdx=i;
-        else if(!isEmpty) emptyStartIdx=-1;
-
-        rowsHTML+='<tr style="height:'+rowH+'mm;">'
-            +'<td style="border:1px solid #000;text-align:center;font-size:10px;">'+(i+1)+'</td>'
-            +'<td style="border:1px solid #000;padding:0 4px;font-size:10px;overflow:hidden;white-space:nowrap;">'+escH(it.name)+'</td>'
-            +'<td style="border:1px solid #000;text-align:center;font-size:10px;">'+escH(it.brand)+'</td>'
-            +'<td style="border:1px solid #000;text-align:center;font-size:10px;">'+escH(it.model)+'</td>'
-            +'<td style="border:1px solid #000;text-align:center;font-size:10px;">'+(qty||'')+'</td>'
-            +'<td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">'+(price?price.toLocaleString():'')+'</td>'
-            +'<td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">'+(amt?amt.toLocaleString():'')+'</td>'
-            +'<td style="border:1px solid #000;padding:0 4px;font-size:10px;overflow:hidden;white-space:nowrap;">'+escH(it.note)+'</td>'
-            +'</tr>';
-    }
-
-    const tax=Math.floor(sub*.1);
-    const total=sub+tax;
-
-    // ★修正① 斜線SVG：left:0、width:170mm（テーブル全幅）、左上→右下方向
-    let svgLine='';
-    if(emptyStartIdx !== -1 && emptyStartIdx < ROWS){
-        // ヘッダー行 1行分 + emptyStartIdx行分 の高さが上端
-        const topMm  = (1 + emptyStartIdx) * rowH;
-        const heightMm = (ROWS - emptyStartIdx) * rowH;
-        svgLine = '<svg style="position:absolute;left:0;top:'+topMm+'mm;width:170mm;height:'+heightMm+'mm;pointer-events:none;z-index:10;">'
-                + '<line x1="0" y1="0" x2="100%" y2="100%" stroke="#000" stroke-width="0.8"/>'
-                + '</svg>';
-    }
-
-    let h='<div style="width:210mm;min-height:296mm;padding:12mm 20mm;background:#fff;font-family:\'MS Mincho\',serif;color:#000;box-sizing:border-box;">'
-
-        // タイトル
-        +'<div style="text-align:center;font-size:24px;letter-spacing:15mm;margin-bottom:8mm;padding-left:15mm;">見　積　書</div>'
-
-        // 発行日
-        +'<div style="text-align:right;font-size:10px;margin-bottom:4mm;">'+fmtDate(date)+'</div>'
-
-        // 宛先
-        +'<div style="margin-bottom:4mm;text-align:left;">'
-            +'<div style="display:inline-flex;align-items:flex-end;border-bottom:1.5px solid #000;padding-bottom:1px;margin-bottom:2mm;min-width:45mm;white-space:nowrap;">'
-                +'<div style="flex:1;"></div>'
-                +'<div style="font-size:16px;font-weight:bold;text-align:justify;text-align-last:justify;min-width:25mm;">'+escH(tN)+'</div>'
-                +'<div style="font-size:16px;font-weight:bold;margin-left:1.5mm;">様</div>'
-            +'</div>'
-            +'<div style="font-size:11px;letter-spacing:2px;">下　記　の　通　り　御　見　積　致　し　ま　す　。</div>'
-        +'</div>'
-
-        // 納入情報・発行元
-        +'<div style="display:flex;justify-content:space-between;margin-bottom:6mm;">'
-            +'<div><table style="font-size:10px;border-collapse:collapse;text-align:left;">'
-                +'<tr><td style="padding:1.5px 0;width:15mm;text-align:justify;text-align-last:justify;">納入期日</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">'+fmtDate(dD)+'</td></tr>'
-                +'<tr><td style="padding:1.5px 0;text-align:justify;text-align-last:justify;">納入場所</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">'+escH(dP)+'</td></tr>'
-                +'<tr><td style="padding:1.5px 0;text-align:justify;text-align-last:justify;">取引方法</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">'+escH(pM)+'</td></tr>'
-            +'</table></div>'
-            +'<div style="font-size:10px;line-height:1.9;text-align:left;">'
-                +'<div>鹿児島県曽於市大隅町岩川5591番地</div>'
-                +'<div style="text-align:justify;text-align-last:justify;width:54mm;">そ お 鹿 児 島 農 業 協 同 組 合</div>'
-                +'<div style="display:flex;justify-content:space-between;width:54mm;"><span>代表理事組合長</span><span>竹　内　和　久</span></div>'
-                +'<div style="text-align:right;margin-top:1mm;">財部農機センター</div>'
-            +'</div>'
-        +'</div>'
-
-        // 合計金額
-        +'<div style="display:flex;align-items:flex-end;margin-bottom:2mm;">'
-            +'<div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1.5px solid #000;width:60mm;padding-bottom:1px;">'
-                +'<div style="font-size:16px;font-weight:bold;">合計金額 ￥</div>'
-                +'<div style="text-align:right;flex:1;"><span style="font-size:18px;font-weight:bold;">'+total.toLocaleString()+'</span><span style="font-size:16px;font-weight:bold;"> 円也</span></div>'
-            +'</div>'
-            +'<div style="font-size:10px;margin-left:4mm;padding-bottom:1px;">（内消費税　'+tax.toLocaleString()+'　円）</div>'
-        +'</div>'
-
-        // 品目テーブル（斜線SVG付き）
-        +'<div style="position:relative;width:170mm;margin-top:3mm;">'+svgLine
-            +'<table style="width:170mm;border-collapse:collapse;table-layout:fixed;">'
-                +'<colgroup>'
-                    +'<col style="width:8mm"><col style="width:45mm"><col style="width:15mm">'
-                    +'<col style="width:25mm"><col style="width:12mm"><col style="width:20mm">'
-                    +'<col style="width:20mm"><col style="width:25mm">'
-                +'</colgroup>'
-                +'<tr style="height:'+rowH+'mm;background:#fff;">'
-                    +'<th style="border:1px solid #000;font-size:10px;font-weight:normal;">No.</th>'
-                    +'<th style="border:1px solid #000;font-size:10px;font-weight:normal;">品　　名</th>'
-                    +'<th style="border:1px solid #000;font-size:10px;font-weight:normal;">銘　柄</th>'
-                    +'<th style="border:1px solid #000;font-size:10px;font-weight:normal;">型　　式</th>'
-                    +'<th style="border:1px solid #000;font-size:10px;font-weight:normal;">数量</th>'
-                    +'<th style="border:1px solid #000;font-size:10px;font-weight:normal;">単　価</th>'
-                    +'<th style="border:1px solid #000;font-size:10px;font-weight:normal;">金　額</th>'
-                    +'<th style="border:1px solid #000;font-size:10px;font-weight:normal;">備　考</th>'
-                +'</tr>'
-                +rowsHTML
-                +'<tr style="height:'+rowH+'mm;">'
-                    +'<td colspan="6" style="border:1px solid #000;text-align:center;font-size:11px;letter-spacing:10mm;padding-left:10mm;">小　計</td>'
-                    +'<td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">'+sub.toLocaleString()+'</td>'
-                    +'<td style="border:1px solid #000;"></td>'
-                +'</tr>'
-                +'<tr style="height:'+rowH+'mm;">'
-                    +'<td colspan="6" style="border:1px solid #000;text-align:center;font-size:11px;letter-spacing:8mm;padding-left:8mm;">消　費　税</td>'
-                    +'<td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">'+tax.toLocaleString()+'</td>'
-                    +'<td style="border:1px solid #000;"></td>'
-                +'</tr>'
-                +'<tr style="height:'+rowH+'mm;">'
-                    +'<td colspan="6" style="border:1px solid #000;text-align:center;font-size:11px;letter-spacing:10mm;padding-left:10mm;">合　計</td>'
-                    +'<td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;font-weight:bold;">'+total.toLocaleString()+'</td>'
-                    +'<td style="border:1px solid #000;"></td>'
-                +'</tr>'
-            +'</table>'
-        +'</div>';
-
-    // ★修正② 備考欄：常に表示・min-height 25mm・改行対応（\n → <br>）・印刷時高さ自動拡張
-    h += '<div style="margin-top:4mm;font-size:10px;border:0.8px solid #000;padding:4px 6px;min-height:25mm;box-sizing:border-box;word-break:break-all;">'
-        +'<div style="font-weight:bold;margin-bottom:2px;">備　考</div>'
-        +'<div style="line-height:1.8;">'+( nt ? escH(nt) : '&nbsp;' )+'</div>'
-        +'</div>';
-
-    // 有効期限
-    if(ex) h+='<div style="margin-top:2mm;font-size:10px;">有効期限：'+fmtDate(ex)+'</div>';
-
-    h+='</div>';
-    return h;
-}
+function buildEstHTML(){const[date,dD,dP,pM,tN,nt,ex]=['estDate','delivDate','delivPlace','payMethod','toName','note','expDate'].map(id=>document.getElementById(id).value);let sub=0,emptyStartIdx=-1;const rowH=7.0;let rowsHTML='';for(let i=0;i<qItems.length;i++){const it=qItems[i];const qty=Number(it.qty)||0;const price=Number(it.price)||0;const amt=qty*price;sub+=amt;const isEmpty=!it.name&&!it.brand&&!it.model&&!it.qty&&!it.price;if(isEmpty&&emptyStartIdx===-1)emptyStartIdx=i;else if(!isEmpty)emptyStartIdx=-1;rowsHTML+='<tr style="height:'+rowH+'mm;"><td style="border:1px solid #000;text-align:center;font-size:10px;">'+(i+1)+'</td>'+'<td style="border:1px solid #000;padding:0 4px;font-size:10px;overflow:hidden;white-space:nowrap;">'+escH(it.name)+'</td>'+'<td style="border:1px solid #000;text-align:center;font-size:10px;">'+escH(it.brand)+'</td>'+'<td style="border:1px solid #000;text-align:center;font-size:10px;">'+escH(it.model)+'</td>'+'<td style="border:1px solid #000;text-align:center;font-size:10px;">'+(qty||'')+'</td>'+'<td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">'+(price?price.toLocaleString():'')+'</td>'+'<td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">'+(amt?amt.toLocaleString():'')+'</td>'+'<td style="border:1px solid #000;padding:0 4px;font-size:10px;overflow:hidden;white-space:nowrap;">'+escH(it.note)+'</td></tr>';}const tax=Math.floor(sub*.1);const total=sub+tax;let svgLine='';if(emptyStartIdx!==-1&&emptyStartIdx<ROWS){const tp=rowH+(emptyStartIdx*rowH);const ht=(ROWS-emptyStartIdx)*rowH;svgLine='<svg style="position:absolute;left:8mm;top:'+tp+'mm;width:137mm;height:'+ht+'mm;pointer-events:none;z-index:10;"><line x1="100%" y1="0" x2="0" y2="100%" stroke="#000" stroke-width="1"></line></svg>';}let h='<div style="width:210mm;min-height:296mm;padding:12mm 20mm;background:#fff;font-family:\'MS Mincho\',serif;color:#000;box-sizing:border-box;">'+'<div style="text-align:center;font-size:24px;letter-spacing:15mm;margin-bottom:8mm;padding-left:15mm;">見　積　書</div>'+'<div style="text-align:right;font-size:10px;margin-bottom:4mm;">'+fmtDate(date)+'</div>'+'<div style="margin-bottom:4mm;text-align:left;"><div style="display:inline-flex;align-items:flex-end;border-bottom:1.5px solid #000;padding-bottom:1px;margin-bottom:2mm;min-width:45mm;white-space:nowrap;"><div style="flex:1;"></div><div style="font-size:16px;font-weight:bold;text-align:justify;text-align-last:justify;min-width:25mm;">'+escH(tN)+'</div><div style="font-size:16px;font-weight:bold;margin-left:1.5mm;">様</div></div><div style="font-size:11px;letter-spacing:2px;">下　記　の　通　り　御　見　積　致　し　ま　す　。</div></div>'+'<div style="display:flex;justify-content:space-between;margin-bottom:6mm;"><div><table style="font-size:10px;border-collapse:collapse;text-align:left;"><tr><td style="padding:1.5px 0;width:15mm;text-align:justify;text-align-last:justify;">納入期日</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">'+fmtDate(dD)+'</td></tr><tr><td style="padding:1.5px 0;text-align:justify;text-align-last:justify;">納入場所</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">'+escH(dP)+'</td></tr><tr><td style="padding:1.5px 0;text-align:justify;text-align-last:justify;">取引方法</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:30mm;padding:1.5px 2px;text-align:right;">'+escH(pM)+'</td></tr></table></div><div style="font-size:10px;line-height:1.9;text-align:left;"><div>鹿児島県曽於市大隅町岩川5591番地</div><div style="text-align:justify;text-align-last:justify;width:54mm;">そ お 鹿 児 島 農 業 協 同 組 合</div><div style="display:flex;justify-content:space-between;width:54mm;"><span>代表理事組合長</span><span>竹　内　和　久</span></div><div style="text-align:right;margin-top:1mm;">財部農機センター</div></div></div>'+'<div style="display:flex;align-items:flex-end;margin-bottom:2mm;"><div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:1.5px solid #000;width:60mm;padding-bottom:1px;"><div style="font-size:16px;font-weight:bold;">合計金額 ￥</div><div style="text-align:right;flex:1;"><span style="font-size:18px;font-weight:bold;">'+total.toLocaleString()+'</span><span style="font-size:16px;font-weight:bold;"> 円也</span></div></div><div style="font-size:10px;margin-left:4mm;padding-bottom:1px;">（内消費税　'+tax.toLocaleString()+'　円）</div></div>'+'<div style="position:relative;width:170mm;margin-top:3mm;">'+svgLine+'<table style="width:170mm;border-collapse:collapse;table-layout:fixed;"><colgroup><col style="width:8mm"><col style="width:45mm"><col style="width:15mm"><col style="width:25mm"><col style="width:12mm"><col style="width:20mm"><col style="width:20mm"><col style="width:25mm"></colgroup>'+'<tr style="height:'+rowH+'mm;background:#fff;"><th style="border:1px solid #000;font-size:10px;font-weight:normal;">No.</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">品　　名</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">銘　柄</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">型　　式</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">数量</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">単　価</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">金　額</th><th style="border:1px solid #000;font-size:10px;font-weight:normal;">備　考</th></tr>'+rowsHTML+'<tr style="height:'+rowH+'mm;"><td colspan="6" style="border:1px solid #000;text-align:center;font-size:11px;letter-spacing:10mm;padding-left:10mm;">小　計</td><td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">'+sub.toLocaleString()+'</td><td style="border:1px solid #000;"></td></tr>'+'<tr style="height:'+rowH+'mm;"><td colspan="6" style="border:1px solid #000;text-align:center;font-size:11px;letter-spacing:8mm;padding-left:8mm;">消　費　税</td><td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;">'+tax.toLocaleString()+'</td><td style="border:1px solid #000;"></td></tr>'+'<tr style="height:'+rowH+'mm;"><td colspan="6" style="border:1px solid #000;text-align:center;font-size:11px;letter-spacing:10mm;padding-left:10mm;">合　計</td><td style="border:1px solid #000;text-align:right;padding-right:4px;font-size:10px;font-weight:bold;">'+total.toLocaleString()+'</td><td style="border:1px solid #000;"></td></tr>'+'</table></div>';if(nt)h+='<div style="margin-top:3mm;font-size:10px;border:0.5px solid #ccc;padding:4px 6px;"><strong>備考：</strong>'+escH(nt)+'</div>';if(ex)h+='<div style="margin-top:2mm;font-size:10px;">有効期限：'+fmtDate(ex)+'</div>';h+='</div>';return h;}
 
 function showPreview(){document.getElementById('preview-inner').innerHTML=buildEstHTML();document.getElementById('preview-modal').style.display='block';}
 function closePreview(){document.getElementById('preview-modal').style.display='none';}
