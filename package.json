@@ -1,12 +1,12 @@
 {
   "name": "estimate-auto-diagnostic-test",
   "version": "1.0.0",
-  "description": "見積書 自動診断テスト (自己修復型デバッグシステム)",
+  "description": "見積書 自動診断テスト",
   "main": "test.js",
   "scripts": {
     "test": "node test.js"
   },
   "dependencies": {
-    "puppeteer": "^22.15.0"
+    "puppeteer": "^24.15.0"
   }
 }
