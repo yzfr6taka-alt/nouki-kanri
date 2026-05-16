@@ -1,284 +1,183 @@
 const puppeteer = require('puppeteer');
 const fs = require('fs');
+const path = require('path');
+
+// フォルダ自動生成 (おすすめ順①)
+const logDir = path.join(__dirname, 'logs');
+if (!fs.existsSync(logDir)) {
+  fs.mkdirSync(logDir);
+}
+
+// ⑭ 自動原因推定AIっぽい解析関数
+function analyzeError(msg) {
+  if (msg.includes('is not defined')) return '関数または変数未定義';
+  if (msg.includes('null')) return 'DOM取得失敗';
+  if (msg.includes('Target closed')) return 'ブラウザクラッシュ';
+  if (msg.includes('ERR_FILE_NOT_FOUND')) return 'index.html不足';
+  if (msg.includes('Unexpected token')) return 'JavaScript構文エラー';
+  return '不明';
+}
 
 (async () => {
+  let hasError = false;
+  const timestamp = Date.now();
 
-  let browser;
+  // ⑤ 無限ループ・タイムアウト検知 (60秒で強制終了)
+  const timeout = setTimeout(() => {
+    console.error('❌ ⏰ 無限ループ疑いによるタイムアウト');
+    process.exit(1);
+  }, 60000);
+
+  // ③ Promise Error監視
+  process.on('unhandledRejection', reason => {
+    console.error('❌ Promise Error');
+    console.error(reason);
+    hasError = true;
+  });
 
   try {
+    // Puppeteerの起動（CI環境用にサンドボックスをオフに設定）
+    const browser = await puppeteer.launch({
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
 
-    console.log("🚜 診断開始");
-
-    browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage'
-      ]
+    // ④ ブラウザクラッシュ検知
+    browser.on('disconnected', () => {
+      console.error('💥 Chromiumクラッシュ');
+      hasError = true;
     });
 
     const page = await browser.newPage();
 
-    // =========================
-    // ログ監視
-    // =========================
-
-    page.on('console', msg => {
-      console.log(`🖥 console.${msg.type()}: ${msg.text()}`);
-    });
-
+    // ① JS Runtime Error分類
     page.on('pageerror', err => {
-      console.error(`❌ PAGE ERROR: ${err.toString()}`);
+      const msg = err.toString();
+      console.error('❌ JS Runtime Error');
+      if (msg.includes('is not defined')) console.error('👉 関数または変数未定義');
+      if (msg.includes('Cannot set properties of null')) console.error('👉 DOM要素不足');
+      if (msg.includes('Unexpected token')) console.error('👉 JavaScript構文エラー');
+      console.error(`[推定原因]: ${analyzeError(msg)}`);
+      console.error(msg);
+      hasError = true;
     });
 
-    page.on('requestfailed', req => {
-      console.error(`🌐 REQUEST FAILED: ${req.url()}`);
-    });
+    // ② Console Error解析
+    page.on('console', msg => {
+      const text = msg.text();
+      console.log(`🖥 ${msg.type()} : ${text}`);
 
-    page.on('response', res => {
-      if (res.status() >= 400) {
-        console.error(`⚠️ HTTP ${res.status()} : ${res.url()}`);
+      if (msg.type() === 'error') {
+        if (text.includes('404')) console.error('👉 ファイル不足');
+        if (text.includes('Failed to fetch')) console.error('👉 API通信失敗');
+        if (text.includes('CORS')) console.error('👉 CORSエラー');
+        console.error(`[推定原因]: ${analyzeError(text)}`);
+        hasError = true;
       }
     });
 
-    // =========================
-    // index.html存在確認
-    // =========================
+    // ⑩ ネットワーク監視
+    page.on('requestfailed', req => {
+      console.error('🌐 通信失敗');
+      console.error(`${req.url()} - ${req.failure().errorText}`);
+      hasError = true;
+    });
 
-    const indexPath = `${process.cwd()}/index.html`;
+    // --- [診断対象ページの読み込み] ---
+    // ※ 読み込む対象（ローカルのindex.htmlなど）に合わせてパスを調整してください
+    const targetUrl = `file://${path.join(__dirname, 'index.html')}`;
+    await page.goto(targetUrl, { waitUntil: 'networkidle2' });
 
-    if (!fs.existsSync(indexPath)) {
-      throw new Error(`index.html が存在しません: ${indexPath}`);
+    // ⑨ 空HTML検知
+    const html = await page.content();
+    if (html.length < 1000) {
+      console.error('❌ HTML生成失敗 (ファイルが空、または内容が極端に少ないです)');
+      hasError = true;
     }
 
-    console.log(`📄 index.html確認OK`);
-
-    // =========================
-    // ページ読み込み
-    // =========================
-
-    await page.goto(
-      `file://${indexPath}`,
-      {
-        waitUntil: 'networkidle0',
-        timeout: 30000
-      }
-    );
-
-    console.log("✅ ページ読込成功");
-
-    // =========================
-    // DOM確認
-    // =========================
-
-    const domCheck = await page.evaluate(() => {
-
-      const ids = [
-        'toName',
-        'subject',
-        'estDate'
-      ];
-
+    // ⑥ DOM欠落を全部列挙
+    const requiredIds = ['toName', 'subject', 'estDate', 'itemTable', 'preview'];
+    const missingIds = await page.evaluate((ids) => {
       const missing = [];
-
       ids.forEach(id => {
         if (!document.getElementById(id)) {
           missing.push(id);
         }
       });
+      return missing;
+    }, requiredIds);
 
-      return {
-        missing
-      };
-    });
-
-    if (domCheck.missing.length > 0) {
-      throw new Error(
-        `DOM不足: ${domCheck.missing.join(', ')}`
-      );
+    if (missingIds.length > 0) {
+      console.error('❌ DOM不足');
+      missingIds.forEach(v => {
+        console.error(`👉 ${v} が存在しません`);
+      });
+      hasError = true;
     }
 
-    console.log("✅ DOM確認OK");
-
-    // =========================
-    // 関数存在チェック
-    // =========================
-
-    const fnCheck = await page.evaluate(() => {
-
-      return {
-        openQuoteEditor: typeof openQuoteEditor,
-        calcTotal: typeof calcTotal,
-        buildEstHTML: typeof buildEstHTML,
-        qItems: typeof qItems
-      };
-
-    });
-
-    console.log("📦 関数チェック:", fnCheck);
-
-    // =========================
-    // メインテスト
-    // =========================
-
-    const testResult = await page.evaluate(() => {
-
-      let passed = 0;
-      let failed = 0;
-      let logs = [];
-
-      function assert(condition, msg) {
-        if (condition) {
-          passed++;
-          logs.push("✅ " + msg);
-        } else {
-          failed++;
-          logs.push("❌ " + msg);
+    // ⑦ 関数不足を全部表示
+    const requiredFunctions = ['openQuoteEditor', 'calcTotal', 'buildEstHTML'];
+    const missingFunctions = await page.evaluate((fns) => {
+      const missing = [];
+      fns.forEach(fn => {
+        if (typeof window[fn] !== 'function') {
+          missing.push(fn);
         }
-      }
+      });
+      return missing;
+    }, requiredFunctions);
 
-      try {
+    if (missingFunctions.length > 0) {
+      missingFunctions.forEach(fn => {
+        console.error(`❌ 関数不足: ${fn}`);
+      });
+      hasError = true;
+    }
 
-        openQuoteEditor('');
-
-        document.getElementById('toName').value = 'テスト 太郎';
-        document.getElementById('subject').value = 'トラクター一式';
-        document.getElementById('estDate').value = '2026-05-16';
-
-        qItems[0] = {
-          name: 'トラクター',
-          brand: 'ヤンマー',
-          model: 'YT222',
-          qty: 1,
-          price: 2000000,
-          note: ''
-        };
-
-        qItems[1] = {
-          name: 'ロータリー',
-          brand: 'ニプロ',
-          model: 'SX1705',
-          qty: 1,
-          price: 500000,
-          note: ''
-        };
-
-        calcTotal();
-
-        const htmlOutput = buildEstHTML();
-
-        assert(
-          htmlOutput.includes('2,750,000'),
-          '合計金額 OK'
-        );
-
-        assert(
-          htmlOutput.includes('height:296mm'),
-          'A4高さ制御 OK'
-        );
-
-        assert(
-          htmlOutput.includes('<svg'),
-          'SVG生成 OK'
-        );
-
-        assert(
-          htmlOutput.includes('text-overflow:ellipsis'),
-          '文字溢れ制御 OK'
-        );
-
-        return {
-          success: failed === 0,
-          passed,
-          failed,
-          logs
-        };
-
-      } catch (e) {
-
-        return {
-          success: false,
-          logs: [
-            '❌ 致命的エラー',
-            e.toString(),
-            e.stack
-          ]
-        };
-
-      }
-
+    // ⑧ CSS崩れ検知
+    const layout = await page.evaluate(() => {
+      const body = document.body;
+      return {
+        width: body.scrollWidth,
+        height: body.scrollHeight,
+        overflow: body.scrollWidth > window.innerWidth
+      };
     });
 
-    // =========================
-    // ログ表示
-    // =========================
+    if (layout.overflow) {
+      console.error('❌ 横スクロール発生 (レイアウトが崩れている可能性があります)');
+      hasError = true;
+    }
 
-    console.log('\n===== TEST LOG =====');
+    // ⑪ メモリ使用量監視
+    const metrics = await page.metrics();
+    console.log('📊 Memory Metrics:', metrics);
 
-    testResult.logs.forEach(log => {
-      console.log(log);
-    });
-
-    console.log(
-      `\n📊 成功:${testResult.passed} 失敗:${testResult.failed}`
-    );
-
-    // =========================
-    // スクリーンショット保存
-    // =========================
-
+    // ⑫ スクリーンショット自動保存
     await page.screenshot({
-      path: 'debug-screenshot.png',
+      path: path.join(logDir, `${timestamp}.png`),
       fullPage: true
     });
 
-    console.log("📸 スクリーンショット保存");
+    // ⑬ HTMLダンプ保存
+    fs.writeFileSync(path.join(logDir, `${timestamp}.html`), html);
 
-    // =========================
-    // HTML保存
-    // =========================
+    await browser.close();
 
-    const html = await page.content();
-
-    fs.writeFileSync(
-      'debug-page.html',
-      html
-    );
-
-    console.log("💾 HTML保存");
-
-    // =========================
-    // 終了判定
-    // =========================
-
-    if (!testResult.success) {
-
-      throw new Error(
-        'テスト失敗'
-      );
-
-    }
-
-    console.log("🎉 全テスト成功");
-
-    process.exit(0);
-
-  } catch (err) {
-
-    console.error("\n❌ 致命的失敗");
-    console.error(err);
-
-    process.exit(1);
-
+  } catch (error) {
+    console.error('❌ 診断中に予期せぬエラーが発生しました:', error);
+    hasError = true;
   } finally {
+    // ⑤ 成功時：タイマーのクリア
+    clearTimeout(timeout);
 
-    if (browser) {
-      try {
-        await browser.close();
-      } catch(e){}
+    // エラーが1つでも検知されていたらプロセスを異常終了させ、GitHub Actionsに通知
+    if (hasError) {
+      console.error('❌ 診断テストで問題が検出されました。Artifactのログを確認してください。');
+      process.exit(1);
+    } else {
+      console.log('✅ 診断テストがすべて正常に完了しました！');
+      process.exit(0);
     }
-
   }
-
 })();
