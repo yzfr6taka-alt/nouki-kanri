@@ -1,31 +1,50 @@
 name: 見積書 自動診断テスト
 
-# mainブランチにコードがアップロード(push)された時に発動
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   test:
+
     runs-on: ubuntu-latest
+
     steps:
-      - name: リポジトリのコードを取得
+
+      - name: リポジトリ取得
         uses: actions/checkout@v4
-      
-      - name: Node.jsのセットアップ
+
+      - name: Node.jsセットアップ
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          
-      - name: 必要なパッケージ(Puppeteer等)をインストール
+          node-version: 20
+
+      - name: npm install
         run: npm install
-        
-      - name: 診断プログラムを実行
+
+      - name: Puppeteer依存ライブラリ導入
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libatk-bridge2.0-0 \
+            libatk1.0-0 \
+            libcups2 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxfixes3 \
+            libxrandr2 \
+            libgbm1 \
+            libasound2t64 \
+            libpangocairo-1.0-0 \
+            libgtk-3-0
+
+      - name: 診断実行
         run: npm test
 
-      - name: 高度デバッグログ（スクショ・HTML）を保存
-        if: always() # テストが失敗した時でも、原因を確かめるために必ず保存を実行します
+      - name: ログ保存
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: debug-logs
-          path: logs/ # 生成されたlogsフォルダを丸ごと保存します
+          path: logs/
