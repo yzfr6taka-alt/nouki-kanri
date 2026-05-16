@@ -2,7 +2,7 @@
   "name": "nouki-pro-test",
   "version": "1.0.0",
   "scripts": {
-    "test": "node test/quote-test.js"
+    "test": "node tests/quote-test.js"
   },
   "dependencies": {
     "puppeteer": "^22.0.0"
