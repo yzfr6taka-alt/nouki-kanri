@@ -5,39 +5,34 @@ const http = require('http');
 
 (async () => {
 
-  // =========================================================
-  // 初期設定
-  // =========================================================
+  // ==================================================
+  // logs フォルダ
+  // ==================================================
 
   const logDir = path.join(__dirname, 'logs');
 
-  if (!fs.existsSync(logDir)) {
-    fs.mkdirSync(logDir, { recursive: true });
-  }
+  fs.mkdirSync(logDir, {
+    recursive: true
+  });
 
   const timestamp = Date.now();
 
-  let browser;
-  let server;
-
-  let hasError = false;
+  // ==================================================
+  // ログデータ
+  // ==================================================
 
   const logs = {
     timestamp,
     errors: [],
     warnings: [],
     console: [],
-    network: [],
-    dom: [],
-    functions: [],
+    requests: [],
     metrics: {},
-    layout: {},
-    runtimeErrors: []
+    domMissing: [],
+    functionMissing: []
   };
 
-  // =========================================================
-  // ログ保存関数
-  // =========================================================
+  let hasError = false;
 
   function addError(msg) {
 
@@ -55,145 +50,94 @@ const http = require('http');
     logs.warnings.push(msg);
   }
 
-  function addConsole(type, msg) {
+  // ==================================================
+  // index.html確認
+  // ==================================================
 
-    logs.console.push({
-      type,
-      message: msg
-    });
+  const indexPath = path.join(__dirname, 'index.html');
+
+  if (!fs.existsSync(indexPath)) {
+
+    addError('❌ index.html が存在しません');
+
+    saveLogs();
+
+    process.exitCode = 1;
+
+    return;
   }
 
-  function analyzeError(msg) {
+  // ==================================================
+  // HTTP SERVER
+  // ==================================================
 
-    if (msg.includes('is not defined')) {
-      return '関数または変数未定義';
-    }
+  const server = http.createServer((req, res) => {
 
-    if (msg.includes('Cannot read')) {
-      return 'DOM取得失敗';
-    }
+    try {
 
-    if (msg.includes('Unexpected token')) {
-      return 'JavaScript構文エラー';
-    }
+      let reqPath = req.url || '/';
 
-    if (msg.includes('Failed to fetch')) {
-      return 'API通信失敗';
-    }
+      // query除去
+      reqPath = reqPath.split('?')[0];
 
-    if (msg.includes('ERR_CONNECTION')) {
-      return '通信接続失敗';
-    }
-
-    if (msg.includes('404')) {
-      return 'ファイル不足';
-    }
-
-    if (msg.includes('Target closed')) {
-      return 'ブラウザクラッシュ';
-    }
-
-    if (msg.includes('timeout')) {
-      return 'タイムアウト';
-    }
-
-    return '不明';
-  }
-
-  // =========================================================
-  // Promise Error監視
-  // =========================================================
-
-  process.on('unhandledRejection', reason => {
-
-    addError('❌ Promise Error');
-    addError(String(reason));
-
-  });
-
-  // =========================================================
-  // Nodeクラッシュ監視
-  // =========================================================
-
-  process.on('uncaughtException', err => {
-
-    addError('❌ Uncaught Exception');
-    addError(String(err));
-
-  });
-
-  // =========================================================
-  // タイムアウト監視
-  // =========================================================
-
-  const timeout = setTimeout(() => {
-
-    addError('❌ タイムアウト（60秒超過）');
-
-    process.exit(1);
-
-  }, 60000);
-
-  try {
-
-    // =========================================================
-    // index.html確認
-    // =========================================================
-
-    const indexPath = path.join(__dirname, 'index.html');
-
-    if (!fs.existsSync(indexPath)) {
-
-      throw new Error('index.html が存在しません');
-
-    }
-
-    // =========================================================
-    // ローカルサーバ起動
-    // =========================================================
-
-    server = http.createServer((req, res) => {
-
-      let reqPath = req.url;
-
+      // / → index.html
       if (reqPath === '/') {
         reqPath = '/index.html';
       }
 
+      // 絶対パス防止
+      reqPath = reqPath.replace(/^\/+/, '');
+
       const filePath = path.join(__dirname, reqPath);
 
-      fs.readFile(filePath, (err, data) => {
+      // ファイル無し
+      if (!fs.existsSync(filePath)) {
 
-        if (err) {
+        addWarning(`⚠ 404: ${reqPath}`);
 
-          addError(`❌ 404 : ${reqPath}`);
+        res.writeHead(404);
 
-          res.writeHead(404);
+        res.end('404');
 
-          res.end('404');
+        return;
+      }
 
-          return;
-        }
+      const data = fs.readFileSync(filePath);
 
-        res.writeHead(200);
+      res.writeHead(200);
 
-        res.end(data);
+      res.end(data);
 
-      });
+    } catch (err) {
 
-    });
+      addError(`❌ Server Error: ${err}`);
 
-    await new Promise(resolve => {
+      res.writeHead(500);
 
-      server.listen(3000, resolve);
+      res.end('500');
+    }
 
-    });
+  });
 
-    console.log('🚀 Local Server Start');
+  // ==================================================
+  // server start
+  // ==================================================
 
-    // =========================================================
-    // Puppeteer起動
-    // =========================================================
+  await new Promise(resolve => {
+
+    server.listen(3000, resolve);
+
+  });
+
+  console.log('🚀 local server start');
+
+  // ==================================================
+  // puppeteer
+  // ==================================================
+
+  let browser;
+
+  try {
 
     browser = await puppeteer.launch({
 
@@ -207,17 +151,11 @@ const http = require('http');
 
     });
 
-    browser.on('disconnected', () => {
-
-      addError('💥 Chromiumクラッシュ');
-
-    });
-
     const page = await browser.newPage();
 
-    // =========================================================
-    // Console解析
-    // =========================================================
+    // ==================================================
+    // console
+    // ==================================================
 
     page.on('console', msg => {
 
@@ -227,45 +165,32 @@ const http = require('http');
 
       console.log(`🖥 ${type}: ${text}`);
 
-      addConsole(type, text);
+      logs.console.push({
+        type,
+        text
+      });
 
       if (type === 'error') {
 
         addError(`❌ Console Error: ${text}`);
 
-        addError(`👉 推定原因: ${analyzeError(text)}`);
-
-      }
-
-      if (type === 'warning') {
-
-        addWarning(`⚠ Warning: ${text}`);
-
       }
 
     });
 
-    // =========================================================
-    // JS Runtime Error解析
-    // =========================================================
+    // ==================================================
+    // JS ERROR
+    // ==================================================
 
     page.on('pageerror', err => {
 
-      const msg = err.toString();
-
-      addError('❌ JS Runtime Error');
-
-      addError(msg);
-
-      addError(`👉 推定原因: ${analyzeError(msg)}`);
-
-      logs.runtimeErrors.push(msg);
+      addError(`❌ JS Runtime Error: ${err}`);
 
     });
 
-    // =========================================================
-    // 通信失敗解析
-    // =========================================================
+    // ==================================================
+    // request failed
+    // ==================================================
 
     page.on('requestfailed', req => {
 
@@ -273,54 +198,82 @@ const http = require('http');
 
       const errorText = req.failure()?.errorText;
 
-      addError(`❌ 通信失敗: ${url}`);
+      addError(`❌ Request Failed: ${url}`);
 
       addError(`👉 ${errorText}`);
 
-      logs.network.push({
-        url,
-        error: errorText
+    });
+
+    // ==================================================
+    // request log
+    // ==================================================
+
+    page.on('response', res => {
+
+      logs.requests.push({
+        url: res.url(),
+        status: res.status()
       });
 
     });
 
-    // =========================================================
-    // ページアクセス
-    // =========================================================
+    // ==================================================
+    // goto
+    // ==================================================
 
     await page.goto('http://localhost:3000', {
 
-      waitUntil: 'networkidle2',
+      waitUntil: 'domcontentloaded',
 
       timeout: 30000
 
     });
 
-    // =========================================================
-    // 少し待機
-    // =========================================================
+    // ==================================================
+    // wait
+    // ==================================================
 
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 3000));
 
-    // =========================================================
-    // HTML取得
-    // =========================================================
+    // ==================================================
+    // HTML
+    // ==================================================
 
     const html = await page.content();
 
-    // =========================================================
-    // HTML空チェック
-    // =========================================================
-
     if (html.length < 100) {
 
-      addError('❌ HTML生成失敗');
+      addError('❌ HTMLが異常に短い');
 
     }
 
-    // =========================================================
-    // DOM不足解析
-    // =========================================================
+    // ==================================================
+    // screenshot
+    // ==================================================
+
+    await page.screenshot({
+
+      path: path.join(logDir, `${timestamp}.png`),
+
+      fullPage: true
+
+    });
+
+    // ==================================================
+    // html save
+    // ==================================================
+
+    fs.writeFileSync(
+
+      path.join(logDir, `${timestamp}.html`),
+
+      html
+
+    );
+
+    // ==================================================
+    // DOM CHECK
+    // ==================================================
 
     const requiredIds = [
       'toName',
@@ -330,21 +283,13 @@ const http = require('http');
       'preview'
     ];
 
-    const missingIds = await page.evaluate((ids) => {
+    const missingIds = await page.evaluate(ids => {
 
-      const missing = [];
+      return ids.filter(id => {
 
-      ids.forEach(id => {
-
-        if (!document.getElementById(id)) {
-
-          missing.push(id);
-
-        }
+        return !document.getElementById(id);
 
       });
-
-      return missing;
 
     }, requiredIds);
 
@@ -354,17 +299,17 @@ const http = require('http');
 
       missingIds.forEach(id => {
 
-        addError(`👉 ${id} が存在しません`);
+        addError(`👉 ${id}`);
 
-        logs.dom.push(id);
+        logs.domMissing.push(id);
 
       });
 
     }
 
-    // =========================================================
-    // 関数不足解析
-    // =========================================================
+    // ==================================================
+    // FUNCTION CHECK
+    // ==================================================
 
     const requiredFunctions = [
       'openQuoteEditor',
@@ -372,21 +317,13 @@ const http = require('http');
       'buildEstHTML'
     ];
 
-    const missingFunctions = await page.evaluate((fns) => {
+    const missingFunctions = await page.evaluate(fns => {
 
-      const missing = [];
+      return fns.filter(fn => {
 
-      fns.forEach(fn => {
-
-        if (typeof window[fn] !== 'function') {
-
-          missing.push(fn);
-
-        }
+        return typeof window[fn] !== 'function';
 
       });
-
-      return missing;
 
     }, requiredFunctions);
 
@@ -398,29 +335,26 @@ const http = require('http');
 
         addError(`👉 ${fn}`);
 
-        logs.functions.push(fn);
+        logs.functionMissing.push(fn);
 
       });
 
     }
 
-    // =========================================================
-    // CSS崩れ解析
-    // =========================================================
+    // ==================================================
+    // layout
+    // ==================================================
 
     const layout = await page.evaluate(() => {
 
       return {
 
         bodyWidth: document.body.scrollWidth,
-        windowWidth: window.innerWidth,
-        bodyHeight: document.body.scrollHeight
+        windowWidth: window.innerWidth
 
       };
 
     });
-
-    logs.layout = layout;
 
     if (layout.bodyWidth > layout.windowWidth + 5) {
 
@@ -428,51 +362,81 @@ const http = require('http');
 
     }
 
-    // =========================================================
-    // メモリ解析
-    // =========================================================
+    // ==================================================
+    // metrics
+    // ==================================================
 
-    const metrics = await page.metrics();
+    logs.metrics = await page.metrics();
 
-    logs.metrics = metrics;
+    console.log('📊 metrics');
 
-    console.log('📊 Metrics');
+    console.log(logs.metrics);
 
-    console.log(metrics);
+  } catch (err) {
 
-    if (metrics.JSHeapUsedSize > 200000000) {
+    addError(`❌ SYSTEM ERROR: ${err}`);
 
-      addWarning('⚠ メモリ使用量が多い可能性');
+  }
+
+  // ==================================================
+  // close
+  // ==================================================
+
+  try {
+
+    if (browser) {
+
+      await browser.close();
 
     }
 
-    // =========================================================
-    // スクリーンショット保存
-    // =========================================================
+  } catch (err) {
 
-    await page.screenshot({
+    addWarning(`⚠ browser close error: ${err}`);
 
-      path: path.join(logDir, `${timestamp}.png`),
+  }
 
-      fullPage: true
+  try {
+
+    await new Promise(resolve => {
+
+      server.close(resolve);
 
     });
 
-    // =========================================================
-    // HTML保存
-    // =========================================================
+  } catch (err) {
 
-    fs.writeFileSync(
+    addWarning(`⚠ server close error: ${err}`);
 
-      path.join(logDir, `${timestamp}.html`),
+  }
 
-      html
+  // ==================================================
+  // save logs
+  // ==================================================
 
-    );
+  saveLogs();
 
-    // =========================================================
-    // JSONログ保存
-    // =========================================================
+  // ==================================================
+  // exit code
+  // ==================================================
+
+  if (hasError) {
+
+    console.error('❌ 診断失敗');
+
+    process.exitCode = 1;
+
+  } else {
+
+    console.log('✅ 診断成功');
+
+  }
+
+  // ==================================================
+  // saveLogs
+  // ==================================================
+
+  function saveLogs() {
 
     fs.writeFileSync(
 
@@ -481,78 +445,6 @@ const http = require('http');
       JSON.stringify(logs, null, 2)
 
     );
-
-    // =========================================================
-    // 結果表示
-    // =========================================================
-
-    if (hasError) {
-
-      console.error('');
-      console.error('❌ 診断失敗');
-
-    } else {
-
-      console.log('');
-      console.log('✅ 診断成功');
-
-    }
-
-  } catch (err) {
-
-    addError('❌ システムエラー');
-
-    addError(String(err));
-
-  } finally {
-
-    clearTimeout(timeout);
-
-    // =========================================================
-    // browser終了
-    // =========================================================
-
-    if (browser) {
-
-      await browser.close();
-
-    }
-
-    // =========================================================
-    // server終了
-    // =========================================================
-
-    if (server) {
-
-      server.close();
-
-    }
-
-    // =========================================================
-    // 最終ログ保存
-    // =========================================================
-
-    fs.writeFileSync(
-
-      path.join(logDir, `${timestamp}-final.json`),
-
-      JSON.stringify(logs, null, 2)
-
-    );
-
-    // =========================================================
-    // Exit Code
-    // =========================================================
-
-    if (hasError) {
-
-      process.exit(1);
-
-    } else {
-
-      process.exit(0);
-
-    }
 
   }
 
