@@ -6,7 +6,7 @@ const http = require('http');
 (async () => {
 
   // ==================================================
-  // logs フォルダ
+  // logs フォルダ作成
   // ==================================================
 
   const logDir = path.join(__dirname, 'logs');
@@ -15,10 +15,28 @@ const http = require('http');
     recursive: true
   });
 
+  // 空フォルダ対策
+  const keepFile = path.join(logDir, '.keep');
+
+  if (!fs.existsSync(keepFile)) {
+
+    fs.writeFileSync(
+      keepFile,
+      'keep'
+    );
+
+  }
+
+  // 起動ログ
+  fs.writeFileSync(
+    path.join(logDir, 'startup.log'),
+    `start: ${new Date().toISOString()}`
+  );
+
   const timestamp = Date.now();
 
   // ==================================================
-  // ログデータ
+  // ログ管理
   // ==================================================
 
   const logs = {
@@ -29,7 +47,8 @@ const http = require('http');
     requests: [],
     metrics: {},
     domMissing: [],
-    functionMissing: []
+    functionMissing: [],
+    runtimeErrors: []
   };
 
   let hasError = false;
@@ -41,6 +60,11 @@ const http = require('http');
     console.error(msg);
 
     logs.errors.push(msg);
+
+    fs.appendFileSync(
+      path.join(logDir, 'error.log'),
+      `${msg}\n`
+    );
   }
 
   function addWarning(msg) {
@@ -48,7 +72,72 @@ const http = require('http');
     console.warn(msg);
 
     logs.warnings.push(msg);
+
+    fs.appendFileSync(
+      path.join(logDir, 'warning.log'),
+      `${msg}\n`
+    );
   }
+
+  function saveLogs() {
+
+    try {
+
+      fs.writeFileSync(
+
+        path.join(logDir, `${timestamp}.json`),
+
+        JSON.stringify(logs, null, 2)
+
+      );
+
+    } catch (err) {
+
+      console.error('❌ JSON保存失敗');
+
+      console.error(err);
+
+    }
+
+  }
+
+  // ==================================================
+  // Promise Error
+  // ==================================================
+
+  process.on('unhandledRejection', reason => {
+
+    addError('❌ Promise Error');
+
+    addError(String(reason));
+
+  });
+
+  // ==================================================
+  // Uncaught Exception
+  // ==================================================
+
+  process.on('uncaughtException', err => {
+
+    addError('❌ Uncaught Exception');
+
+    addError(String(err));
+
+  });
+
+  // ==================================================
+  // タイムアウト
+  // ==================================================
+
+  const timeout = setTimeout(() => {
+
+    addError('❌ タイムアウト（60秒）');
+
+    saveLogs();
+
+    process.exitCode = 1;
+
+  }, 60000);
 
   // ==================================================
   // index.html確認
@@ -68,7 +157,7 @@ const http = require('http');
   }
 
   // ==================================================
-  // HTTP SERVER
+  // HTTP Server
   // ==================================================
 
   const server = http.createServer((req, res) => {
@@ -77,15 +166,17 @@ const http = require('http');
 
       let reqPath = req.url || '/';
 
-      // query除去
+      // query削除
       reqPath = reqPath.split('?')[0];
 
       // / → index.html
       if (reqPath === '/') {
+
         reqPath = '/index.html';
+
       }
 
-      // 絶対パス防止
+      // 先頭 / 削除
       reqPath = reqPath.replace(/^\/+/, '');
 
       const filePath = path.join(__dirname, reqPath);
@@ -93,7 +184,7 @@ const http = require('http');
       // ファイル無し
       if (!fs.existsSync(filePath)) {
 
-        addWarning(`⚠ 404: ${reqPath}`);
+        addWarning(`⚠ 404 : ${reqPath}`);
 
         res.writeHead(404);
 
@@ -115,12 +206,13 @@ const http = require('http');
       res.writeHead(500);
 
       res.end('500');
+
     }
 
   });
 
   // ==================================================
-  // server start
+  // server 起動
   // ==================================================
 
   await new Promise(resolve => {
@@ -129,15 +221,15 @@ const http = require('http');
 
   });
 
-  console.log('🚀 local server start');
-
-  // ==================================================
-  // puppeteer
-  // ==================================================
+  console.log('🚀 Local Server Start');
 
   let browser;
 
   try {
+
+    // ==================================================
+    // Puppeteer 起動
+    // ==================================================
 
     browser = await puppeteer.launch({
 
@@ -151,10 +243,16 @@ const http = require('http');
 
     });
 
+    browser.on('disconnected', () => {
+
+      addError('💥 Chromiumクラッシュ');
+
+    });
+
     const page = await browser.newPage();
 
     // ==================================================
-    // console
+    // Console解析
     // ==================================================
 
     page.on('console', msg => {
@@ -176,20 +274,30 @@ const http = require('http');
 
       }
 
+      if (type === 'warning') {
+
+        addWarning(`⚠ Warning: ${text}`);
+
+      }
+
     });
 
     // ==================================================
-    // JS ERROR
+    // JS Runtime Error
     // ==================================================
 
     page.on('pageerror', err => {
 
-      addError(`❌ JS Runtime Error: ${err}`);
+      const msg = err.toString();
+
+      addError(`❌ JS Runtime Error: ${msg}`);
+
+      logs.runtimeErrors.push(msg);
 
     });
 
     // ==================================================
-    // request failed
+    // 通信失敗
     // ==================================================
 
     page.on('requestfailed', req => {
@@ -205,7 +313,7 @@ const http = require('http');
     });
 
     // ==================================================
-    // request log
+    // request記録
     // ==================================================
 
     page.on('response', res => {
@@ -218,7 +326,7 @@ const http = require('http');
     });
 
     // ==================================================
-    // goto
+    // ページアクセス
     // ==================================================
 
     await page.goto('http://localhost:3000', {
@@ -230,16 +338,24 @@ const http = require('http');
     });
 
     // ==================================================
-    // wait
+    // 少し待機
     // ==================================================
 
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    await new Promise(resolve => {
+
+      setTimeout(resolve, 3000);
+
+    });
 
     // ==================================================
-    // HTML
+    // HTML取得
     // ==================================================
 
     const html = await page.content();
+
+    // ==================================================
+    // HTMLチェック
+    // ==================================================
 
     if (html.length < 100) {
 
@@ -248,31 +364,7 @@ const http = require('http');
     }
 
     // ==================================================
-    // screenshot
-    // ==================================================
-
-    await page.screenshot({
-
-      path: path.join(logDir, `${timestamp}.png`),
-
-      fullPage: true
-
-    });
-
-    // ==================================================
-    // html save
-    // ==================================================
-
-    fs.writeFileSync(
-
-      path.join(logDir, `${timestamp}.html`),
-
-      html
-
-    );
-
-    // ==================================================
-    // DOM CHECK
+    // DOM不足解析
     // ==================================================
 
     const requiredIds = [
@@ -308,7 +400,7 @@ const http = require('http');
     }
 
     // ==================================================
-    // FUNCTION CHECK
+    // 関数不足解析
     // ==================================================
 
     const requiredFunctions = [
@@ -342,7 +434,7 @@ const http = require('http');
     }
 
     // ==================================================
-    // layout
+    // レイアウト崩れ検知
     // ==================================================
 
     const layout = await page.evaluate(() => {
@@ -350,7 +442,8 @@ const http = require('http');
       return {
 
         bodyWidth: document.body.scrollWidth,
-        windowWidth: window.innerWidth
+        windowWidth: window.innerWidth,
+        bodyHeight: document.body.scrollHeight
 
       };
 
@@ -363,88 +456,111 @@ const http = require('http');
     }
 
     // ==================================================
-    // metrics
+    // メモリ解析
     // ==================================================
 
     logs.metrics = await page.metrics();
 
-    console.log('📊 metrics');
+    console.log('📊 Metrics');
 
     console.log(logs.metrics);
 
-  } catch (err) {
+    if (logs.metrics.JSHeapUsedSize > 200000000) {
 
-    addError(`❌ SYSTEM ERROR: ${err}`);
+      addWarning('⚠ メモリ使用量が多い可能性');
 
-  }
+    }
 
-  // ==================================================
-  // close
-  // ==================================================
+    // ==================================================
+    // スクリーンショット
+    // ==================================================
 
-  try {
+    await page.screenshot({
 
-    if (browser) {
+      path: path.join(logDir, `${timestamp}.png`),
 
-      await browser.close();
+      fullPage: true
+
+    });
+
+    // ==================================================
+    // HTML保存
+    // ==================================================
+
+    fs.writeFileSync(
+
+      path.join(logDir, `${timestamp}.html`),
+
+      html
+
+    );
+
+    // ==================================================
+    // JSON保存
+    // ==================================================
+
+    saveLogs();
+
+    // ==================================================
+    // 結果
+    // ==================================================
+
+    if (hasError) {
+
+      console.error('❌ 診断失敗');
+
+      process.exitCode = 1;
+
+    } else {
+
+      console.log('✅ 診断成功');
 
     }
 
   } catch (err) {
 
-    addWarning(`⚠ browser close error: ${err}`);
+    addError(`❌ SYSTEM ERROR: ${err}`);
 
-  }
-
-  try {
-
-    await new Promise(resolve => {
-
-      server.close(resolve);
-
-    });
-
-  } catch (err) {
-
-    addWarning(`⚠ server close error: ${err}`);
-
-  }
-
-  // ==================================================
-  // save logs
-  // ==================================================
-
-  saveLogs();
-
-  // ==================================================
-  // exit code
-  // ==================================================
-
-  if (hasError) {
-
-    console.error('❌ 診断失敗');
+    saveLogs();
 
     process.exitCode = 1;
 
-  } else {
+  } finally {
 
-    console.log('✅ 診断成功');
+    clearTimeout(timeout);
 
-  }
+    // browser終了
+    try {
 
-  // ==================================================
-  // saveLogs
-  // ==================================================
+      if (browser) {
 
-  function saveLogs() {
+        await browser.close();
 
-    fs.writeFileSync(
+      }
 
-      path.join(logDir, `${timestamp}.json`),
+    } catch (err) {
 
-      JSON.stringify(logs, null, 2)
+      addWarning(`⚠ browser close error: ${err}`);
 
-    );
+    }
+
+    // server終了
+    try {
+
+      await new Promise(resolve => {
+
+        server.close(resolve);
+
+      });
+
+    } catch (err) {
+
+      addWarning(`⚠ server close error: ${err}`);
+
+    }
+
+    // 最終保存
+    saveLogs();
 
   }
 
