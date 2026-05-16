@@ -1,9 +1,9 @@
 const puppeteer = require('puppeteer');
 
-// ★追加: ブラウザ終了時などに発生する不要なエラーで落ちるのを完全に防ぐ
+// ブラウザ終了時などに発生する不要なエラーを無視する設定
 process.on('unhandledRejection', (reason) => {
   if (reason.toString().includes('Target closed') || reason.toString().includes('Protocol error')) {
-    return; // GitHub Actionsを落とさないために無視する
+    return;
   }
   console.error('Unhandled Rejection:', reason);
 });
@@ -53,10 +53,11 @@ process.on('unhandledRejection', (reason) => {
   testResult.logs.forEach(log => console.log(log));
   console.log(`\n📊 結果: ${testResult.passed}件成功 / ${testResult.failed}件失敗`);
 
+  // ★修正：テスト成功時に「確実にプログラムを終わらせる命令」を入れ直しました
   if (testResult.success) {
     console.log("🎉 全テスト成功！見積書ロジックは完璧です。");
     try { await browser.close(); } catch(e) {}
-    // 無理にプロセスをぶった切らず、自然に正常終了(0)させます
+    process.exit(0); // ← これでフリーズせずに正常終了します
   } else {
     console.error("⚠️ テストに失敗しました。レイアウトや計算ロジックが壊れている可能性があります。");
     try { await browser.close(); } catch(e) {}
