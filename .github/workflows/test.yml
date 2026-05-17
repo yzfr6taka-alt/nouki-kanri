@@ -31,10 +31,15 @@ jobs:
             libgbm1 \
             libasound2t64
 
+      # ★ 修正ポイント①: ローカルサーバーをバックグラウンドで起動
+      - name: ローカルサーバー起動
+        run: |
+          npx http-server . -p 3000 --silent &
+          sleep 3
+
       - name: テスト実行
         run: npm test
 
-      # ★ここが重要（修正ポイント）
       - name: ログ保存
         if: always()
         uses: actions/upload-artifact@v4
