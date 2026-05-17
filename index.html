@@ -505,9 +505,9 @@ function buildEstHTML(){
   if(emptyStartIdx!==-1&&emptyStartIdx<ROWS){
     const topMm=(1+emptyStartIdx)*rowH;      // ヘッダー1行 + データ行
     const heightMm=(ROWS-emptyStartIdx)*rowH; // 空行の合計高さ
-    // x1=100%(右上) y1=0 → x2=0(左下) y2=100% : 右上から左下への斜線
+    // x1=100%(右上=備考列右端) y1=0 → x2=8mm(品名列左端=No列幅分) y2=100% : 備考右上→品名左下への斜線
     svgLine=`<svg style="position:absolute;left:0;top:${topMm}mm;width:174mm;height:${heightMm}mm;pointer-events:none;z-index:10;overflow:visible;">`
-      +`<line x1="100%" y1="0" x2="0" y2="100%" stroke="#000" stroke-width="0.7"/>`
+      +`<line x1="100%" y1="0" x2="8mm" y2="100%" stroke="#000" stroke-width="0.7"/>`
       +`</svg>`;
   }
 
@@ -546,9 +546,9 @@ function buildEstHTML(){
   h+=`</table></div>`;
 
   // ★ 右：住所・社名（width:56mm統一・全行を56mm幅で統一表示）
-  h+=`<div style="font-size:10px;line-height:1.7;width:56mm;">`;
-  // 住所行：右揃えで56mm内に収める
-  h+=`<div style="text-align:right;">鹿児島県曽於市大隅町岩川5591番地</div>`;
+  h+=`<div style="font-size:10px;line-height:1.7;width:56mm;overflow:hidden;">`;
+  // ★ 住所行：社名と同じ均等割付けで幅を揃える
+  h+=`<div style="text-align:justify;text-align-last:justify;text-justify:inter-character;">鹿児島県曽於市大隅町岩川5591番地</div>`;
   // 社名：均等割付け（56mm幅でjustify）
   h+=`<div style="text-align:justify;text-align-last:justify;text-justify:inter-character;">そお鹿児島農業協同組合</div>`;
   // 代表者：両端揃え
