@@ -7,6 +7,10 @@
     "test": "node test.js"
   },
   "dependencies": {
+    "diff": "^5.2.0",
     "puppeteer": "^24.15.0"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
   }
 }
