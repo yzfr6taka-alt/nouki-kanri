@@ -20,7 +20,7 @@ const logs = {
 
   const browser = await puppeteer.launch({
     headless: true,
-    args: ['--no-sandbox']
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
   });
 
   const page = await browser.newPage();
@@ -35,18 +35,19 @@ const logs = {
     }
   });
 
-  // runtime
+  // runtime error
   page.on('pageerror', err => {
     logs.errors.push(err.toString());
   });
 
   await page.goto('http://localhost:3000', {
-    waitUntil: 'domcontentloaded'
+    waitUntil: 'domcontentloaded',
+    timeout: 30000
   });
 
   // DOMチェック
   const dom = await page.evaluate(() => {
-    const ids = ['toName','subject','estDate','itemTable','preview'];
+    const ids = ['toName', 'subject', 'estDate', 'itemTable', 'preview'];
     return ids.filter(id => !document.getElementById(id));
   });
 
@@ -54,7 +55,7 @@ const logs = {
 
   // 関数チェック
   const fn = await page.evaluate(() => {
-    const fns = ['openQuoteEditor','calcTotal','buildEstHTML'];
+    const fns = ['openQuoteEditor', 'calcTotal', 'buildEstHTML'];
     return fns.filter(f => typeof window[f] !== 'function');
   });
 
