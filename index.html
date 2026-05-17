@@ -135,7 +135,7 @@ table.items td input{width:100%;border:none;background:transparent;padding:5px 4
 <button class="btn-print" onclick="printDoc()">🖨️ 印刷</button>
 </div>
 <div style="background:#e8f4fd;border-left:4px solid #2980b9;padding:8px 12px;margin:0 12px 8px;border-radius:8px;font-size:11px;color:#1a5276;">
-💡 <b>PDF保存</b>：印刷ダイアログ→「PDFとして保存」。iPhoneはそのままLINEへ共有可。<b>LINE共有</b>：HTMLファイルを送信。
+💡 <b>PDF保存</b>：印刷ダイアログ→「PDFとして保存」。<b>LINE共有</b>：PDF印刷画面が開きます。ファイル名に<b>顧客名様・件名</b>が入ります。共有ボタン→LINEでPDF送信可。
 </div>
 <div style="overflow-x:auto;padding:8px;background:#555;"><div id="preview-inner" style="background:#fff;margin:0 auto;width:794px;"></div></div>
 </div>
@@ -292,7 +292,6 @@ function loadSeedData(){if(!confirm('サンプルデータを読み込みます�
 /* ========== 出力関数 ========== */
 function getStyles(){return '*{box-sizing:border-box;margin:0;padding:0;}body{font-family:"MS Mincho","Hiragino Mincho Pro",serif;}@page{size:A4 portrait;margin:0;}@media print{html,body{width:210mm;}body{margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}';}
 
-/* ★ PDF保存 - 印刷ダイアログを自動起動（iPhoneは印刷プレビューから共有→LINEでPDF送信可能）*/
 function pdfDoc(){
   const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`;
   const win=window.open('','_blank');
@@ -306,20 +305,16 @@ function saveHTML(){
   a.download=`見積書_${tN?tN+'_':''}${sv?sv+'_':''}${ed||new Date().toISOString().slice(0,10)}.html`;a.href=url;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),3000);
 }
 function shareDoc(){
-  const tN=document.getElementById('toName')?.value||'';const subj=document.getElementById('subject')?.value||'';const estDate=document.getElementById('estDate')?.value||'';
-  let sub=0;for(let i=0;i<ROWS;i++)sub+=(Number(qItems[i].qty)||0)*(Number(qItems[i].price)||0);
-  const tax=Math.floor(sub*0.1),total=sub+tax;
-  const il=qItems.filter(it=>it.name&&Number(it.qty)&&Number(it.price)).map(it=>'・'+it.name+(it.model?' '+it.model:'')+' × '+it.qty+' = ¥'+(Number(it.qty)*Number(it.price)).toLocaleString()).join('\n');
-  const shareText='【お見積書】財部農機センター\n━━━━━━━━━━━\n'+(tN?'宛先：'+tN+' 様\n':'')+(subj?'件名：'+subj+'\n':'')+(estDate?'発行日：'+estDate+'\n':'')+'━━━━━━━━━━━\n'+(il?il+'\n':'')+'━━━━━━━━━━━\n小計：¥'+sub.toLocaleString()+'\n消費税(10%)：¥'+tax.toLocaleString()+'\n【合計金額】¥'+total.toLocaleString()+'\n━━━━━━━━━━━\nご確認よろしくお願いいたします。';
-  if(navigator.share){
-    const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`;
-    const tN2=(tN||'').trim(),sv2=(subj||'').trim(),d2=(estDate||new Date().toISOString().slice(0,10)).replace(/-/g,'');
-    const fname=`見積書_${tN2?tN2+'_':''}${sv2?sv2+'_':''}${d2}.html`;
-    const file=new File([html],fname,{type:'text/html'});
-    const sd=navigator.canShare&&navigator.canShare({files:[file]})?{title:'見積書 - 財部農機センター',text:shareText,files:[file]}:{title:'見積書 - 財部農機センター',text:shareText};
-    navigator.share(sd).catch(err=>{if(err.name!=='AbortError')openLineShare(shareText);});return;
-  }
-  openLineShare(shareText);
+  // ★ LINE共有：PDF印刷ダイアログを開く。ファイル名＝「顧客名様_件名」
+  // iPhoneは印刷画面の共有ボタン→LINEを選ぶとPDFとして送信できます
+  const tN=(document.getElementById('toName')?.value||'').trim();
+  const subj=(document.getElementById('subject')?.value||'').trim();
+  const pdfTitle=`見積書_${tN?tN+'様':''}${subj?'_'+subj:''}`;
+  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>${pdfTitle}</title><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`;
+  const win=window.open('','_blank');
+  if(!win){alert('ポップアップがブロックされています。\nPDF保存ボタンでPDFを作成してLINEへ共有してください。');return;}
+  win.document.write(html);win.document.close();
+  setTimeout(()=>{try{win.focus();win.print();}catch(e){}},800);
 }
 function openLineShare(text){const o=window.open('https://line.me/R/msg/text/?'+encodeURIComponent(text),'_blank');if(!o){if(navigator.clipboard){navigator.clipboard.writeText(text).then(()=>alert('見積内容をコピーしました！\nLINEを開いて貼り付けてください。'));}else{prompt('以下をコピーしてLINEに貼り付けてください：',text);}}}
 function printDoc(){const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`;const win=window.open('','_blank');if(win){win.document.write(html);win.document.close();setTimeout(()=>{try{win.focus();win.print();}catch(e){win.close();usePrintFrame(html);}},800);}else{usePrintFrame(html);}}
@@ -459,21 +454,14 @@ function buildTable(){
 function calcTotal(){let sub=0;for(let i=0;i<ROWS;i++){const amt=(Number(qItems[i].qty)||0)*(Number(qItems[i].price)||0);const td=document.getElementById('amt_'+i);if(td)td.textContent=amt?'¥'+amt.toLocaleString():'—';sub+=amt;}const tax=Math.floor(sub*.1);[['subtotal',sub],['tax',tax],['total',sub+tax]].forEach(([id,v])=>{const el=document.getElementById(id);if(el)el.textContent='¥'+v.toLocaleString();});}
 
 /* ============================================================
-   ★★★ buildEstHTML - 見積書HTML生成 完全修正版 ★★★
-   ① rowH=6.5mm + padding:10mm 18mm → A4 1ページに確実に収まる
-   ② 斜線：右上(備考列)→左下(No.20品名列) x1=100% y1=0 x2=0 y2=100%
-      inner-div でセル高さ固定 → 斜線位置が正確
-   ③ 右備考列：幅37mm・8px・折返し・overflow:hidden
-   ④ 顧客名均等割付け：text-justify:inter-character
-   ⑤ 住所ブロック：width:56mm統一・全行右揃え
-   ⑥ 下備考欄：常に表示・white-space:pre-wrap・改行対応
+   buildEstHTML - 見積書HTML生成
    ============================================================ */
 function fmtDate(d){if(!d)return'';const dt=new Date(d);return'令和'+(dt.getFullYear()-2018)+'年'+(dt.getMonth()+1)+'月'+dt.getDate()+'日';}
 function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 function buildEstHTML(){
   const[date,dD,dP,pM,tN,nt,ex]=['estDate','delivDate','delivPlace','payMethod','toName','note','expDate'].map(id=>document.getElementById(id).value);
-  const rowH=6.5; // ★ 6.5mm でA4 1ページに収まる（7mmだと超える）
+  const rowH=6.5;
   let sub=0,emptyStartIdx=-1,rowsHTML='';
 
   for(let i=0;i<qItems.length;i++){
@@ -484,7 +472,6 @@ function buildEstHTML(){
     if(isEmpty&&emptyStartIdx===-1)emptyStartIdx=i;
     else if(!isEmpty)emptyStartIdx=-1;
 
-    // ★ inner-div でセル高さを固定 → table行高が確定し斜線位置が正確になる
     const ch=`height:${rowH}mm;overflow:hidden;box-sizing:border-box;`;
     rowsHTML+=`<tr>`
       +`<td style="border:1px solid #000;padding:0;"><div style="${ch}display:flex;align-items:center;justify-content:center;font-size:9px;">${i+1}</div></td>`
@@ -499,32 +486,26 @@ function buildEstHTML(){
   }
   const tax=Math.floor(sub*.1),total=sub+tax;
 
-  // ★ 斜線SVG：右上(備考列)→左下(No.20品名列)
-  // emptyStartIdx行目から20行目まで inner-divで行高固定済みなので位置が正確
+  // ★ 斜線SVG：記入行直下の備考欄右上 → No.20品名左下
+  // SVGをテーブル全体（top:0）に重ね、mm絶対座標で正確な斜線を実現
   let svgLine='';
   if(emptyStartIdx!==-1&&emptyStartIdx<ROWS){
-    const topMm=(1+emptyStartIdx)*rowH;      // ヘッダー1行 + データ行
-    const heightMm=(ROWS-emptyStartIdx)*rowH; // 空行の合計高さ
-    // x1=100%(右上=備考列右端) y1=0 → x2=8mm(品名列左端=No列幅分) y2=100% : 備考右上→品名左下への斜線
-    svgLine=`<svg style="position:absolute;left:0;top:${topMm}mm;width:174mm;height:${heightMm}mm;pointer-events:none;z-index:10;overflow:visible;">`
-      +`<line x1="100%" y1="0" x2="8mm" y2="100%" stroke="#000" stroke-width="0.7"/>`
+    const fullH=(1+ROWS)*rowH;              // ヘッダー1行 + データ20行の総高さ
+    const startYmm=(1+emptyStartIdx)*rowH;  // 最初の空行の上端 = 備考欄右上のY座標
+    const endYmm=(1+ROWS)*rowH;             // 20行目の下端   = 品名左下のY座標
+    svgLine=`<svg style="position:absolute;left:0;top:0;width:174mm;height:${fullH}mm;pointer-events:none;z-index:10;overflow:visible;">`
+      +`<line x1="174mm" y1="${startYmm}mm" x2="8mm" y2="${endYmm}mm" stroke="#000" stroke-width="0.7"/>`
       +`</svg>`;
   }
 
-  // ★ 列幅 合計174mm（A4 210mm - 左右padding 18mm×2 = 174mm）
-  // No:8 品名:43 銘柄:13 型式:22 数量:11 単価:18 金額:22 備考:37 = 174mm
+  // 列幅 合計174mm
   const thS=`border:1px solid #000;font-size:9px;font-weight:normal;text-align:center;height:${rowH}mm;`;
 
   let h=`<div style="width:210mm;min-height:296mm;padding:10mm 18mm;background:#fff;font-family:'MS Mincho',serif;color:#000;box-sizing:border-box;">`;
 
-  // ── タイトル ──
   h+=`<div style="text-align:center;font-size:22px;letter-spacing:13mm;margin-bottom:6mm;padding-left:13mm;">見　積　書</div>`;
-
-  // ── 発行日 ──
   h+=`<div style="text-align:right;font-size:10px;margin-bottom:3mm;">${fmtDate(date)}</div>`;
 
-  // ── ★ 顧客名（均等割付け）──
-  // display:inline-block + min-width:40mm + text-align:justify + text-align-last:justify + text-justify:inter-character
   h+=`<div style="margin-bottom:2mm;">`;
   h+=`<div style="display:inline-block;border-bottom:1.5px solid #000;padding-bottom:1px;vertical-align:bottom;">`;
   h+=`<span style="display:inline-block;min-width:40mm;font-size:16px;font-weight:bold;`
@@ -534,10 +515,7 @@ function buildEstHTML(){
   h+=`</div></div>`;
   h+=`<div style="font-size:11px;letter-spacing:2px;margin-bottom:3mm;">下　記　の　通　り　御　見　積　致　し　ま　す　。</div>`;
 
-  // ── 納入情報（左）＋ ★ 住所（右・width:56mm統一） ──
   h+=`<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3mm;">`;
-
-  // 左：納入情報テーブル（各ラベル均等割付け）
   h+=`<div><table style="font-size:10px;border-collapse:collapse;text-align:left;">`;
   const lStyle=`padding:1.5px 0;text-align:justify;text-align-last:justify;text-justify:inter-character;`;
   h+=`<tr><td style="${lStyle}width:15mm;">納入期日</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:28mm;padding:1.5px 2px;text-align:right;">${fmtDate(dD)}</td></tr>`;
@@ -545,20 +523,14 @@ function buildEstHTML(){
   h+=`<tr><td style="${lStyle}">取引方法</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:28mm;padding:1.5px 2px;text-align:right;">${escH(pM)}</td></tr>`;
   h+=`</table></div>`;
 
-  // ★ 右：住所・社名（width:56mm統一・全行を56mm幅で統一表示）
   h+=`<div style="font-size:10px;line-height:1.7;width:56mm;overflow:hidden;">`;
-  // ★ 住所行：社名と同じ均等割付けで幅を揃える
   h+=`<div style="text-align:justify;text-align-last:justify;text-justify:inter-character;">鹿児島県曽於市大隅町岩川5591番地</div>`;
-  // 社名：均等割付け（56mm幅でjustify）
   h+=`<div style="text-align:justify;text-align-last:justify;text-justify:inter-character;">そお鹿児島農業協同組合</div>`;
-  // 代表者：両端揃え
   h+=`<div style="display:flex;justify-content:space-between;"><span>代表理事組合長</span><span>竹　内　和　久</span></div>`;
-  // センター名：右揃え
   h+=`<div style="text-align:right;">財部農機センター</div>`;
   h+=`</div>`;
-  h+=`</div>`; // end flex
+  h+=`</div>`;
 
-  // ── 合計金額 ──
   h+=`<div style="display:flex;align-items:flex-end;margin-bottom:2mm;">`;
   h+=`<div style="display:flex;align-items:baseline;border-bottom:1.5px solid #000;padding-bottom:1px;gap:2mm;">`;
   h+=`<span style="font-size:14px;font-weight:bold;white-space:nowrap;">合計金額 ￥</span>`;
@@ -568,7 +540,7 @@ function buildEstHTML(){
   h+=`<div style="font-size:10px;margin-left:4mm;">（内消費税　${tax.toLocaleString()}　円）</div>`;
   h+=`</div>`;
 
-  // ── ★ 品目テーブル（斜線SVG付き）──
+  // ★ 品目テーブル（SVGをtop:0で重ねて絶対mm座標で斜線）
   h+=`<div style="position:relative;width:174mm;margin-top:2mm;">${svgLine}`;
   h+=`<table style="width:174mm;border-collapse:collapse;table-layout:fixed;">`;
   h+=`<colgroup>`;
@@ -576,26 +548,21 @@ function buildEstHTML(){
   h+=`<col style="width:22mm"><col style="width:11mm"><col style="width:18mm">`;
   h+=`<col style="width:22mm"><col style="width:37mm">`;
   h+=`</colgroup>`;
-  // ヘッダー行
   h+=`<tr>`;
   ['No.','品　　名','銘柄','型　式','数量','単　価','金　額','備　考'].forEach(t=>{h+=`<th style="${thS}">${t}</th>`;});
   h+=`</tr>`;
   h+=rowsHTML;
-  // 小計・消費税・合計
   const rH=`height:${rowH}mm;`;
   h+=`<tr style="${rH}"><td colspan="6" style="border:1px solid #000;text-align:center;font-size:10px;letter-spacing:8mm;padding-left:8mm;">小　計</td><td style="border:1px solid #000;text-align:right;padding-right:3px;font-size:10px;">${sub.toLocaleString()}</td><td style="border:1px solid #000;"></td></tr>`;
   h+=`<tr style="${rH}"><td colspan="6" style="border:1px solid #000;text-align:center;font-size:10px;letter-spacing:6mm;padding-left:6mm;">消　費　税</td><td style="border:1px solid #000;text-align:right;padding-right:3px;font-size:10px;">${tax.toLocaleString()}</td><td style="border:1px solid #000;"></td></tr>`;
   h+=`<tr style="${rH}"><td colspan="6" style="border:1px solid #000;text-align:center;font-size:10px;letter-spacing:8mm;padding-left:8mm;">合　計</td><td style="border:1px solid #000;text-align:right;padding-right:3px;font-size:10px;font-weight:bold;">${total.toLocaleString()}</td><td style="border:1px solid #000;"></td></tr>`;
   h+=`</table></div>`;
 
-  // ── ★ 備考欄（下部）──
-  // 常に表示・white-space:pre-wrap で改行対応・内容量に応じて高さ自動拡張
   h+=`<div style="margin-top:2mm;font-size:10px;border:0.8px solid #000;padding:2px 5px;min-height:10mm;box-sizing:border-box;white-space:pre-wrap;word-break:break-all;line-height:1.6;">`;
   h+=`<span style="font-weight:bold;">備　考</span>`;
   if(nt)h+=`\n${escH(nt)}`;
   h+=`</div>`;
 
-  // ── 有効期限 ──
   if(ex)h+=`<div style="margin-top:2mm;font-size:10px;">有効期限：${fmtDate(ex)}</div>`;
 
   h+=`</div>`;
