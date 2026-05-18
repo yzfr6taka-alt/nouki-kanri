@@ -3,11 +3,10 @@
   "version": "1.0.0",
   "description": "見積書 自動診断テスト",
   "main": "test.js",
-  "scripts": {
-    "test": "node test.js"
-  },
+  "scripts": { "test": "node test.js" },
   "dependencies": {
     "diff": "^5.2.0",
+    "glob": "^10.4.5",
     "puppeteer": "^24.15.0"
   },
   "devDependencies": {
