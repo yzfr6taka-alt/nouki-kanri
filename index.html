@@ -1,3 +1,4 @@
+undefined
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -335,7 +336,27 @@ async function pdfDoc(){
 }
 function saveHTML(){
   const tN=(document.getElementById('toName')?.value||'').trim();const sv=(document.getElementById('subject')?.value||'').trim();const ed=(document.getElementById('estDate')?.value||'').replace(/-/g,'');
-  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`;
+  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}<table id="itemTable" class="machinery-table">
+  <thead>
+    <tr>
+      <th>機械名</th>
+      <th>型番</th>
+      <th>状態</th>
+      <th>操作</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+<div id="preview" class="preview-panel" style="display:none;">
+  <h3>機械詳細</h3>
+  <div class="preview-content"></div>
+</div>
+<form id="loginForm">
+  <input type="password" id="password" placeholder="パスワード" required>
+  <button type="submit">ログイン</button>
+</form>
+<meta name="mobile-web-app-capable" content="yes">
+</body></html>`;
   const blob=new Blob([html],{type:'text/html;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');
   a.download=`見積書_${tN?tN+'_':''}${sv?sv+'_':''}${ed||new Date().toISOString().slice(0,10)}.html`;a.href=url;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),3000);
 }
@@ -651,3 +672,7 @@ window.onload=async function(){
 </script>
 </body>
 </html>
+
+/* AUTO-FIX:
+document.getElementById('targetId').innerHTML = content;
+*/
