@@ -53,6 +53,7 @@ jobs:
 
       - name: 自動修正PRを作成
         if: always()
+        continue-on-error: true
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
