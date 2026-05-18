@@ -9,11 +9,16 @@ jobs:
   test:
 
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
 
     steps:
 
       - name: ソース取得
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - name: Node.js設定
         uses: actions/setup-node@v4
@@ -31,21 +36,39 @@ jobs:
             libgbm1 \
             libasound2t64
 
-      # ★ 修正ポイント①: ローカルサーバーをバックグラウンドで起動
+      - name: Git差分取得
+        run: |
+          git diff HEAD~1 > /tmp/git_diff.txt 2>/dev/null || echo "No diff" > /tmp/git_diff.txt
+
       - name: ローカルサーバー起動
         run: |
           npx http-server . -p 3000 --silent &
           sleep 3
 
       - name: テスト実行
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GIT_DIFF_FILE: /tmp/git_diff.txt
         run: npm test
+
+      - name: 自動修正PRを作成
+        if: always()
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "🤖 自動修正: AI診断パッチ適用 (#${{ github.run_number }})"
+          title: "🤖 [自動修正] AI診断パッチ #${{ github.run_number }}"
+          body: |
+            ## 自動診断・修復レポート
+            このPRはGitHub Actionsの自動診断AIにより生成されました。
+            Artifactの `debug-logs` で詳細確認できます。
+          branch: auto-fix/patch-${{ github.run_number }}
+          delete-branch: true
 
       - name: ログ保存
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: debug-logs
-          path: |
-            logs/**
-          include-hidden-files: true
+          path: logs/**
           if-no-files-found: ignore
