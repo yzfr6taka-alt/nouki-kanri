@@ -345,7 +345,14 @@ async function pdfDoc(){
 }
 function saveHTML(){
   const tN=(document.getElementById('toName')?.value||'').trim();const sv=(document.getElementById('subject')?.value||'').trim();const ed=(document.getElementById('estDate')?.value||'').replace(/-/g,'');
-  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`;
+  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}<!-- Add after the main content area, before closing body -->
+<div id="itemTable" style="display:none;"></div>
+<div id="preview" style="display:none;"></div>
+<meta name="mobile-web-app-capable" content="yes">
+<form style="display:contents;">
+  <!-- existing password field -->
+</form>
+</body></html>`;
   const blob=new Blob([html],{type:'text/html;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');
   a.download=`見積書_${tN?tN+'_':''}${sv?sv+'_':''}${ed||new Date().toISOString().slice(0,10)}.html`;a.href=url;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),3000);
 }
@@ -779,6 +786,46 @@ window.onload=async function(){
     if(gasUrl){setInterval(()=>{if(gasUrl)syncToCloud(false);},30000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&gasUrl)syncToCloud(false);});}
   }catch(e){alert('起動処理中にエラーが発生しました。\n詳細: '+e.message);console.error(e);}
 };
+let isListening = false;
+let recognition;
+
+function toggleVoice() {
+  if (!recognition) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('お使いのブラウザは音声認識に対応していません');
+      return;
+    }
+    recognition = new SpeechRecognition();
+    recognition.lang = 'ja-JP';
+    recognition.onstart = () => {
+      isListening = true;
+      document.getElementById('voiceBtn').style.background = '#e74c3c';
+    };
+    recognition.onresult = (event) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          document.getElementById('smartText').value += transcript;
+        } else {
+          interim += transcript;
+        }
+      }
+      document.getElementById('voiceInterim').textContent = interim;
+    };
+    recognition.onend = () => {
+      isListening = false;
+      document.getElementById('voiceBtn').style.background = '#2c3e50';
+      document.getElementById('voiceInterim').textContent = '';
+    };
+  }
+  if (isListening) {
+    recognition.stop();
+  } else {
+    recognition.start();
+  }
+}
 </script>
 </body>
 </html>
