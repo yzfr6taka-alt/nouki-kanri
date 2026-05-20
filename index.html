@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="農機管理PRO">
 <meta name="theme-color" content="#1a252f">
 <title>農機業務管理&見積 PRO V4</title>
@@ -61,6 +61,7 @@ table.items td input{width:100%;border:none;background:transparent;padding:5px 4
 #syncBar.conflict{background:#8e44ad;color:#fff;}
 #syncBar.error{background:#e74c3c;color:#fff;}
 #_print_frame{position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.6;}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -159,7 +160,8 @@ table.items td input{width:100%;border:none;background:transparent;padding:5px 4
 <div style="display:flex;gap:8px;margin-bottom:8px;">
   <button id="smartVoiceBtn" onclick="toggleSmartVoice()" style="flex:1;background:#e67e22;color:#fff;border:none;border-radius:10px;padding:11px 0;font-size:13px;font-weight:800;cursor:pointer;">🎙 音声で話す</button>
 </div>
-<div id="smartVoiceStatus" style="display:none;background:#fff3e0;border-radius:8px;padding:8px;margin-bottom:8px;font-size:12px;color:#e65100;font-weight:700;text-align:center;">🔴 録音中... もう一度タップで停止</div>
+<div id="smartVoiceStatus" style="display:none;font-size:12px;color:#3498db;min-height:18px;margin-bottom:6px;padding:0 2px;"></div>
+<textarea id="smartText" placeholder="例：山田さんのヤンマーYT222、製造番号A12345、稼働2300時間、修理依頼、納期7月15日&#10;&#10;例：田中さんのトラクター修理代85000円で見積もり作って&#10;&#10;例：ニプロGZA651の部品、Vベルト2本発注して" rows="5" class="field-textarea"></textarea>one;background:#fff3e0;border-radius:8px;padding:8px;margin-bottom:8px;font-size:12px;color:#e65100;font-weight:700;text-align:center;">🔴 録音中... もう一度タップで停止</div>
 <textarea id="smartText" placeholder="例：山田さんのヤンマーYT222 製造番号A12345 修理代85000円で見積もり作って" rows="4" class="field-textarea"></textarea>
 <button onclick="runSmartAI()" id="smartBtn" class="save-btn" style="width:100%;background:#e67e22;margin-bottom:10px;">🤖 AI自動振り分け・登録</button>
 <div id="smartStatus" style="font-size:12px;margin-top:8px;display:none;padding:10px;border-radius:8px;line-height:2.2;"></div>
@@ -394,7 +396,10 @@ async function pdfDoc(){
 }
 function saveHTML(){
   const tN=(document.getElementById('toName')?.value||'').trim();const sv=(document.getElementById('subject')?.value||'').trim();const ed=(document.getElementById('estDate')?.value||'').replace(/-/g,'');
-  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`;
+  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}<div id="itemTable" style="width:100%;margin-top:20px;overflow-x:auto;"></div>
+<div id="preview" style="display:none;margin-top:20px;padding:16px;border:1px solid var(--border);border-radius:8px;"></div>
+<form style="display:contents;"><input type="password" id="password" placeholder="パスワード" class="field-input"></form>
+</body></html>`;
   const blob=new Blob([html],{type:'text/html;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');
   a.download=`見積書_${tN?tN+'_':''}${sv?sv+'_':''}${ed||new Date().toISOString().slice(0,10)}.html`;a.href=url;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),3000);
 }
