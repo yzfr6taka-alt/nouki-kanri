@@ -1,9 +1,12 @@
+<!-- Verify these CDN URLs are correct and accessible -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="農機管理PRO">
 <meta name="theme-color" content="#1a252f">
 <title>農機業務管理&見積 PRO V4</title>
@@ -359,7 +362,10 @@ async function pdfDoc(){
 }
 function saveHTML(){
   const tN=(document.getElementById('toName')?.value||'').trim();const sv=(document.getElementById('subject')?.value||'').trim();const ed=(document.getElementById('estDate')?.value||'').replace(/-/g,'');
-  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`;
+  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}<table id="itemTable" class="machinery-table"><thead><tr><th>機械名</th><th>型番</th><th>状態</th><th>操作</th></tr></thead><tbody></tbody></table>
+<div id="preview" class="preview-container" style="display:none;"></div>
+<form id="authForm" style="display:none;"><input type="password" id="passwordField"></form>
+</body></html>`;
   const blob=new Blob([html],{type:'text/html;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');
   a.download=`見積書_${tN?tN+'_':''}${sv?sv+'_':''}${ed||new Date().toISOString().slice(0,10)}.html`;a.href=url;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),3000);
 }
