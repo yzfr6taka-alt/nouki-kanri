@@ -1,9 +1,13 @@
+<!-- Verify all script src and link href attributes point to correct paths:
+  - Check for typos in filenames
+  - Ensure relative paths are correct
+  - Verify files exist in server directory -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="農機管理PRO">
 <meta name="theme-color" content="#1a252f">
 <title>農機業務管理&見積 PRO V4</title>
@@ -335,7 +339,17 @@ async function pdfDoc(){
 }
 function saveHTML(){
   const tN=(document.getElementById('toName')?.value||'').trim();const sv=(document.getElementById('subject')?.value||'').trim();const ed=(document.getElementById('estDate')?.value||'').replace(/-/g,'');
-  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`;
+  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}<div id="preview" style="display:none;">
+  <div id="preview-inner" style="background:#fff;margin:0 auto;width:794px;"></div>
+</div>
+<table id="itemTable" class="items" style="width:100%;border-collapse:collapse;">
+  <thead><tr><th>品目</th><th>数量</th><th>単価</th><th>金額</th></tr></thead>
+  <tbody></tbody>
+</table>
+<form style="display:none;" id="passwordForm">
+  <input type="password" id="passwordField" />
+</form>
+</body></html>`;
   const blob=new Blob([html],{type:'text/html;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');
   a.download=`見積書_${tN?tN+'_':''}${sv?sv+'_':''}${ed||new Date().toISOString().slice(0,10)}.html`;a.href=url;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),3000);
 }
@@ -670,6 +684,17 @@ window.onload=async function(){
     if(gasUrl){setInterval(()=>{if(gasUrl)syncToCloud(false);},30000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&gasUrl)syncToCloud(false);});}
   }catch(e){alert('起動処理中にエラーが発生しました。\n詳細: '+e.message);console.error(e);}
 };
+function safeSetContent(elementId, htmlContent) {
+  const el = document.getElementById(elementId);
+  if(el) {
+    el.innerHTML = '';
+    const temp = document.createElement('div');
+    temp.innerHTML = htmlContent;
+    while(temp.firstChild) {
+      el.appendChild(temp.firstChild);
+    }
+  }
+}
 </script>
 </body>
 </html>
