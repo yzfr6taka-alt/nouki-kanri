@@ -306,7 +306,7 @@ async function generatePDFBlob(){
     wrap.style.overflow='visible';wrap.style.overflowX='visible';wrap.style.overflowY='visible';
     try{
       await new Promise(r=>setTimeout(r,300));
-      const canvas=await html2canvas(target,{scale:2,useCORS:true,allowTaint:true,foreignObjectRendering:true,logging:false,backgroundColor:'#ffffff',width:794,windowWidth:794,scrollX:0,scrollY:-window.scrollY});
+      const canvas=await html2canvas(target,{scale:2,useCORS:true,allowTaint:true,logging:false,backgroundColor:'#ffffff',width:794,windowWidth:794,scrollX:0,scrollY:-window.scrollY});
       const{jsPDF}=window.jspdf;
       const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
       const imgData=canvas.toDataURL('image/jpeg',0.95);
@@ -325,7 +325,7 @@ async function generatePDFBlob(){
   cont.innerHTML=buildEstHTML();document.body.appendChild(cont);
   try{
     await new Promise(r=>setTimeout(r,500));
-    const canvas=await html2canvas(cont.firstElementChild||cont,{scale:2,useCORS:true,allowTaint:true,foreignObjectRendering:true,logging:false,backgroundColor:'#ffffff',width:794,windowWidth:794});
+    const canvas=await html2canvas(cont.firstElementChild||cont,{scale:2,useCORS:true,allowTaint:true,logging:false,backgroundColor:'#ffffff',width:794,windowWidth:794});
     const{jsPDF}=window.jspdf;
     const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
     const imgData=canvas.toDataURL('image/jpeg',0.95);
