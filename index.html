@@ -61,24 +61,46 @@ table.items td input{width:100%;border:none;background:transparent;padding:5px 4
 #syncBar.conflict{background:#8e44ad;color:#fff;}
 #syncBar.error{background:#e74c3c;color:#fff;}
 #_print_frame{position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none;}
+/* ── スプラッシュアニメーション ── */
+#loading-screen{position:fixed;inset:0;background:linear-gradient(150deg,#0d1b2a 0%,#1a2e42 50%,#0a1520 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .6s ease;}
+#loading-screen.hide{opacity:0;pointer-events:none;}
+.splash-tractor{font-size:64px;animation:tractorPop .7s cubic-bezier(.34,1.56,.64,1) both;}
+.splash-main{color:#fff;font-size:22px;font-weight:900;letter-spacing:5px;animation:slideUp .6s ease .4s both;}
+.splash-taka{color:#3498db;font-size:36px;font-weight:900;letter-spacing:14px;font-family:'Arial Black','Impact',sans-serif;text-shadow:0 0 20px rgba(52,152,219,.5);animation:takaIn .8s ease .7s both;}
+.splash-line{width:0;height:2px;background:linear-gradient(90deg,#3498db,#2ecc71);border-radius:2px;margin:18px 0;animation:lineExpand .5s ease 1.1s both;}
+.splash-bar-wrap{width:200px;height:3px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden;}
+.splash-bar{height:100%;width:0;background:linear-gradient(90deg,#3498db,#2ecc71);border-radius:2px;animation:barFill 2s ease 1.2s both;}
+.splash-msg{color:#6fa8c8;font-size:11px;letter-spacing:1.5px;margin-top:14px;animation:fadeIn .5s ease .8s both;}
+@keyframes tractorPop{0%{transform:scale(0) translateY(-30px);opacity:0}70%{transform:scale(1.15) translateY(0);opacity:1}100%{transform:scale(1);opacity:1}}
+@keyframes slideUp{0%{transform:translateY(28px);opacity:0}100%{transform:translateY(0);opacity:1}}
+@keyframes takaIn{0%{letter-spacing:2px;opacity:0}100%{letter-spacing:14px;opacity:1}}
+@keyframes lineExpand{0%{width:0;opacity:0}100%{width:80px;opacity:1}}
+@keyframes barFill{0%{width:0}100%{width:100%}}
+@keyframes fadeIn{0%{opacity:0}100%{opacity:1}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 
-<div id="loading-screen" style="text-align:center;padding:80px 20px;color:var(--text);">
-<div style="font-size:48px;margin-bottom:16px;">🚜</div>
-<h2 style="margin-bottom:8px;">農機管理PRO 起動中...</h2>
-<p id="loadingMsg" style="font-size:12px;color:gray;">データを読み込んでいます</p>
+<div id="loading-screen">
+  <div class="splash-tractor">🚜</div>
+  <div class="splash-main">農機業務管理</div>
+  <div class="splash-taka">TAKA</div>
+  <div class="splash-line"></div>
+  <div class="splash-bar-wrap"><div class="splash-bar"></div></div>
+  <div class="splash-msg" id="loadingMsg">データを読み込んでいます</div>
 </div>
 <div id="app" style="display:none;">
 <div style="background:var(--main);padding-top:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.2);">
 <div style="display:flex;align-items:center;gap:6px;padding:0 10px 12px;">
 <span style="font-size:20px;">🚜</span>
 <div style="flex:1;min-width:0;">
-<div style="color:#fff;font-weight:900;font-size:14px;">農機管理&見積 PRO</div>
-<div style="color:#6fa8c8;font-size:10px;margin-top:1px;" id="syncLabel">財部農機センター</div>
+<div style="color:#fff;font-weight:900;font-size:13px;letter-spacing:1.5px;">農機業務管理</div>
+<div style="display:flex;align-items:center;gap:5px;margin-top:2px;">
+  <span style="color:#3498db;font-size:12px;font-weight:900;letter-spacing:4px;font-family:'Arial Black','Impact',sans-serif;text-shadow:0 0 8px rgba(52,152,219,.6);">TAKA</span>
+  <span style="color:#6fa8c8;font-size:9px;" id="syncLabel"></span>
+</div>
 </div>
 <button onclick="toggleDark()" style="background:none;border:none;color:#fff;font-size:17px;cursor:pointer;">🌓</button>
 <button onclick="manualSync()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:10px;padding:7px 8px;font-size:12px;margin-left:1px;">☁️</button>
@@ -1050,8 +1072,10 @@ window.onload=async function(){
       const er=localStorage.getItem('agri_emergency_backup');
       if(er){try{const eb=JSON.parse(er),ed=eb.data||eb;const eHas=['customers','repairs','demos','parts','products'].some(k=>Array.isArray(ed[k])&&ed[k].length>0);if(eHas){const sa=eb.savedAt?new Date(eb.savedAt).toLocaleString('ja-JP'):'不明',rc=ed.repairs?.length||0;if(confirm(`⚠️ データが見つかりません！\n\n緊急バックアップが見つかりました。\n保存日時: ${sa}\n修理 ${rc}件\n\n復元しますか？`)){['customers','repairs','demos','parts','products','settings','quotes'].forEach(k=>{if(Array.isArray(ed[k]))DB[k]=ed[k];});if(ed.lastModified)DB.lastModified=ed.lastModified;try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}}};}catch(e){console.error('緊急バックアップ読込エラー:',e);}}
     }
-    document.getElementById('loading-screen').style.display='none';
+    const ls=document.getElementById('loading-screen');
     document.getElementById('app').style.display='block';
+    ls.classList.add('hide');
+    setTimeout(()=>{ls.style.display='none';},650);
     renderAll();
     if(!hasAnyData())showSyncBar('⚠️ データなし。🛡️ボタンからバックアップを復元できます。','conflict',false);
     if(gasUrl){setInterval(()=>{if(gasUrl)syncToCloud(false);},30000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&gasUrl)syncToCloud(false);});}
