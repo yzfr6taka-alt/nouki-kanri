@@ -297,7 +297,27 @@ function getStyles(){return '*{box-sizing:border-box;margin:0;padding:0;}body{fo
 function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 async function generatePDFBlob(){
   /* 独立iframeで白背景描画（ダークモード干渉・foreignObjectRendering黒バグ両方回避） */
-  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}</body></html>`;
+  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}<table id="itemTable" class="machinery-table">
+  <thead>
+    <tr>
+      <th>機械名</th>
+      <th>型番</th>
+      <th>状態</th>
+      <th>操作</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+<div id="preview" class="preview-container">
+  <div id="preview-inner"></div>
+</div>
+<form id="loginForm">
+  <input type="password" id="passwordField" placeholder="パスワード">
+  <button type="submit">ログイン</button>
+</form>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+</body></html>`;
   return new Promise((resolve,reject)=>{
     const fr=document.createElement('iframe');
     fr.style.cssText='position:fixed;left:-4000px;top:0;width:794px;height:300px;border:none;opacity:0;pointer-events:none;';
@@ -684,3 +704,44 @@ window.onload=async function(){
 </script>
 </body>
 </html>
+
+/* AUTO-FIX:
+async function generatePDFBlob(){
+  const previewInner=document.getElementById('preview-inner');
+  const target=(previewInner&&previewInner.innerHTML.trim())?previewInner:null;
+  if(target){
+    const wrap=target.parentElement;
+    const sv={ov:wrap.style.overflow,ox:wrap.style.overflowX,oy:wrap.style.overflowY};
+    wrap.style.overflow='visible';wrap.style.overflowX='visible';wrap.style.overflowY='visible';
+    try{
+      await new Promise(r=>setTimeout(r,300));
+      const canvas=await html2canvas(target,{scale:2,useCORS:true,allowTaint:true,logging:false,backgroundColor:'#ffffff',width:794,windowWidth:794,scrollX:0,scrollY:-window.scrollY});
+      const{jsPDF}=window.jspdf;
+      const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+      const imgData=canvas.toDataURL('image/jpeg',0.95);
+      const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
+      const ih=(canvas.height*pw)/canvas.width;
+      if(ih<=ph){pdf.addImage(imgData,'JPEG',0,0,pw,ih);}
+      else{let y=0;while(y<ih){if(y>0)pdf.addPage();pdf.addImage(imgData,'JPEG',0,-y,pw,ih);y+=ph;}}
+      return pdf.output('blob');
+    }finally{
+      wrap.style.overflow=sv.ov;wrap.style.overflowX=sv.ox;wrap.style.overflowY=sv.oy;
+    }
+  }
+  const cont=document.createElement('div');
+  cont.style.cssText='position:absolute;top:0;left:-2000px;width:794px;background:#fff;';
+  cont.innerHTML=buildEstHTML();document.body.appendChild(cont);
+  try{
+    await new Promise(r=>setTimeout(r,500));
+    const canvas=await html2canvas(cont.firstElementChild||cont,{scale:2,useCORS:true,allowTaint:true,logging:false,backgroundColor:'#ffffff',width:794,windowWidth:794});
+    const{jsPDF}=window.jspdf;
+    const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const imgData=canvas.toDataURL('image/jpeg',0.95);
+    const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
+    const ih=(canvas.height*pw)/canvas.width;
+    if(ih<=ph){pdf.addImage(imgData,'JPEG',0,0,pw,ih);}
+    else{let y=0;while(y<ih){if(y>0)pdf.addPage();pdf.addImage(imgData,'JPEG',0,-y,pw,ih);y+=ph;}}
+    return pdf.output('blob');
+  }finally{document.body.removeChild(cont);}
+}
+*/
