@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="農機管理PRO">
 <meta name="theme-color" content="#1a252f">
 <title>農機業務管理&見積 PRO V4</title>
@@ -322,7 +322,7 @@ async function generatePDFBlob(){
   /* ── フォールバック：プレビューがない場合はオフスクリーン生成 ── */
   const cont=document.createElement('div');
   cont.style.cssText='position:absolute;top:0;left:-2000px;width:794px;background:#fff;';
-  cont.innerHTML=buildEstHTML();document.body.appendChild(cont);
+  const temp=document.createElement('div');temp.innerHTML=buildEstHTML();cont.appendChild(temp.firstElementChild);document.body.appendChild(cont);
   try{
     await new Promise(r=>setTimeout(r,500));
     const canvas=await html2canvas(cont.firstElementChild||cont,{scale:2,useCORS:true,allowTaint:true,logging:false,backgroundColor:'#ffffff',width:794,windowWidth:794});
@@ -359,7 +359,10 @@ async function pdfDoc(){
 }
 function saveHTML(){
   const tN=(document.getElementById('toName')?.value||'').trim();const sv=(document.getElementById('subject')?.value||'').trim();const ed=(document.getElementById('estDate')?.value||'').replace(/-/g,'');
-  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`;
+  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}<div id="preview" style="overflow:auto;max-height:600px;border:1px solid #ccc;padding:10px;margin:20px 0;"><div id="preview-inner"></div></div>
+<table id="itemTable" class="table table-striped"><thead><tr><th>機械名</th><th>型番</th><th>購入日</th><th>操作</th></tr></thead><tbody></tbody></table>
+<form id="loginForm" onsubmit="return false;"><input type="password" id="password" placeholder="パスワード" /></form>
+</body></html>`;
   const blob=new Blob([html],{type:'text/html;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');
   a.download=`見積書_${tN?tN+'_':''}${sv?sv+'_':''}${ed||new Date().toISOString().slice(0,10)}.html`;a.href=url;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),3000);
 }
@@ -694,6 +697,7 @@ window.onload=async function(){
     if(gasUrl){setInterval(()=>{if(gasUrl)syncToCloud(false);},30000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&gasUrl)syncToCloud(false);});}
   }catch(e){alert('起動処理中にエラーが発生しました。\n詳細: '+e.message);console.error(e);}
 };
+if(typeof html2canvas==='undefined'||typeof window.jspdf==='undefined'){console.error('Required libraries not loaded: html2canvas or jsPDF');return null;}
 </script>
 </body>
 </html>
