@@ -106,7 +106,7 @@ table.items td input{width:100%;border:none;background:transparent;padding:5px 4
 </div>
 <div style="background:var(--card-bg);border-radius:14px;padding:16px;margin-bottom:12px;border:1.5px solid var(--border);">
 <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--border);">⚙️ 品目（最大20行）</div>
-<div class="tbl-wrap"><table class="items" id="itemsTable"><tr><th style="width:28px;">No.</th><th style="width:130px;">品名</th><th style="width:65px;">銘柄</th><th style="width:85px;">型式</th><th style="width:42px;">数量</th><th style="width:72px;">単価</th><th style="width:80px;">金額</th><th style="width:80px;">備考</th></tr></table></div>
+<div class="tbl-wrap"><table class="items" id="itemsTable"><tr><th style="width:28px;">No.</th><th style="width:130px;">品名</th><th style="width:90px;">銘柄</th><th style="width:110px;">型式</th><th style="width:22px;">数量</th><th style="width:72px;">単価</th><th style="width:80px;">金額</th><th style="width:80px;">備考</th></tr></table></div>
 <div class="total-section">
 <div class="total-row"><span>小計</span><span id="subtotal">¥0</span></div>
 <div class="total-row"><span>消費税（10%）</span><span id="tax">¥0</span></div>
@@ -137,7 +137,14 @@ table.items td input{width:100%;border:none;background:transparent;padding:5px 4
 <button class="btn-print" onclick="printDoc()">🖨️ 印刷</button>
 </div>
 <div style="background:#e8f4fd;border-left:4px solid #2980b9;padding:8px 12px;margin:0 12px 8px;border-radius:8px;font-size:11px;color:#1a5276;">
-💡 <b>PDF保存</b>：印刷ダイアログ→「PDFとして保存」。<b>LINE共有</b>：PDF印刷画面が開きます。ファイル名に<b>顧客名様・件名</b>が入ります。共有ボタン→LINEでPDF送信可。
+💡 <b>PDF保存・印刷・LINE共有</b>：シェアシートが開きます。ファイル名に<b>顧客名様・件名</b>が入ります。
+</div>
+<div style="background:#fff8e1;border-left:4px solid #f39c12;padding:8px 12px;margin:0 12px 8px;border-radius:8px;font-size:12px;color:#7d6608;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+  <span>🖋️ <b>文字の濃さ</b></span>
+  <input type="range" id="fontWeightSlider" min="1" max="4" step="1" value="1"
+    oninput="updateFontWeight(this.value)"
+    style="flex:1;min-width:120px;accent-color:#f39c12;">
+  <span id="fontWeightLabel" style="min-width:48px;font-weight:700;">標　準</span>
 </div>
 <div style="overflow-x:auto;padding:8px;background:#555;"><div id="preview-inner" style="background:#fff;margin:0 auto;width:794px;"></div></div>
 </div>
@@ -948,7 +955,7 @@ function buildEstHTML(){
 
     const thS=`border:1px solid #000;font-size:9px;font-weight:normal;text-align:center;height:${rowH}mm;`;
 
-  let h=`<div style="width:210mm;min-height:296mm;padding:10mm 18mm;background:#fff;font-family:'MS Mincho',serif;color:#000;box-sizing:border-box;">`;
+  let h=`<div style="width:210mm;min-height:296mm;padding:10mm 18mm;background:#fff;font-family:'MS Mincho',serif;color:#000;box-sizing:border-box;font-weight:${estFontWeight||400};">`;
 
   h+=`<div style="text-align:center;font-size:22px;letter-spacing:13mm;margin-bottom:6mm;padding-left:13mm;">見　積　書</div>`;
   h+=`<div style="text-align:right;font-size:10px;margin-bottom:3mm;">${fmtDate(date)}</div>`;
@@ -992,9 +999,9 @@ function buildEstHTML(){
   h+=`<div style="position:relative;width:174mm;margin-top:2mm;">`;
   h+=`<table style="width:174mm;border-collapse:collapse;table-layout:fixed;">`;
   h+=`<colgroup>`;
-  h+=`<col style="width:8mm"><col style="width:43mm"><col style="width:13mm">`;
-  h+=`<col style="width:22mm"><col style="width:11mm"><col style="width:18mm">`;
-  h+=`<col style="width:22mm"><col style="width:37mm">`;
+  h+=`<col style="width:8mm"><col style="width:41mm"><col style="width:20mm">`;
+  h+=`<col style="width:28mm"><col style="width:5mm"><col style="width:18mm">`;
+  h+=`<col style="width:22mm"><col style="width:32mm">`;
   h+=`</colgroup>`;
   h+=`<tr>`;
   ['No.','品　　名','銘柄','型　式','数量','単　価','金　額','備　考'].forEach(t=>{h+=`<th style="${thS}">${t}</th>`;});
@@ -1017,6 +1024,14 @@ function buildEstHTML(){
   return h;
 }
 
+let estFontWeight=400;
+const fwMap={1:{w:400,l:'標　準'},2:{w:500,l:'やや濃'},3:{w:600,l:'濃　い'},4:{w:700,l:'太　字'}};
+function updateFontWeight(v){
+  const m=fwMap[v]||fwMap[1];
+  estFontWeight=m.w;
+  document.getElementById('fontWeightLabel').textContent=m.l;
+  document.getElementById('preview-inner').innerHTML=buildEstHTML();
+}
 function showPreview(){document.getElementById('preview-inner').innerHTML=buildEstHTML();document.getElementById('preview-modal').style.display='block';}
 function closePreview(){document.getElementById('preview-modal').style.display='none';}
 
