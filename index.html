@@ -296,6 +296,30 @@ function getStyles(){return '*{box-sizing:border-box;margin:0;padding:0;}body{fo
 
 function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 async function generatePDFBlob(){
+  /* ── プレビュー要素を直接キャプチャ（プレビューと完全一致） ── */
+  const previewInner=document.getElementById('preview-inner');
+  const target=(previewInner&&previewInner.innerHTML.trim())?previewInner:null;
+  if(target){
+    /* overflow クリップを一時解除してhtml2canvasが全体を取れるようにする */
+    const wrap=target.parentElement;
+    const sv={ov:wrap.style.overflow,ox:wrap.style.overflowX,oy:wrap.style.overflowY};
+    wrap.style.overflow='visible';wrap.style.overflowX='visible';wrap.style.overflowY='visible';
+    try{
+      await new Promise(r=>setTimeout(r,300));
+      const canvas=await html2canvas(target,{scale:2,useCORS:true,allowTaint:true,logging:false,backgroundColor:'#ffffff',width:794,windowWidth:794,scrollX:0,scrollY:-window.scrollY});
+      const{jsPDF}=window.jspdf;
+      const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+      const imgData=canvas.toDataURL('image/jpeg',0.95);
+      const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
+      const ih=(canvas.height*pw)/canvas.width;
+      if(ih<=ph){pdf.addImage(imgData,'JPEG',0,0,pw,ih);}
+      else{let y=0;while(y<ih){if(y>0)pdf.addPage();pdf.addImage(imgData,'JPEG',0,-y,pw,ih);y+=ph;}}
+      return pdf.output('blob');
+    }finally{
+      wrap.style.overflow=sv.ov;wrap.style.overflowX=sv.ox;wrap.style.overflowY=sv.oy;
+    }
+  }
+  /* ── フォールバック：プレビューがない場合はオフスクリーン生成 ── */
   const cont=document.createElement('div');
   cont.style.cssText='position:absolute;top:0;left:-2000px;width:794px;background:#fff;';
   cont.innerHTML=buildEstHTML();document.body.appendChild(cont);
