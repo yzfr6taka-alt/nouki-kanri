@@ -1,7 +1,7 @@
 name: セットアップ（ファイル自動生成）
 
 on:
-  workflow_dispatch:   # 手動で1回だけ実行する
+  workflow_dispatch:
 
 jobs:
   setup:
@@ -14,331 +14,209 @@ jobs:
       - name: ソース取得
         uses: actions/checkout@v4
 
-      # =============================
-      # scanner.js 作成
-      # =============================
       - name: scanner.js 作成
         run: |
-          cat > scanner.js << 'ENDOFFILE'
-          // scanner.js - 全コード静的解析エンジン
+          cat > scanner.js << 'EOF'
           const fs = require('fs');
           const path = require('path');
           const glob = require('glob');
-
           module.exports = function scan(projectDir) {
-            const result = {
-              syntaxErrors:  [],
-              dangerousCode: [],
-              missingDeps:   [],
-              asyncIssues:   [],
-              undefinedVars: [],
-              requireErrors: []
-            };
-
+            const result = { syntaxErrors:[], dangerousCode:[], missingDeps:[], asyncIssues:[], undefinedVars:[], requireErrors:[] };
             let declared = {};
             try {
-              const pkg = JSON.parse(fs.readFileSync(path.join(projectDir, 'package.json'), 'utf8'));
-              declared = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
-            } catch (e) {}
-
-            const jsFiles = glob.sync('**/*.js', {
-              cwd: projectDir,
-              ignore: ['node_modules/**', 'logs/**']
-            });
-
-            jsFiles.forEach(file => {
-              const code = fs.readFileSync(path.join(projectDir, file), 'utf8');
-              scanCode(code, file, declared, result);
-            });
-
-            const htmlFiles = glob.sync('**/*.html', {
-              cwd: projectDir,
-              ignore: ['node_modules/**']
-            });
-
+              const pkg = JSON.parse(fs.readFileSync(path.join(projectDir,'package.json'),'utf8'));
+              declared = {...(pkg.dependencies||{}), ...(pkg.devDependencies||{})};
+            } catch(e) {}
+            const jsFiles = glob.sync('**/*.js',{cwd:projectDir,ignore:['node_modules/**','logs/**']});
+            jsFiles.forEach(file => { const code = fs.readFileSync(path.join(projectDir,file),'utf8'); scanCode(code,file,declared,result); });
+            const htmlFiles = glob.sync('**/*.html',{cwd:projectDir,ignore:['node_modules/**']});
             htmlFiles.forEach(file => {
-              const html = fs.readFileSync(path.join(projectDir, file), 'utf8');
-              const scriptRe = /<script(?![^>]*src)[^>]*>([\s\S]*?)<\/script>/gi;
-              let m; let idx = 0;
-              while ((m = scriptRe.exec(html)) !== null) {
-                idx++;
-                const code = m[1].trim();
-                if (!code) continue;
-                scanCode(code, `${file}[script#${idx}]`, declared, result);
-              }
+              const html = fs.readFileSync(path.join(projectDir,file),'utf8');
+              const re = /<script(?![^>]*src)[^>]*>([\s\S]*?)<\/script>/gi;
+              let m; let idx=0;
+              while((m=re.exec(html))!==null){idx++;const code=m[1].trim();if(!code)continue;scanCode(code,`${file}[script#${idx}]`,declared,result);}
             });
-
             return result;
           };
-
-          function scanCode(code, label, declared, result) {
-            try { new Function(code); } catch (e) {
-              result.syntaxErrors.push({ file: label, error: e.message });
-            }
-            if (/\beval\s*\(/.test(code))          result.dangerousCode.push({ file: label, type: 'eval' });
-            if (/document\.write\s*\(/.test(code)) result.dangerousCode.push({ file: label, type: 'document.write' });
-            if (/\.innerHTML\s*=(?!=)/.test(code)) result.dangerousCode.push({ file: label, type: 'innerHTML' });
-
-            const reqRe = /require\(['"`]([^'"`./][^'"`]*?)['"`]\)/g;
-            let rm;
-            while ((rm = reqRe.exec(code)) !== null) {
-              const fullPkg = rm[1].startsWith('@') ? rm[1].split('/').slice(0,2).join('/') : rm[1].split('/')[0];
-              if (!declared[fullPkg] && !isBuiltin(fullPkg)) {
-                result.missingDeps.push({ file: label, package: fullPkg });
-              }
-            }
-
-            const hasAsync = /async\s+function|=\s*async\s*\(|async\s+\(/.test(code);
-            const hasAwait = /\bawait\b/.test(code);
-            if (hasAsync && !/\.catch\s*\(|try\s*\{/.test(code)) result.asyncIssues.push({ file: label, type: 'unhandled_promise' });
-            if (hasAwait && !hasAsync) result.asyncIssues.push({ file: label, type: 'await_outside_async' });
-
-            const undefs = (code.match(/\bundefined\b/g) || []).length;
-            if (undefs > 3) result.undefinedVars.push({ file: label, count: undefs });
+          function scanCode(code,label,declared,result){
+            try{new Function(code);}catch(e){result.syntaxErrors.push({file:label,error:e.message});}
+            if(/\beval\s*\(/.test(code)) result.dangerousCode.push({file:label,type:'eval'});
+            if(/document\.write\s*\(/.test(code)) result.dangerousCode.push({file:label,type:'document.write'});
+            if(/\.innerHTML\s*=(?!=)/.test(code)) result.dangerousCode.push({file:label,type:'innerHTML'});
+            const reqRe=/require\(['"`]([^'"`./][^'"`]*?)['"`]\)/g;let rm;
+            while((rm=reqRe.exec(code))!==null){const fp=rm[1].startsWith('@')?rm[1].split('/').slice(0,2).join('/'):rm[1].split('/')[0];if(!declared[fp]&&!isBuiltin(fp))result.missingDeps.push({file:label,package:fp});}
+            const hasAsync=/async\s+function|=\s*async\s*\(|async\s+\(/.test(code);
+            const hasAwait=/\bawait\b/.test(code);
+            if(hasAsync&&!/\.catch\s*\(|try\s*\{/.test(code))result.asyncIssues.push({file:label,type:'unhandled_promise'});
+            if(hasAwait&&!hasAsync)result.asyncIssues.push({file:label,type:'await_outside_async'});
+            const u=(code.match(/\bundefined\b/g)||[]).length;
+            if(u>3)result.undefinedVars.push({file:label,count:u});
           }
+          function isBuiltin(n){return['fs','path','http','https','os','crypto','events','stream','util','child_process','process','url','querystring','assert','buffer','net','dns','readline','zlib','cluster','worker_threads'].includes(n);}
+          EOF
 
-          function isBuiltin(name) {
-            return ['fs','path','http','https','os','crypto','events','stream','util',
-              'child_process','process','url','querystring','assert','buffer',
-              'net','dns','readline','zlib','cluster','worker_threads'].includes(name);
-          }
-          ENDOFFILE
-
-      # =============================
-      # ai-engine.js 作成
-      # =============================
       - name: ai-engine.js 作成
         run: |
-          cat > ai-engine.js << 'ENDOFFILE'
-          // ai-engine.js - AI原因分析・修正コード生成エンジン
+          cat > ai-engine.js << 'EOF'
           const https = require('https');
-
-          module.exports = async function aiEngine(logs, scanResult, gitDiff) {
+          module.exports = async function aiEngine(logs, scanResult, gitDiff, visualResult) {
             const apiKey = process.env.ANTHROPIC_API_KEY;
-            if (!apiKey) {
-              console.warn('⚠️  ANTHROPIC_API_KEY が未設定です');
-              return { fixes: [], summary: 'API key not set', error: true };
-            }
-
-            const body = JSON.stringify({
-              model: 'claude-haiku-4-5-20251001',
-              max_tokens: 2000,
-              messages: [{ role: 'user', content: buildPrompt(logs, scanResult, gitDiff) }]
-            });
-
-            return new Promise((resolve) => {
-              const options = {
-                hostname: 'api.anthropic.com',
-                path: '/v1/messages',
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'x-api-key': apiKey,
-                  'anthropic-version': '2023-06-01',
-                  'Content-Length': Buffer.byteLength(body)
-                }
-              };
-              const req = https.request(options, (res) => {
-                let data = '';
-                res.on('data', chunk => data += chunk);
-                res.on('end', () => {
-                  try {
-                    const response = JSON.parse(data);
-                    const text = response.content?.[0]?.text || '';
-                    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/(\{[\s\S]*\})/);
-                    if (jsonMatch) resolve(JSON.parse(jsonMatch[1]));
-                    else resolve({ fixes: [], summary: text, rawResponse: true });
-                  } catch (e) {
-                    resolve({ fixes: [], summary: 'Parse error: ' + e.message, error: true });
-                  }
-                });
-              });
-              req.on('error', (e) => resolve({ fixes: [], summary: 'Request error: ' + e.message, error: true }));
-              req.write(body);
-              req.end();
+            if(!apiKey){console.warn('⚠️  ANTHROPIC_API_KEY が未設定です');return{fixes:[],summary:'API key not set',error:true};}
+            const body = JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:2000,messages:[{role:'user',content:buildPrompt(logs,scanResult,gitDiff,visualResult)}]});
+            return new Promise((resolve)=>{
+              const options={hostname:'api.anthropic.com',path:'/v1/messages',method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','Content-Length':Buffer.byteLength(body)}};
+              const req=https.request(options,(res)=>{let data='';res.on('data',chunk=>data+=chunk);res.on('end',()=>{try{const r=JSON.parse(data);const t=r.content?.[0]?.text||'';const m=t.match(/```json\s*([\s\S]*?)\s*```/)||t.match(/(\{[\s\S]*\})/);if(m)resolve(JSON.parse(m[1]));else resolve({fixes:[],summary:t,rawResponse:true});}catch(e){resolve({fixes:[],summary:'Parse error: '+e.message,error:true});}});});
+              req.on('error',(e)=>resolve({fixes:[],summary:'Request error: '+e.message,error:true}));
+              req.write(body);req.end();
             });
           };
-
-          function buildPrompt(logs, scanResult, gitDiff) {
-            return `You are a JavaScript/HTML auto-repair AI for a Japanese agricultural machinery management web app.
-          ## Runtime Errors
-          ${JSON.stringify(logs, null, 2)}
-          ## Static Analysis
-          ${JSON.stringify(scanResult, null, 2)}
-          ## Git Diff
-          ${gitDiff ? gitDiff.slice(0, 3000) : 'Not available'}
-          Respond ONLY with valid JSON:
-          {"summary":"根本原因","severity":"low|medium|high","fixes":[{"type":"add_function|fix_dom|fix_import|fix_syntax|add_stub","target":"index.html","description":"説明","code":"コード","oldCode":"置換前(fix_syntaxのみ)"}]}`;
+          function buildPrompt(logs,scanResult,gitDiff,visualResult){
+            const ui=visualResult?`\n## UI解析結果\nスコア: ${visualResult.score||'N/A'}\nサマリー: ${visualResult.summary||'なし'}\nUI問題:\n${(visualResult.issues||[]).map((issue,i)=>`[${i}] ${issue.severity}/${issue.type}: ${issue.description} → ${issue.suggestion}`).join('\n')||'なし'}`:'';
+            return `あなたは農業機械管理Webアプリ「農機管理PRO」の自動修復AIです。\n## Runtime エラー\n${JSON.stringify(logs,null,2)}\n## 静的解析\n${JSON.stringify(scanResult,null,2)}${ui}\n## Git Diff\n${gitDiff?gitDiff.slice(0,3000):'Not available'}\n必ずJSON形式のみで回答:\n{"summary":"根本原因","severity":"low|medium|high","fixes":[{"type":"add_function|fix_dom|fix_import|fix_syntax|add_stub","target":"index.html","description":"説明","code":"コード","oldCode":"置換前(fix_syntaxのみ)"}]}`;
           }
-          ENDOFFILE
+          EOF
 
-      # =============================
-      # patcher.js 作成
-      # =============================
       - name: patcher.js 作成
         run: |
-          cat > patcher.js << 'ENDOFFILE'
-          // patcher.js - 自動修復エンジン
-          const fs   = require('fs');
-          const path = require('path');
-
-          module.exports = function patcher(projectDir, aiResult) {
-            const applied = [], errors = [];
-            if (!aiResult?.fixes?.length) return { applied, errors, message: '適用する修正がありません' };
-
-            aiResult.fixes.forEach((fix, i) => {
-              try {
-                const targetPath = path.join(projectDir, fix.target);
-                if (!fs.existsSync(targetPath)) { errors.push({ index: i, error: `ファイルが見つかりません: ${fix.target}` }); return; }
-                let content = fs.readFileSync(targetPath, 'utf8');
-                const before = content;
-
-                switch (fix.type) {
-                  case 'add_function': case 'add_stub':
-                    if (fix.target.endsWith('.html')) {
-                      content = content.includes('</script>')
-                        ? content.replace(/(<\/script>)(?![\s\S]*<\/script>)/, `${fix.code}\n$1`)
-                        : content + `\n<script>\n${fix.code}\n</script>`;
-                    } else { content += '\n\n' + fix.code; }
-                    break;
-                  case 'fix_dom':
-                    content = content.includes('</body>')
-                      ? content.replace('</body>', `${fix.code}\n</body>`)
-                      : content + '\n' + fix.code;
-                    break;
-                  case 'fix_import':
-                    content = fix.code + '\n' + content;
-                    break;
-                  case 'fix_syntax':
-                    content = (fix.oldCode && content.includes(fix.oldCode))
-                      ? content.split(fix.oldCode).join(fix.code)
-                      : content + `\n/* AUTO-FIX:\n${fix.code}\n*/`;
-                    break;
-                  default: content += '\n' + fix.code;
+          cat > patcher.js << 'EOF'
+          const fs=require('fs');const path=require('path');
+          module.exports=function patcher(projectDir,aiResult){
+            const applied=[],errors=[];
+            if(!aiResult?.fixes?.length)return{applied,errors,message:'適用する修正がありません'};
+            aiResult.fixes.forEach((fix,i)=>{
+              try{
+                const tp=path.join(projectDir,fix.target);
+                if(!fs.existsSync(tp)){errors.push({index:i,error:`ファイルが見つかりません: ${fix.target}`});return;}
+                let c=fs.readFileSync(tp,'utf8');const before=c;
+                switch(fix.type){
+                  case 'add_function':case 'add_stub':
+                    if(fix.target.endsWith('.html')){c=c.includes('</script>')?c.replace(/(<\/script>)(?![\s\S]*<\/script>)/,`${fix.code}\n$1`):c+`\n<script>\n${fix.code}\n</script>`;}else{c+='\n\n'+fix.code;}break;
+                  case 'fix_dom':c=c.includes('</body>')?c.replace('</body>',`${fix.code}\n</body>`):c+'\n'+fix.code;break;
+                  case 'fix_import':c=fix.code+'\n'+c;break;
+                  case 'fix_syntax':c=(fix.oldCode&&c.includes(fix.oldCode))?c.split(fix.oldCode).join(fix.code):c+`\n/* AUTO-FIX:\n${fix.code}\n*/`;break;
+                  default:c+='\n'+fix.code;
                 }
-
-                if (content !== before) {
-                  fs.writeFileSync(targetPath, content, 'utf8');
-                  applied.push({ index: i, type: fix.type, target: fix.target, description: fix.description });
-                  console.log(`  ✅ [${i}] ${fix.type} → ${fix.target}`);
-                } else {
-                  errors.push({ index: i, error: '変更なし' });
-                }
-              } catch (e) { errors.push({ index: i, error: e.message }); }
+                if(c!==before){fs.writeFileSync(tp,c,'utf8');applied.push({index:i,type:fix.type,target:fix.target,description:fix.description});console.log(`  ✅ [${i}] ${fix.type} → ${fix.target}`);}
+                else{errors.push({index:i,error:'変更なし'});}
+              }catch(e){errors.push({index:i,error:e.message});}
             });
-            return { applied, errors };
+            return{applied,errors};
           };
-          ENDOFFILE
+          EOF
 
-      # =============================
-      # 既存ファイル上書き: test.js
-      # =============================
-      - name: test.js 上書き
+      - name: visual-checker.js 作成
         run: |
-          cat > test.js << 'ENDOFFILE'
-          const puppeteer  = require('puppeteer');
-          const fs         = require('fs');
-          const path       = require('path');
-          const scanner    = require('./scanner');
-          const analyzer   = require('./analyzer');
-          const aiEngine   = require('./ai-engine');
-          const patcher    = require('./patcher');
-          const createDiff = require('./diff');
-
-          const logDir = path.join(__dirname, 'logs');
-          fs.mkdirSync(logDir, { recursive: true });
-
-          const logs = { errors: [], domMissing: [], functionMissing: [], console: [] };
-
-          (async () => {
-            console.log('\n🔍 Phase 1: 静的解析...');
-            const scanResult = scanner(__dirname);
-            save('scan.json', scanResult);
-
-            let gitDiff = '';
-            const diffPath = process.env.GIT_DIFF_FILE;
-            if (diffPath && fs.existsSync(diffPath)) gitDiff = fs.readFileSync(diffPath, 'utf8');
-
-            console.log('\n🌐 Phase 2: Runtimeテスト...');
-            const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-            const page = await browser.newPage();
-            page.on('console', msg => { logs.console.push(msg.text()); if (msg.type() === 'error') logs.errors.push(msg.text()); });
-            page.on('pageerror', err => logs.errors.push(err.toString()));
-            try {
-              await page.goto('http://localhost:3000', { waitUntil: 'domcontentloaded', timeout: 30000 });
-              logs.domMissing      = await page.evaluate(() => ['toName','subject','estDate','itemTable','preview'].filter(id => !document.getElementById(id)));
-              logs.functionMissing = await page.evaluate(() => ['openQuoteEditor','calcTotal','buildEstHTML'].filter(f => typeof window[f] !== 'function'));
-            } catch (e) { logs.errors.push('Navigation error: ' + e.message); }
-            await browser.close();
-            save('raw.json', logs);
-
-            console.log('\n📊 Phase 3: 原因分析...');
-            const analysis = analyzer(logs, scanResult);
-            save('analysis.json', analysis);
-
-            console.log('\n🤖 Phase 4: AI修正生成...');
-            const aiResult = await aiEngine(logs, scanResult, gitDiff);
-            save('ai-result.json', aiResult);
-
-            console.log('\n🔧 Phase 5: パッチ適用...');
-            const htmlPath    = path.join(__dirname, 'index.html');
-            const originalHtml = fs.existsSync(htmlPath) ? fs.readFileSync(htmlPath, 'utf8') : '';
-            const patchResult = patcher(__dirname, aiResult);
-            save('patch-result.json', patchResult);
-
-            if (originalHtml && fs.existsSync(htmlPath)) {
-              const patched = fs.readFileSync(htmlPath, 'utf8');
-              if (originalHtml !== patched) fs.writeFileSync(path.join(logDir, 'diff.txt'), createDiff(originalHtml, patched));
-            }
-
-            const summary = {
-              phase1_staticIssues: Object.values(scanResult).flat().length,
-              phase2_runtimeErrors: logs.errors.length,
-              phase4_fixesGenerated: aiResult.fixes?.length || 0,
-              phase5_applied: patchResult.applied.length
-            };
-            save('summary.json', summary);
-            console.log('\n✅ 完了:', JSON.stringify(summary, null, 2));
-          })().catch(err => { console.error('Fatal:', err); process.exit(1); });
-
-          function save(name, data) { fs.writeFileSync(path.join(logDir, name), JSON.stringify(data, null, 2)); }
-          ENDOFFILE
-
-      # =============================
-      # 既存ファイル上書き: analyzer.js
-      # =============================
-      - name: analyzer.js 上書き
-        run: |
-          cat > analyzer.js << 'ENDOFFILE'
-          module.exports = function analyze(logs, scanResult) {
-            const result = { type: [], severity: 'low', details: {} };
-            if (logs.domMissing?.length)      { result.type.push('DOM_MISSING');      result.details.domMissing = logs.domMissing; }
-            if (logs.functionMissing?.length)  { result.type.push('FUNCTION_MISSING'); result.details.functionMissing = logs.functionMissing; }
-            logs.errors.forEach(e => {
-              if (e.includes('Cannot read'))        result.type.push('NULL_ACCESS');
-              if (e.includes('is not defined'))     result.type.push('REFERENCE_ERROR');
-              if (e.includes('Unexpected token'))   result.type.push('SYNTAX_ERROR');
-              if (e.includes('Cannot find module')) result.type.push('MISSING_MODULE');
-            });
-            if (scanResult) {
-              if (scanResult.syntaxErrors?.length)  { result.type.push('STATIC_SYNTAX_ERROR'); result.details.syntaxErrors = scanResult.syntaxErrors; }
-              if (scanResult.missingDeps?.length)   { result.type.push('MISSING_DEPENDENCY');  result.details.missingDeps  = scanResult.missingDeps; }
-              if (scanResult.asyncIssues?.length)   { result.type.push('ASYNC_BUG');           result.details.asyncIssues  = scanResult.asyncIssues; }
-              if (scanResult.dangerousCode?.length) { result.type.push('DANGEROUS_CODE');      result.details.dangerousCode = scanResult.dangerousCode; }
-            }
-            result.type = [...new Set(result.type)];
-            if (result.type.length >= 4) result.severity = 'high';
-            else if (result.type.length >= 2) result.severity = 'medium';
+          cat > visual-checker.js << 'EOF'
+          const https=require('https');const fs=require('fs');const path=require('path');
+          module.exports=async function visualCheck(page,logDir,apiKey){
+            const result={screenshots:[],issues:[],summary:'',error:null};
+            try{
+              const fp=path.join(logDir,'screenshot-full.png');
+              await page.screenshot({path:fp,fullPage:true});
+              result.screenshots.push('screenshot-full.png');
+              const vp=path.join(logDir,'screenshot-view.png');
+              await page.screenshot({path:vp,fullPage:false});
+              result.screenshots.push('screenshot-view.png');
+              console.log('  📸 スクリーンショット撮影完了');
+            }catch(e){result.error='スクリーンショット撮影失敗: '+e.message;console.error('  ❌',result.error);return result;}
+            if(!apiKey){result.error='ANTHROPIC_API_KEY が未設定のためAI解析をスキップ';console.warn('  ⚠️',result.error);return result;}
+            try{
+              const imgPath=path.join(logDir,'screenshot-view.png');
+              const imgBase64=fs.readFileSync(imgPath).toString('base64');
+              const analysis=await analyzeImage(imgBase64,apiKey);
+              result.issues=analysis.issues||[];result.summary=analysis.summary||'';result.score=analysis.score;
+              console.log(`  🤖 UI解析完了: ${result.issues.length}件の問題を検出`);
+            }catch(e){result.error='AI画像解析失敗: '+e.message;console.error('  ❌',result.error);}
             return result;
           };
-          ENDOFFILE
+          function analyzeImage(base64,apiKey){
+            const body=JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1500,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/png',data:base64}},{type:'text',text:'あなたは農業機械管理Webアプリ「農機管理PRO」のUIレビュアーです。このスクリーンショットを見て以下をチェックしてください。\n- レイアウトが崩れていないか\n- ボタンや入力欄が正しく表示されているか\n- テキストが見切れていないか\n- 見積書の表示エリアが正しいか\n- テーブル・リストが正しく表示されているか\n必ずJSON形式のみで回答（マークダウン不要）:\n{"summary":"全体評価","score":0-100,"issues":[{"type":"layout|button|text|table|other","severity":"low|medium|high","description":"問題の説明","suggestion":"改善提案"}]}'}]}]});
+            return new Promise((resolve)=>{
+              const options={hostname:'api.anthropic.com',path:'/v1/messages',method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','Content-Length':Buffer.byteLength(body)}};
+              const req=https.request(options,(res)=>{let data='';res.on('data',chunk=>data+=chunk);res.on('end',()=>{try{const r=JSON.parse(data);const t=r.content?.[0]?.text||'';const m=t.match(/```json\s*([\s\S]*?)\s*```/)||t.match(/(\{[\s\S]*\})/);if(m)resolve(JSON.parse(m[1]));else resolve({summary:t,issues:[]});}catch(e){resolve({summary:'Parse error: '+e.message,issues:[]});}});});
+              req.on('error',(e)=>resolve({summary:'Request error: '+e.message,issues:[]}));
+              req.write(body);req.end();
+            });
+          }
+          EOF
 
-      # =============================
-      # 既存ファイル上書き: package.json
-      # =============================
+      - name: test.js 上書き
+        run: |
+          cat > test.js << 'EOF'
+          const puppeteer=require('puppeteer');const fs=require('fs');const path=require('path');
+          const scanner=require('./scanner');const analyzer=require('./analyzer');
+          const aiEngine=require('./ai-engine');const patcher=require('./patcher');
+          const createDiff=require('./diff');const visualChecker=require('./visual-checker');
+          const logDir=path.join(__dirname,'logs');fs.mkdirSync(logDir,{recursive:true});
+          const logs={errors:[],domMissing:[],functionMissing:[],console:[]};
+          (async()=>{
+            console.log('\n🔍 Phase 1: 静的解析...');
+            const scanResult=scanner(__dirname);save('scan.json',scanResult);
+            let gitDiff='';const diffPath=process.env.GIT_DIFF_FILE;
+            if(diffPath&&fs.existsSync(diffPath))gitDiff=fs.readFileSync(diffPath,'utf8');
+            console.log('\n🌐 Phase 2: Runtimeテスト...');
+            const browser=await puppeteer.launch({headless:true,args:['--no-sandbox','--disable-setuid-sandbox']});
+            const page=await browser.newPage();
+            await page.setViewport({width:390,height:844});
+            page.on('console',msg=>{logs.console.push(msg.text());if(msg.type()==='error')logs.errors.push(msg.text());});
+            page.on('pageerror',err=>logs.errors.push(err.toString()));
+            try{
+              await page.goto('http://localhost:3000',{waitUntil:'networkidle0',timeout:30000});
+              logs.domMissing=await page.evaluate(()=>['toName','subject','estDate','itemTable','preview'].filter(id=>!document.getElementById(id)));
+              logs.functionMissing=await page.evaluate(()=>['openQuoteEditor','calcTotal','buildEstHTML'].filter(f=>typeof window[f]!=='function'));
+            }catch(e){logs.errors.push('Navigation error: '+e.message);}
+            save('raw.json',logs);
+            console.log('\n📸 Phase 2.5: UI解析...');
+            const apiKey=process.env.ANTHROPIC_API_KEY;
+            const visualResult=await visualChecker(page,logDir,apiKey);
+            save('visual.json',visualResult);
+            if(visualResult.issues.length>0){console.log(`   UI問題: ${visualResult.issues.length}件`);visualResult.issues.forEach((issue,i)=>console.log(`   [${i}] ${issue.severity} ${issue.type}: ${issue.description}`));}
+            else{console.log('   UI問題: なし ✅');}
+            await browser.close();
+            console.log('\n📊 Phase 3: 原因分析...');
+            const analysis=analyzer(logs,scanResult);save('analysis.json',analysis);
+            console.log('\n🤖 Phase 4: AI修正生成...');
+            const aiResult=await aiEngine(logs,scanResult,gitDiff,visualResult);save('ai-result.json',aiResult);
+            console.log('\n🔧 Phase 5: パッチ適用...');
+            const htmlPath=path.join(__dirname,'index.html');
+            const originalHtml=fs.existsSync(htmlPath)?fs.readFileSync(htmlPath,'utf8'):'';
+            const patchResult=patcher(__dirname,aiResult);save('patch-result.json',patchResult);
+            if(originalHtml&&fs.existsSync(htmlPath)){const p=fs.readFileSync(htmlPath,'utf8');if(originalHtml!==p)fs.writeFileSync(path.join(logDir,'diff.txt'),createDiff(originalHtml,p));}
+            const summary={phase1_staticIssues:Object.values(scanResult).flat().length,phase2_runtimeErrors:logs.errors.length,phase25_uiIssues:visualResult.issues.length,phase25_uiScore:visualResult.score||'N/A',phase4_fixesGenerated:aiResult.fixes?.length||0,phase5_applied:patchResult.applied.length};
+            save('summary.json',summary);console.log('\n✅ 完了:',JSON.stringify(summary,null,2));
+          })().catch(err=>{console.error('Fatal:',err);process.exit(1);});
+          function save(name,data){fs.writeFileSync(path.join(logDir,name),JSON.stringify(data,null,2));}
+          EOF
+
+      - name: analyzer.js 上書き
+        run: |
+          cat > analyzer.js << 'EOF'
+          module.exports=function analyze(logs,scanResult){
+            const result={type:[],severity:'low',details:{}};
+            if(logs.domMissing?.length){result.type.push('DOM_MISSING');result.details.domMissing=logs.domMissing;}
+            if(logs.functionMissing?.length){result.type.push('FUNCTION_MISSING');result.details.functionMissing=logs.functionMissing;}
+            logs.errors.forEach(e=>{
+              if(e.includes('Cannot read'))result.type.push('NULL_ACCESS');
+              if(e.includes('is not defined'))result.type.push('REFERENCE_ERROR');
+              if(e.includes('Unexpected token'))result.type.push('SYNTAX_ERROR');
+              if(e.includes('Cannot find module'))result.type.push('MISSING_MODULE');
+            });
+            if(scanResult){
+              if(scanResult.syntaxErrors?.length){result.type.push('STATIC_SYNTAX_ERROR');result.details.syntaxErrors=scanResult.syntaxErrors;}
+              if(scanResult.missingDeps?.length){result.type.push('MISSING_DEPENDENCY');result.details.missingDeps=scanResult.missingDeps;}
+              if(scanResult.asyncIssues?.length){result.type.push('ASYNC_BUG');result.details.asyncIssues=scanResult.asyncIssues;}
+              if(scanResult.dangerousCode?.length){result.type.push('DANGEROUS_CODE');result.details.dangerousCode=scanResult.dangerousCode;}
+            }
+            result.type=[...new Set(result.type)];
+            if(result.type.length>=4)result.severity='high';
+            else if(result.type.length>=2)result.severity='medium';
+            return result;
+          };
+          EOF
+
       - name: package.json 上書き
         run: |
-          cat > package.json << 'ENDOFFILE'
+          cat > package.json << 'EOF'
           {
             "name": "estimate-auto-diagnostic-test",
             "version": "1.0.0",
@@ -354,22 +232,20 @@ jobs:
               "http-server": "^14.1.1"
             }
           }
-          ENDOFFILE
+          EOF
 
-      # =============================
-      # .gitignore に logs/ を追記
-      # =============================
       - name: .gitignore 更新
         run: |
-          grep -qxF 'logs/' .gitignore 2>/dev/null || echo 'logs/' >> .gitignore
+          cat > .gitignore << 'EOF'
+          logs/
+          node_modules/
+          package-lock.json
+          EOF
 
-      # =============================
-      # コミット＆プッシュ
-      # =============================
       - name: コミット＆プッシュ
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add scanner.js ai-engine.js patcher.js test.js analyzer.js package.json .gitignore
-          git diff --cached --quiet || git commit -m "🤖 セットアップ: 自動診断システム ファイル一式追加"
+          git add scanner.js ai-engine.js patcher.js visual-checker.js test.js analyzer.js package.json .gitignore
+          git diff --cached --quiet || git commit -m "🤖 セットアップ: UI解析機能追加"
           git push
