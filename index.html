@@ -859,6 +859,25 @@ function renderAll(){
 function changeTab(i){currentTab=i;renderAll();}
 function buildMachineStr(n,m,mo){let s='';if(m)s+=m+' ';if(n)s+=n+' ';if(mo)s+=mo;return s.trim();}
 function renderHome(){
+  if(searchQuery){
+    const q=searchQuery;const hit=(arr,fields)=>arr.filter(x=>fields.some(f=>(x[f]||'').toLowerCase().includes(q)));
+    const rR=hit(DB.repairs,['customerName','machine','maker','model','issue','serialNo']);
+    const rP=hit(DB.products,['customer','productName','maker','model','serialNo']);
+    const rPt=hit(DB.parts,['customerName','name','maker','partNo']);
+    const rD=hit(DB.demos,['customerName','targetMachine','maker','model','targetMachine2','targetMachine3']);
+    const rC=hit(DB.customers,['name','phone','address','memo']);
+    const tot=rR.length+rP.length+rPt.length+rD.length+rC.length;
+    let h='<div style="margin-bottom:12px;font-size:13px;font-weight:900;color:var(--text);">🔍 「'+searchQuery+'」の検索結果 '+tot+'件</div>';
+    if(!tot)return h+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">該当する項目がありません</div>';
+    const sec=(title,color,items,renderFn)=>{if(!items.length)return '';let s='<div style="margin-top:12px;margin-bottom:6px;font-size:12px;font-weight:900;color:'+color+';">'+title+' '+items.length+'件</div>';items.forEach(renderFn.bind(null,(x)=>{s+=x;}));return s;};
+    const card=(bc,id,tab,title,sub,status,dlabel,dval)=>'<div class="card" onclick="openEdit(\''+id+'\','+tab+')" style="border-left:4px solid '+bc+';margin-bottom:7px;"><div style="font-weight:bold;font-size:14px;margin-bottom:3px;">'+title+'</div>'+(sub?'<div style="font-size:11px;color:var(--text-sub);margin-bottom:4px;">'+sub+'</div>':'')+'<div style="display:flex;justify-content:space-between;align-items:center;">'+(status?'<span class="badge" style="background:'+(STATUS_COLORS[status]||'#95a5a6')+';display:inline-block;">'+status+'</span>':'<span></span>')+(dval?'<span style="font-size:10px;color:var(--text-sub);">'+dlabel+dval+'</span>':'')+'</div></div>';
+    if(rR.length){h+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:#e74c3c;">🔧 修理 '+rR.length+'件</div>';rR.forEach(x=>{h+=card('#e74c3c',x.id,2,(x.customerName||'')+' - '+(buildMachineStr(x.machine,x.maker,x.model)||'機械未入力'),x.issue||'',x.status,'納期: ',x.dueDate);});}
+    if(rP.length){h+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:#27ae60;">🚜 製品 '+rP.length+'件</div>';rP.forEach(x=>{h+=card('#27ae60',x.id,5,(x.customer||'')+' - '+x.productName,'型式: '+(x.model||'-'),x.status,'納品予定: ',x.deliveryDate);});}
+    if(rPt.length){h+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:#f39c12;">⚙️ 部品 '+rPt.length+'件</div>';rPt.forEach(x=>{h+=card('#f39c12',x.id,4,(x.customerName?x.customerName+' - ':'')+(x.maker?x.maker+' ':'')+x.name,'品番: '+(x.partNo||'-'),x.status,'発注日: ',x.orderDate);});}
+    if(rD.length){h+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:#9b59b6;">🌾 実演 '+rD.length+'件</div>';rD.forEach(x=>{h+=card('#9b59b6',x.id,3,(x.customerName||'')+' - '+(buildMachineStr(x.targetMachine,x.maker,x.model)||'未定'),'',x.status,'予定日: ',x.date);});}
+    if(rC.length){h+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:#2980b9;">👤 顧客 '+rC.length+'件</div>';rC.forEach(x=>{h+=card('#2980b9',x.id,1,x.name+' 様',x.phone?'📞 '+x.phone:'','','','');});}
+    return h;
+  }
   if(calViewActive){
     const today=new Date(),todayStr=today.toISOString().slice(0,10);
     const evs={};
