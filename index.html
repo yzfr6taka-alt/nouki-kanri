@@ -157,6 +157,12 @@ table.items td input{width:100%;border:none;background:transparent;padding:5px 4
 <button onclick="openApiKey()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:10px;padding:7px 8px;font-size:13px;margin-left:1px;">🔑</button>
 </div>
 <div class="tab-wrap" id="tabBar"></div>
+<div id="searchWrap" style="background:var(--main);padding:0 12px 10px;">
+<div style="position:relative;">
+<input type="text" id="globalSearch" placeholder="🔍 顧客名・機械名・型式を横断検索" style="width:100%;padding:8px 36px 8px 12px;border:none;border-radius:10px;font-size:13px;background:rgba(255,255,255,.13);color:#fff;font-family:inherit;" oninput="updateSearch(this.value)">
+<button id="srchClearBtn" onclick="clearSearch()" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:rgba(255,255,255,.7);font-size:17px;cursor:pointer;padding:0;line-height:1;">✕</button>
+</div>
+</div>
 </div>
 <div style="padding:16px 13px 60px;" id="content_main"></div>
 <div style="padding:16px 13px 60px;display:none;" id="content_quote_editor">
@@ -348,6 +354,7 @@ let currentTab=0;
 const STATUS_COLORS={'修理依頼':'#e74c3c','見積中':'#9b59b6','部品待ち':'#f39c12','修理中':'#e67e22','完了(未請求)':'#3498db','請求済':'#95a5a6','実演予定':'#f39c12','実施済':'#3498db','見積提示中':'#9b59b6','成約':'#27ae60','発注前':'#e74c3c','発注済':'#e67e22','入荷済':'#f39c12','納品済':'#3498db','完了':'#27ae60','請求済み':'#95a5a6','商談中':'#9b59b6','受注':'#e67e22','納品(納車)済':'#3498db'};
 let DB={settings:[{id:1,targetSales:10000000,currentSales:0}],customers:[],repairs:[],demos:[],parts:[],products:[],quotes:[],lastModified:new Date().toISOString()};
 let apiKey='',gasUrl='',syncTimer=null,isSyncing=false;
+let searchQuery='';let calViewActive=false;let calYear=new Date().getFullYear();let calMonth=new Date().getMonth();
 function hasAnyData(){return['customers','repairs','demos','parts','products'].some(k=>Array.isArray(DB[k])&&DB[k].length>0);}
 function saveDB(){const now=Date.now(),cur=new Date(DB.lastModified||0).getTime();DB.lastModified=new Date(Math.max(now,cur+1000)).toISOString();try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}saveEmergencyBackup();scheduleSync();}
 function saveEmergencyBackup(){if(!hasAnyData())return;try{const sn={data:DB,savedAt:new Date().toISOString()};localStorage.setItem('agri_emergency_backup',JSON.stringify(sn));const hk='agri_backup_'+new Date().toISOString().slice(0,13).replace('T','_');localStorage.setItem(hk,JSON.stringify(sn));const keys=Object.keys(localStorage).filter(k=>k.startsWith('agri_backup_')).sort();if(keys.length>24)keys.slice(0,keys.length-24).forEach(k=>localStorage.removeItem(k));}catch(e){}}
@@ -841,6 +848,8 @@ async function runScanQuote(event){
   event.target.value='';
 }
 
+function updateSearch(v){searchQuery=v.trim().toLowerCase();const cb=document.getElementById('srchClearBtn');if(cb)cb.style.display=searchQuery?'block':'none';renderAll();}
+function clearSearch(){searchQuery='';const gi=document.getElementById('globalSearch');if(gi)gi.value='';const cb=document.getElementById('srchClearBtn');if(cb)cb.style.display='none';renderAll();}
 function renderAll(){
   let h='';for(let i=0;i<TABS.length;i++)h+='<button class="tab-btn '+(currentTab===i?'active':'')+'" onclick="changeTab('+i+')">'+TABS[i]+'</button>';
   document.getElementById('tabBar').innerHTML=h;
@@ -850,9 +859,49 @@ function renderAll(){
 function changeTab(i){currentTab=i;renderAll();}
 function buildMachineStr(n,m,mo){let s='';if(m)s+=m+' ';if(n)s+=n+' ';if(mo)s+=mo;return s.trim();}
 function renderHome(){
+  if(calViewActive){
+    const today=new Date(),todayStr=today.toISOString().slice(0,10);
+    const evs={};
+    const addEv=(dateStr,color,label,id,tab,status)=>{if(!dateStr)return;if(!evs[dateStr])evs[dateStr]=[];evs[dateStr].push({color,label,id,tab,status});};
+    DB.repairs.filter(r=>!['請求済','完了(未請求)'].includes(r.status)).forEach(r=>addEv(r.dueDate,'#e74c3c',(r.customerName||'')+' '+(r.machine||''),r.id,2,r.status));
+    DB.demos.filter(d=>!['実施済','成約'].includes(d.status)).forEach(d=>addEv(d.date,'#9b59b6',(d.customerName||'')+' '+(d.targetMachine||''),d.id,3,d.status));
+    DB.products.filter(p=>!['完了','請求済','請求済み','納品(納車)済'].includes(p.status)).forEach(p=>addEv(p.deliveryDate,'#27ae60',(p.customer||'')+' '+(p.productName||''),p.id,5,p.status));
+    const mn=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+    const first=new Date(calYear,calMonth,1),last=new Date(calYear,calMonth+1,0);
+    let h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
+    h+='<button onclick="calViewActive=false;renderAll()" style="background:none;border:1.5px solid var(--border);color:var(--text);border-radius:10px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;">← ホームに戻る</button>';
+    h+='<div style="font-size:13px;font-weight:900;color:var(--text);">📅 納期カレンダー</div><div></div></div>';
+    h+='<div style="background:var(--card-bg);border-radius:14px;overflow:hidden;border:1.5px solid var(--border);">';
+    h+='<div style="background:var(--main);color:#fff;padding:11px 14px;display:flex;align-items:center;justify-content:space-between;">';
+    h+='<button onclick="calNav(-1)" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:7px 14px;font-size:15px;cursor:pointer;">◀</button>';
+    h+='<span style="font-weight:900;font-size:16px;">'+calYear+'年 '+mn[calMonth]+'</span>';
+    h+='<button onclick="calNav(1)" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:7px 14px;font-size:15px;cursor:pointer;">▶</button></div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(7,1fr);background:var(--input-bg);">';
+    ['日','月','火','水','木','金','土'].forEach((d,i)=>{h+='<div style="text-align:center;padding:5px 1px;font-size:10px;font-weight:700;color:'+(i===0?'#e74c3c':i===6?'#2980b9':'var(--text-sub)')+';">'+d+'</div>';});
+    h+='</div><div style="display:grid;grid-template-columns:repeat(7,1fr);border-top:1px solid var(--border);">';
+    for(let i=0;i<first.getDay();i++)h+='<div style="min-height:48px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--input-bg);opacity:.4;"></div>';
+    for(let d=1;d<=last.getDate();d++){
+      const ds=calYear+'-'+String(calMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+      const de=evs[ds]||[];const isTd=ds===todayStr;const dow=new Date(calYear,calMonth,d).getDay();
+      const clickable=de.length?'onclick="showDayEvents(\''+ds+'\')" style="cursor:pointer;"':'';
+      h+='<div '+clickable+' style="min-height:48px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:2px;'+(isTd?'background:#dbeeff;':'')+(de.length?'':'')+(dow===0||dow===6?'background-color:'+(isTd?'#dbeeff':'rgba(52,152,219,.04)')+'':'')+'">';
+      h+='<div style="font-size:10px;font-weight:'+(isTd?'900':'500')+';color:'+(isTd?'#1a6db5':dow===0?'#e74c3c':dow===6?'#2980b9':'var(--text)')+';text-align:center;margin-bottom:1px;">'+d+'</div>';
+      de.slice(0,2).forEach(ev=>{h+='<div style="background:'+ev.color+';border-radius:2px;padding:1px 2px;font-size:8px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:1px;">'+ev.label.slice(0,7)+'</div>';});
+      if(de.length>2)h+='<div style="font-size:8px;color:var(--text-sub);text-align:center;">+'+( de.length-2)+'</div>';
+      h+='</div>';
+    }
+    const rem=(first.getDay()+last.getDate())%7;if(rem>0)for(let i=0;i<7-rem;i++)h+='<div style="min-height:48px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--input-bg);opacity:.4;"></div>';
+    h+='</div>';
+    h+='<div style="padding:8px 12px;display:flex;gap:10px;flex-wrap:wrap;border-top:1px solid var(--border);">';
+    h+='<span style="font-size:10px;display:flex;align-items:center;gap:3px;"><span style="background:#e74c3c;border-radius:2px;width:10px;height:10px;display:inline-block;"></span>修理納期</span>';
+    h+='<span style="font-size:10px;display:flex;align-items:center;gap:3px;"><span style="background:#9b59b6;border-radius:2px;width:10px;height:10px;display:inline-block;"></span>実演予定</span>';
+    h+='<span style="font-size:10px;display:flex;align-items:center;gap:3px;"><span style="background:#27ae60;border-radius:2px;width:10px;height:10px;display:inline-block;"></span>納品予定</span></div></div>';
+    return h;
+  }
   let target=10000000,current=0;if(DB.settings?.[0]){target=Number(DB.settings[0].targetSales)||10000000;current=Number(DB.settings[0].currentSales)||0;}
   const progress=Math.min((current/target)*100,100)||0;
   let html='<div class="dash-card"><div style="display:flex;justify-content:space-between;margin-bottom:10px;"><span>売上目標進捗</span><span style="font-weight:900;">'+progress.toFixed(1)+'%</span></div><div style="background:rgba(255,255,255,0.2);height:10px;border-radius:5px;"><div style="background:#fff;height:100%;border-radius:5px;width:'+progress+'%;"></div></div><div style="display:flex;justify-content:space-between;font-size:11px;margin-top:8px;"><span>現在: ¥'+current.toLocaleString()+'</span><span>目標: ¥'+target.toLocaleString()+'</span></div></div>';
+  html+='<button onclick="calViewActive=true;calYear=new Date().getFullYear();calMonth=new Date().getMonth();renderAll()" style="width:100%;background:var(--card-bg);border:1.5px solid var(--border);color:var(--text);border-radius:12px;padding:11px;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:6px;">📅 納期カレンダーを開く</button>';
   const rA=DB.repairs.filter(r=>r.status==='修理依頼'||r.status==='部品待ち'||r.status==='修理中').sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999'));
   const pA=DB.products.filter(p=>p.status==='商談中'||p.status==='受注'||p.status==='発注済'||p.status==='入荷済').sort((a,b)=>(a.deliveryDate||'9999').localeCompare(b.deliveryDate||'9999'));
   const ptA=DB.parts.filter(p=>p.status==='発注前'||p.status==='発注済'||p.status==='入荷済').sort((a,b)=>(a.orderDate||'9999').localeCompare(b.orderDate||'9999'));
@@ -865,11 +914,107 @@ function renderHome(){
   if(dA.length){html+='<div style="'+ss+'"><span style="'+sts+'">🌾 実演</span>'+cb(dA.length,'#9b59b6')+'<span style="font-size:10px;color:var(--text-sub);">予定日順</span></div>';html+=rag(dA,'demo');}
   return html;
 }
-function renderCustomers(){let html='<button onclick="openNew(1)" class="save-btn" style="margin-bottom:15px;width:100%;">＋ 顧客を新規登録</button>';DB.customers.forEach(item=>{const n=item.name;const rc=DB.repairs.filter(x=>x.customerName===n).length,dc=DB.demos.filter(x=>x.customerName===n).length,pc=DB.products.filter(x=>x.customer===n).length,ptc=DB.parts.filter(x=>x.customerName===n).length;html+='<div class="card" onclick="openEdit(\''+item.id+'\',1)"><div style="font-weight:bold;font-size:15px;margin-bottom:4px;">'+n+'　様</div>'+(item.phone?'<div style="font-size:12px;color:var(--text-sub);margin-bottom:6px;">📞 '+item.phone+'</div>':'')+'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;"><span class="badge-count '+(rc?'bc-red':'bc-gray')+'">🔧 修理 '+rc+'</span><span class="badge-count '+(dc?'bc-orange':'bc-gray')+'">🌾 実演 '+dc+'</span><span class="badge-count '+(pc?'bc-green':'bc-gray')+'">🚜 製品 '+pc+'</span><span class="badge-count '+(ptc?'bc-blue':'bc-gray')+'">⚙️ 部品 '+ptc+'</span></div></div>';});return html;}
-function renderRepairs(){let html='<button onclick="openNew(2)" class="save-btn" style="margin-bottom:10px;width:100%;">＋ 修理依頼を新規登録</button>';DB.repairs.forEach(item=>{const mStr=buildMachineStr(item.machine,item.maker,item.model);html+='<div class="card" onclick="openEdit(\''+item.id+'\',2)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';">'+'<div style="font-weight:bold;font-size:15px;margin-bottom:4px;">'+item.customerName+' - '+(mStr||'機械未入力')+'</div>'+(item.serialNo?'<div style="font-size:11px;color:var(--text-sub);">製造番号: '+item.serialNo+'</div>':'')+(item.hourMeter?'<div style="font-size:11px;color:var(--text-sub);">稼働: '+item.hourMeter+'h</div>':'')+(item.issue?'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+item.issue+'</div>':'')+'<div style="display:flex;justify-content:space-between;align-items:center;"><span class="badge" style="background:'+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-top:2px;display:inline-block;">'+item.status+'</span>'+(item.dueDate?'<span style="font-size:10px;color:var(--text-sub);">納期: '+item.dueDate+'</span>':'')+'</div></div>';});return html;}
-function renderDemos(){let html='<button onclick="openNew(3)" class="save-btn" style="margin-bottom:15px;width:100%;">＋ 実演を新規登録</button>';DB.demos.forEach(item=>{const m1=buildMachineStr(item.targetMachine,item.maker,item.model),m2=buildMachineStr(item.targetMachine2,item.maker2,item.model2),m3=buildMachineStr(item.targetMachine3,item.maker3,item.model3);let ms=m1?'🚜 '+m1:'🚜 未定';if(m2)ms+='<br>🚜 '+m2;if(m3)ms+='<br>🚜 '+m3;html+='<div class="card" onclick="openEdit(\''+item.id+'\',3)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';">'+'<div style="font-weight:bold;font-size:15px;margin-bottom:4px;">'+item.customerName+'</div>'+'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;line-height:1.4;">'+ms+'</div>'+'<div style="display:flex;justify-content:space-between;align-items:center;"><span class="badge" style="background:'+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-top:2px;display:inline-block;">'+item.status+'</span>'+(item.date?'<span style="font-size:10px;color:var(--text-sub);">予定日: '+item.date+'</span>':'')+'</div></div>';});return html;}
-function renderPartsTab(){let html='<button onclick="openNew(4)" class="save-btn" style="margin-bottom:10px;width:100%;">＋ 部品を新規登録</button>';html+='<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--text-sub);">ステータス: <b style="color:#e74c3c;">発注前</b>→<b style="color:#e67e22;">発注済</b>→<b style="color:#f39c12;">入荷済</b>→<b style="color:#3498db;">納品済</b>→<b style="color:#27ae60;">完了</b>→請求済</div>';DB.parts.forEach(item=>{html+='<div class="card" onclick="openEdit(\''+item.id+'\',4)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';">'+(item.customerName?'<div style="font-size:11px;color:#2980b9;font-weight:bold;margin-bottom:2px;">👤 '+item.customerName+' 様</div>':'')+'<div style="font-weight:bold;font-size:15px;margin-bottom:4px;">'+(item.maker?item.maker+' ':'')+item.name+'</div>'+'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;">品番: '+(item.partNo||'-')+' / 数量: '+(item.qty||0)+'個</div>'+'<div style="display:flex;justify-content:space-between;align-items:center;"><span class="badge" style="background:'+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-top:2px;display:inline-block;">'+(item.status||'発注前')+'</span>'+(item.orderDate?'<span style="font-size:10px;color:var(--text-sub);">発注日: '+item.orderDate+'</span>':'')+'</div></div>';});return html;}
-function renderProducts(){let html='<button onclick="openNew(5)" class="save-btn" style="margin-bottom:10px;width:100%;">＋ 製品を新規登録</button>';html+='<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--text-sub);">ステータス: <b style="color:#9b59b6;">商談中</b>→<b style="color:#e67e22;">受注</b>→<b style="color:#f39c12;">発注済</b>→<b style="color:#e67e22;">入荷済</b>→<b style="color:#3498db;">納品(納車)済</b>→<b style="color:#27ae60;">完了</b>→請求済</div>';DB.products.forEach(item=>{html+='<div class="card" onclick="openEdit(\''+item.id+'\',5)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';">'+(item.customer?'<div style="font-size:11px;color:#27ae60;font-weight:bold;margin-bottom:2px;">👤 '+item.customer+' 様</div>':'')+'<div style="font-weight:bold;font-size:15px;margin-bottom:4px;">'+item.productName+'</div>'+(item.serialNo?'<div style="font-size:11px;color:var(--text-sub);">製造番号: '+item.serialNo+'</div>':'')+'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;">メーカー: '+(item.maker||'-')+' / 型式: '+(item.model||'-')+' / 販売額: ¥'+Number(item.price||0).toLocaleString()+'</div>'+'<div style="display:flex;justify-content:space-between;align-items:center;"><span class="badge" style="background:'+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-top:2px;display:inline-block;">'+(item.status||'受注')+'</span>'+(item.deliveryDate?'<span style="font-size:10px;color:var(--text-sub);">納品予定: '+item.deliveryDate+'</span>':'')+'</div></div>';});return html;}
+function calNav(dir){calMonth+=dir;if(calMonth<0){calMonth=11;calYear--;}if(calMonth>11){calMonth=0;calYear++;}renderAll();}
+function showDayEvents(dateStr){
+  const evs=[];
+  DB.repairs.forEach(r=>{if(r.dueDate===dateStr)evs.push({type:'修理',color:'#e74c3c',label:(r.customerName||'')+(r.machine?' - '+r.machine:''),id:r.id,tab:2,status:r.status});});
+  DB.demos.forEach(d=>{if(d.date===dateStr)evs.push({type:'実演',color:'#9b59b6',label:(d.customerName||'')+(d.targetMachine?' - '+d.targetMachine:''),id:d.id,tab:3,status:d.status});});
+  DB.products.forEach(p=>{if(p.deliveryDate===dateStr)evs.push({type:'製品',color:'#27ae60',label:(p.customer||'')+(p.productName?' - '+p.productName:''),id:p.id,tab:5,status:p.status});});
+  if(!evs.length)return;
+  const ov=document.createElement('div');ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2000;display:flex;align-items:flex-end;justify-content:center;';
+  let h='<div style="background:var(--card-bg);border-radius:20px 20px 0 0;width:100%;max-width:520px;padding:16px 18px 36px;">';
+  h+='<div style="font-weight:900;font-size:16px;margin-bottom:12px;">'+dateStr.replace(/-/g,'/')+'</div>';
+  evs.forEach(ev=>{h+='<div class="card" style="border-left:4px solid '+ev.color+';margin-bottom:8px;cursor:pointer;" id="dce_'+ev.id+'"><div style="font-size:10px;color:var(--text-sub);margin-bottom:2px;">'+ev.type+'</div><div style="font-weight:bold;font-size:14px;">'+ev.label+'</div><span class="badge" style="background:'+(STATUS_COLORS[ev.status]||'#95a5a6')+';display:inline-block;margin-top:4px;">'+ev.status+'</span></div>';});
+  h+='<button onclick="this.closest(\'div\').parentNode.remove()" style="background:var(--border);border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;width:100%;margin-top:4px;color:var(--text);">閉じる</button></div>';
+  ov.innerHTML=h;
+  evs.forEach(ev=>{const el=document.getElementById('dce_'+ev.id);if(el)el.onclick=()=>{ov.remove();openEdit(ev.id,ev.tab);};});
+  ov.addEventListener('click',(e)=>{if(e.target===ov)ov.remove();});
+  document.body.appendChild(ov);
+}
+function renderCustomers(){let html='<button onclick="openNew(1)" class="save-btn" style="margin-bottom:15px;width:100%;">＋ 顧客を新規登録</button>';let custList=DB.customers.slice();if(searchQuery)custList=custList.filter(x=>[x.name,x.phone,x.address,x.memo].some(f=>(f||'').toLowerCase().includes(searchQuery)));if(searchQuery&&!custList.length)return html+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">検索結果なし</div>';custList.forEach(item=>{const n=item.name;const rc=DB.repairs.filter(x=>x.customerName===n).length,dc=DB.demos.filter(x=>x.customerName===n).length,pc=DB.products.filter(x=>x.customer===n).length,ptc=DB.parts.filter(x=>x.customerName===n).length;html+='<div class="card" onclick="openEdit(\''+item.id+'\',1)"><div style="font-weight:bold;font-size:15px;margin-bottom:4px;">'+n+'　様</div>'+(item.phone?'<div style="font-size:12px;color:var(--text-sub);margin-bottom:6px;">📞 '+item.phone+'</div>':'')+'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;"><span class="badge-count '+(rc?'bc-red':'bc-gray')+'">🔧 修理 '+rc+'</span><span class="badge-count '+(dc?'bc-orange':'bc-gray')+'">🌾 実演 '+dc+'</span><span class="badge-count '+(pc?'bc-green':'bc-gray')+'">🚜 製品 '+pc+'</span><span class="badge-count '+(ptc?'bc-blue':'bc-gray')+'">⚙️ 部品 '+ptc+'</span></div></div>';});return html;}
+function renderRepairs(){
+  let html='<button onclick="openNew(2)" class="save-btn" style="margin-bottom:10px;width:100%;">＋ 修理依頼を新規登録</button>';
+  let items=DB.repairs.slice().sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999'));
+  if(searchQuery)items=items.filter(x=>[x.customerName,x.machine,x.maker,x.model,x.issue,x.serialNo].some(f=>(f||'').toLowerCase().includes(searchQuery)));
+  if(!items.length)return html+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">'+(searchQuery?'検索結果なし':'修理依頼はありません')+'</div>';
+  const grp={};const ord=[];
+  items.forEach(item=>{const k=item.customerName||'顧客未設定';if(!grp[k]){grp[k]=[];ord.push(k);}grp[k].push(item);});
+  ord.forEach(cName=>{
+    html+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:var(--text-sub);padding-left:2px;display:flex;align-items:center;gap:6px;">👤 '+cName+' 様<span style="font-size:10px;font-weight:400;color:var(--text-sub);">'+grp[cName].length+'件</span></div>';
+    grp[cName].forEach(item=>{
+      const mStr=buildMachineStr(item.machine,item.maker,item.model);
+      html+='<div class="card" onclick="openEdit(\''+item.id+'\',2)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-left:8px;margin-bottom:7px;">'
+        +'<div style="font-weight:bold;font-size:14px;margin-bottom:4px;">'+(mStr||'機械未入力')+'</div>'
+        +(item.serialNo?'<div style="font-size:11px;color:var(--text-sub);">製造番号: '+item.serialNo+'</div>':'')
+        +(item.hourMeter?'<div style="font-size:11px;color:var(--text-sub);">稼働: '+item.hourMeter+'h</div>':'')
+        +(item.issue?'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+item.issue+'</div>':'')
+        +'<div style="display:flex;justify-content:space-between;align-items:center;"><span class="badge" style="background:'+(STATUS_COLORS[item.status]||'#95a5a6')+';display:inline-block;">'+item.status+'</span>'
+        +(item.dueDate?'<span style="font-size:10px;color:var(--text-sub);">納期: '+item.dueDate+'</span>':'')+'</div></div>';
+    });
+  });
+  return html;
+}
+function renderDemos(){
+  let html='<button onclick="openNew(3)" class="save-btn" style="margin-bottom:15px;width:100%;">＋ 実演を新規登録</button>';
+  let items=DB.demos.slice().sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));
+  if(searchQuery)items=items.filter(x=>[x.customerName,x.targetMachine,x.maker,x.model,x.targetMachine2,x.targetMachine3].some(f=>(f||'').toLowerCase().includes(searchQuery)));
+  if(!items.length)return html+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">'+(searchQuery?'検索結果なし':'実演はありません')+'</div>';
+  const grp={};const ord=[];
+  items.forEach(item=>{const k=item.customerName||'顧客未設定';if(!grp[k]){grp[k]=[];ord.push(k);}grp[k].push(item);});
+  ord.forEach(cName=>{
+    html+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:var(--text-sub);padding-left:2px;display:flex;align-items:center;gap:6px;">👤 '+cName+' 様<span style="font-size:10px;font-weight:400;color:var(--text-sub);">'+grp[cName].length+'件</span></div>';
+    grp[cName].forEach(item=>{
+      const m1=buildMachineStr(item.targetMachine,item.maker,item.model),m2=buildMachineStr(item.targetMachine2,item.maker2,item.model2),m3=buildMachineStr(item.targetMachine3,item.maker3,item.model3);
+      let ms=m1?'🚜 '+m1:'🚜 未定';if(m2)ms+='<br>🚜 '+m2;if(m3)ms+='<br>🚜 '+m3;
+      html+='<div class="card" onclick="openEdit(\''+item.id+'\',3)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-left:8px;margin-bottom:7px;">'
+        +'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;line-height:1.4;">'+ms+'</div>'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;"><span class="badge" style="background:'+(STATUS_COLORS[item.status]||'#95a5a6')+';display:inline-block;">'+item.status+'</span>'
+        +(item.date?'<span style="font-size:10px;color:var(--text-sub);">予定日: '+item.date+'</span>':'')+'</div></div>';
+    });
+  });
+  return html;
+}
+function renderPartsTab(){
+  let html='<button onclick="openNew(4)" class="save-btn" style="margin-bottom:10px;width:100%;">＋ 部品を新規登録</button>';
+  html+='<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--text-sub);">ステータス: <b style="color:#e74c3c;">発注前</b>→<b style="color:#e67e22;">発注済</b>→<b style="color:#f39c12;">入荷済</b>→<b style="color:#3498db;">納品済</b>→<b style="color:#27ae60;">完了</b>→請求済</div>';
+  let items=DB.parts.slice().sort((a,b)=>(a.orderDate||'9999').localeCompare(b.orderDate||'9999'));
+  if(searchQuery)items=items.filter(x=>[x.customerName,x.name,x.maker,x.partNo].some(f=>(f||'').toLowerCase().includes(searchQuery)));
+  if(!items.length)return html+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">'+(searchQuery?'検索結果なし':'部品はありません')+'</div>';
+  const grp={};const ord=[];
+  items.forEach(item=>{const k=item.customerName||'顧客未設定';if(!grp[k]){grp[k]=[];ord.push(k);}grp[k].push(item);});
+  ord.forEach(cName=>{
+    html+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:var(--text-sub);padding-left:2px;display:flex;align-items:center;gap:6px;">👤 '+cName+' 様<span style="font-size:10px;font-weight:400;color:var(--text-sub);">'+grp[cName].length+'件</span></div>';
+    grp[cName].forEach(item=>{
+      html+='<div class="card" onclick="openEdit(\''+item.id+'\',4)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-left:8px;margin-bottom:7px;">'
+        +'<div style="font-weight:bold;font-size:14px;margin-bottom:4px;">'+(item.maker?item.maker+' ':'')+item.name+'</div>'
+        +'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;">品番: '+(item.partNo||'-')+' / 数量: '+(item.qty||0)+'個</div>'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;"><span class="badge" style="background:'+(STATUS_COLORS[item.status]||'#95a5a6')+';display:inline-block;">'+(item.status||'発注前')+'</span>'
+        +(item.orderDate?'<span style="font-size:10px;color:var(--text-sub);">発注日: '+item.orderDate+'</span>':'')+'</div></div>';
+    });
+  });
+  return html;
+}
+function renderProducts(){
+  let html='<button onclick="openNew(5)" class="save-btn" style="margin-bottom:10px;width:100%;">＋ 製品を新規登録</button>';
+  html+='<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--text-sub);">ステータス: <b style="color:#9b59b6;">商談中</b>→<b style="color:#e67e22;">受注</b>→<b style="color:#f39c12;">発注済</b>→<b style="color:#e67e22;">入荷済</b>→<b style="color:#3498db;">納品(納車)済</b>→<b style="color:#27ae60;">完了</b>→請求済</div>';
+  let items=DB.products.slice().sort((a,b)=>(a.deliveryDate||'9999').localeCompare(b.deliveryDate||'9999'));
+  if(searchQuery)items=items.filter(x=>[x.customer,x.productName,x.maker,x.model,x.serialNo].some(f=>(f||'').toLowerCase().includes(searchQuery)));
+  if(!items.length)return html+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">'+(searchQuery?'検索結果なし':'製品はありません')+'</div>';
+  const grp={};const ord=[];
+  items.forEach(item=>{const k=item.customer||'顧客未設定';if(!grp[k]){grp[k]=[];ord.push(k);}grp[k].push(item);});
+  ord.forEach(cName=>{
+    html+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:var(--text-sub);padding-left:2px;display:flex;align-items:center;gap:6px;">👤 '+cName+' 様<span style="font-size:10px;font-weight:400;color:var(--text-sub);">'+grp[cName].length+'件</span></div>';
+    grp[cName].forEach(item=>{
+      html+='<div class="card" onclick="openEdit(\''+item.id+'\',5)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-left:8px;margin-bottom:7px;">'
+        +'<div style="font-weight:bold;font-size:14px;margin-bottom:4px;">'+item.productName+'</div>'
+        +(item.serialNo?'<div style="font-size:11px;color:var(--text-sub);">製造番号: '+item.serialNo+'</div>':'')
+        +'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;">メーカー: '+(item.maker||'-')+' / 型式: '+(item.model||'-')+' / 販売額: ¥'+Number(item.price||0).toLocaleString()+'</div>'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;"><span class="badge" style="background:'+(STATUS_COLORS[item.status]||'#95a5a6')+';display:inline-block;">'+(item.status||'受注')+'</span>'
+        +(item.deliveryDate?'<span style="font-size:10px;color:var(--text-sub);">納品予定: '+item.deliveryDate+'</span>':'')+'</div></div>';
+    });
+  });
+  return html;
+}
 function renderQuotesList(){
   let html='<div style="display:flex;gap:8px;margin-bottom:15px;">';
   html+='<button onclick="openQuoteEditor(\'\')" class="save-btn" style="flex:2;">＋ 新規作成</button>';
