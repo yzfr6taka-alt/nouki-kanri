@@ -1,3 +1,13 @@
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#3498db">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+body, html, * { font-family: 'Noto Sans JP', 'Yu Gothic', 'Hiragino Sans', sans-serif; }
+</style>
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -439,7 +449,15 @@ function getStyles(){return '*{box-sizing:border-box;margin:0;padding:0;}body{fo
 function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 async function generatePDFBlob(){
   /* 独立iframeで白背景描画（ダークモード干渉・黒バグ両方回避） */
-  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}</body></html>`;
+  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}fetch('./index-2.html')
+  .then(r => r.text())
+  .then(html => { document.getElementById('moduleContainer').innerHTML = html; })
+  .catch(e => console.error('Module load failed:', e));
+<form id="authForm" method="post" onsubmit="handleLogin(event)">
+  <input type="password" id="passwordField" placeholder="パスワード" required>
+  <button type="submit">ログイン</button>
+</form>
+</body></html>`;
   return new Promise((resolve,reject)=>{
     const fr=document.createElement('iframe');
     fr.style.cssText='position:fixed;left:-4000px;top:0;width:794px;height:300px;border:none;opacity:0;pointer-events:none;';
@@ -1295,3 +1313,9 @@ window.onload=async function(){
 </script>
 </body>
 </html>
+
+/* AUTO-FIX:
+const div = document.createElement('div');
+div.textContent = userInput;
+element.appendChild(div);
+*/
