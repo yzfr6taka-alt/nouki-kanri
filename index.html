@@ -443,7 +443,21 @@ function getStyles(){return '*{box-sizing:border-box;margin:0;padding:0;}body{fo
 function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 async function generatePDFBlob(){
   /* 独立iframeで白背景描画（ダークモード干渉・黒バグ両方回避） */
-  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}</body></html>`;
+  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}<div id="itemTable" class="card" style="margin-top:15px;">
+  <table style="width:100%;border-collapse:collapse;">
+    <thead><tr style="background:var(--table-th);color:#fff;"><th style="padding:8px;text-align:left;">機械名</th><th style="padding:8px;text-align:right;">金額</th></tr></thead>
+    <tbody id="itemTableBody"></tbody>
+  </table>
+</div>
+<div id="preview" class="card" style="margin-top:15px;display:none;">
+  <h3 style="margin-bottom:10px;">見積プレビュー</h3>
+  <div id="previewContent"></div>
+</div>
+<form id="passwordForm" style="display:contents;">
+  <label class="field-label">パスワード</label>
+  <input type="password" id="password" class="field-input" required>
+</form>
+</body></html>`;
   return new Promise((resolve,reject)=>{
     const fr=document.createElement('iframe');
     fr.style.cssText='position:fixed;left:-4000px;top:0;width:794px;height:300px;border:none;opacity:0;pointer-events:none;';
@@ -1303,6 +1317,19 @@ if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').catch(function(e){console.log('SW登録失敗',e);});
   });
 }
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+<style>body{font-family:'Noto Sans JP','Hiragino Sans',sans-serif !important;}</style>
 </script>
 </body>
 </html>
+
+/* AUTO-FIX:
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="農機管理PRO">
+<meta name="theme-color" content="#1a252f">
+*/
