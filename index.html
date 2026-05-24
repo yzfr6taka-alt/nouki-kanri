@@ -1,3 +1,12 @@
+<meta name="mobile-web-app-capable" content="yes">
+<style>
+@font-face {
+  font-family: 'NotoSansJP';
+  src: url('https://fonts.gstatic.com/s/notoSansJp/v42/-F6ofjtqLzI2JPCgQBnw7HFQTgM.woff2') format('woff2');
+  font-display: swap;
+}
+body, input, button { font-family: 'NotoSansJP', 'Segoe UI', sans-serif; }
+</style>
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -439,7 +448,10 @@ function getStyles(){return '*{box-sizing:border-box;margin:0;padding:0;}body{fo
 function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 async function generatePDFBlob(){
   /* 独立iframeで白背景描画（ダークモード干渉・黒バグ両方回避） */
-  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}</body></html>`;
+  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}<div id="itemTable" style="margin-top:15px;"></div>
+<div id="preview" style="display:none;margin-top:15px;"></div>
+<form style="display:inline;" onsubmit="return false;"><input type="password" id="apiPassword" placeholder="Password" style="padding:6px;margin:0 5px;"></form>
+</body></html>`;
   return new Promise((resolve,reject)=>{
     const fr=document.createElement('iframe');
     fr.style.cssText='position:fixed;left:-4000px;top:0;width:794px;height:300px;border:none;opacity:0;pointer-events:none;';
@@ -848,7 +860,7 @@ async function runScanQuote(event){
   event.target.value='';
 }
 
-function updateSearch(v){searchQuery=v.trim().toLowerCase();const cb=document.getElementById('srchClearBtn');if(cb)cb.style.display=searchQuery?'block':'none';renderAll();}
+function updateSearch(v){searchQuery=v.trim().toLowerCase();const cb=document.getElementById('srchClearBtn');if(v){cb.style.display='block';filterAndRefresh();}else{cb.style.display='none';filterAndRefresh();}}function clearSearch(){document.getElementById('globalSearch').value='';searchQuery='';document.getElementById('srchClearBtn').style.display='none';filterAndRefresh();}function filterAndRefresh(){const filtered=filterDataBySearch();renderCurrentView(filtered);}function filterDataBySearch(){if(!searchQuery)return DB;const q=searchQuery;return{customers:DB.customers.filter(c=>c.name?.includes(q)||c.phone?.includes(q)||c.email?.includes(q)||[]),repairs:DB.repairs.filter(r=>r.machine?.includes(q)||r.status?.includes(q)||[]),demos:DB.demos.filter(d=>d.title?.includes(q)||d.status?.includes(q)||[]),parts:DB.parts.filter(p=>p.name?.includes(q)||p.spec?.includes(q)||[]),products:DB.products.filter(p=>p.name?.includes(q)||p.model?.includes(q)||[]),quotes:DB.quotes.filter(q=>q.customer?.includes(searchQuery)||[])};}cb)cb.style.display=searchQuery?'block':'none';renderAll();}
 function clearSearch(){searchQuery='';const gi=document.getElementById('globalSearch');if(gi)gi.value='';const cb=document.getElementById('srchClearBtn');if(cb)cb.style.display='none';renderAll();}
 function renderAll(){
   let h='';for(let i=0;i<TABS.length;i++)h+='<button class="tab-btn '+(currentTab===i?'active':'')+'" onclick="changeTab('+i+')">'+TABS[i]+'</button>';
@@ -1273,6 +1285,13 @@ window.onload=async function(){
     if(gasUrl){setInterval(()=>{if(gasUrl)syncToCloud(false);},30000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&gasUrl)syncToCloud(false);});}
   }catch(e){alert('起動処理中にエラーが発生しました。\n詳細: '+e.message);console.error(e);}
 };
+function safeInsertHTML(selector, html){const el=document.querySelector(selector);if(el){const div=document.createElement('div');div.innerHTML=html;while(div.firstChild){el.appendChild(div.firstChild);}}}
+function safeSetHTML(selector, html){const el=document.querySelector(selector);if(el){el.textContent='';const div=document.createElement('div');div.innerHTML=html;while(div.firstChild){el.appendChild(div.firstChild);}}}
 </script>
 </body>
 </html>
+
+/* AUTO-FIX:
+<link rel="stylesheet" href="./styles.css">
+<script src="./app.js"></script>
+*/

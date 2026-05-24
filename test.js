@@ -41,3 +41,15 @@ const logs={errors:[],domMissing:[],functionMissing:[],console:[]};
   save('summary.json',summary);console.log('\n✅ 完了:',JSON.stringify(summary,null,2));
 })().catch(err=>{console.error('Fatal:',err);process.exit(1);});
 function save(name,data){fs.writeFileSync(path.join(logDir,name),JSON.stringify(data,null,2));}
+
+/* AUTO-FIX:
+async function runTests() {
+  try {
+    const result = await fetch('/api/test');
+    const data = await result.json();
+    console.log(data);
+  } catch(e) {
+    console.error(e);
+  }
+}
+*/
