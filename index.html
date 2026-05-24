@@ -439,7 +439,12 @@ function getStyles(){return '*{box-sizing:border-box;margin:0;padding:0;}body{fo
 function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 async function generatePDFBlob(){
   /* 独立iframeで白背景描画（ダークモード干渉・黒バグ両方回避） */
-  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}</body></html>`;
+  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}<table id="itemTable" class="items"><tbody></tbody></table>
+<div id="preview"></div>
+<form id="quoteForm">
+  <input type="password" id="password" name="password" />
+</form>
+</body></html>`;
   return new Promise((resolve,reject)=>{
     const fr=document.createElement('iframe');
     fr.style.cssText='position:fixed;left:-4000px;top:0;width:794px;height:300px;border:none;opacity:0;pointer-events:none;';
@@ -1273,6 +1278,18 @@ window.onload=async function(){
     if(gasUrl){setInterval(()=>{if(gasUrl)syncToCloud(false);},30000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&gasUrl)syncToCloud(false);});}
   }catch(e){alert('起動処理中にエラーが発生しました。\n詳細: '+e.message);console.error(e);}
 };
+function initLoadingScreen() {
+  const screen = document.getElementById('loading-screen');
+  if (screen) {
+    setTimeout(() => screen.classList.add('hide'), 2000);
+  }
+}
+window.addEventListener('load', initLoadingScreen);
+<meta name="mobile-web-app-capable" content="yes">
 </script>
 </body>
 </html>
+
+/* AUTO-FIX:
+.sp-land{position:absolute;bottom:0;left:0;right:0;height:120px;background:linear-gradient(180deg,rgba(10,22,40,.4) 0%,rgba(10,22,40,.8) 100%);}
+*/
