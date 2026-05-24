@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta charset="UTF-8">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="農機管理PRO">
 <meta name="theme-color" content="#1a252f">
@@ -443,7 +443,10 @@ function getStyles(){return '*{box-sizing:border-box;margin:0;padding:0;}body{fo
 function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 async function generatePDFBlob(){
   /* 独立iframeで白背景描画（ダークモード干渉・黒バグ両方回避） */
-  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}</body></html>`;
+  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}<meta name="mobile-web-app-capable" content="yes">
+<form><input type="password" id="pwd"></form>
+<div style="display:flex;justify-content:space-between;align-items:center;font-size:16px;"><span>配置: ¥0</span><span>営農: ¥10,000,000</span></div>
+</body></html>`;
   return new Promise((resolve,reject)=>{
     const fr=document.createElement('iframe');
     fr.style.cssText='position:fixed;left:-4000px;top:0;width:794px;height:300px;border:none;opacity:0;pointer-events:none;';
@@ -1303,6 +1306,7 @@ if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').catch(function(e){console.log('SW登録失敗',e);});
   });
 }
+<table id="itemTable"><thead><tr><th>��械名</th><th>型番</th><th>購入日</th></tr></thead><tbody></tbody></table><div id="preview"></div>
 </script>
 </body>
 </html>
