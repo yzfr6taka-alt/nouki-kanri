@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="農機管理PRO">
+<meta name="theme-color" content="#1a252f">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<title>農機業務管理&見積 PRO V4</title>
+<style>
+:root{--bg:#f2f5f7;--card-bg:#fff;--text:#2c3e50;--text-sub:#7f8c8d;--border:#eaeff3;--main:#2c3e50;--input-bg:#f9fafb;--table-th:#2c3e50;}
+body.dark{--bg:#121212;--card-bg:#1e1e1e;--text:#e0e0e0;--text-sub:#a0a0a0;--border:#333;--main:#1a252f;--input-bg:#2c2c2c;--table-th:#111;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);max-width:520px;margin:0 auto;min-height:100vh;transition:background .3s,color .3s;}
+input,textarea,button,select{font-family:inherit;color:var(--text);}
+input:focus,textarea:focus,select:focus{outline:none;border-color:#3498db!important;box-shadow:0 0 0 3px rgba(52,152,219,.15);}
+.card{background:var(--card-bg);border:1.5px solid var(--border);border-radius:14px;padding:13px 15px;margin-bottom:9px;cursor:pointer;position:relative;}
+.card:active{background:var(--input-bg);}
+.tab-wrap{display:flex;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;}
+.tab-wrap::-webkit-scrollbar{display:none;}
+.tab-btn{flex:0 0 auto;background:none;border:none;color:#6fa8c8;padding:9px 12px 10px;font-size:11px;cursor:pointer;font-weight:700;border-bottom:3px solid transparent;}
+.tab-btn.active{color:#fff;font-weight:900;border-bottom:3px solid #fff;}
+.field-label{display:block;font-size:11px;color:var(--text-sub);margin-bottom:4px;font-weight:700;}
+.field-input,.field-textarea,.field-select{width:100%;padding:9px 11px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;background:var(--input-bg);margin-bottom:11px;}
+.field-textarea{resize:vertical;}
+.save-btn{flex:1;background:#2980b9;color:#fff;border:none;border-radius:10px;padding:13px 0;font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;display:flex;align-items:flex-end;justify-content:center;}
+.modal-box{background:var(--card-bg);border-radius:20px 20px 0 0;width:100%;max-width:520px;max-height:92vh;overflow-y:auto;}
+.modal-header{padding:14px 18px 10px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--card-bg);z-index:1;}
+.badge{border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;color:#fff;}
+.fl{display:flex;gap:11px;margin-bottom:10px;}.fg{flex:1;}
+.dash-card{background:linear-gradient(135deg,#2980b9,#2c3e50);color:#fff;border-radius:14px;padding:16px;margin-bottom:15px;}
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+table.items{width:100%;border-collapse:collapse;min-width:520px;}
+table.items th{background:var(--table-th);color:#fff;padding:7px 4px;font-size:11px;text-align:center;white-space:nowrap;}
+table.items td{padding:3px 2px;border-bottom:1px solid var(--border);}
+table.items td input{width:100%;border:none;background:transparent;padding:5px 4px;font-size:12px;border-bottom:1px dashed var(--border);}
+.tr{text-align:right;}.tc{text-align:center;}
+.total-section{background:var(--input-bg);border-radius:10px;padding:12px;margin-top:12px;}
+.total-row{display:flex;justify-content:space-between;padding:5px 0;font-size:14px;color:var(--text);}
+.total-row.final{font-size:17px;font-weight:900;border-top:2px solid var(--text);margin-top:6px;padding-top:8px;}
+.action-row{display:flex;gap:6px;margin:10px 12px;flex-wrap:wrap;}
+.btn-pdf{background:#8e44ad;color:#fff;border:none;border-radius:10px;padding:11px 4px;font-size:12px;font-weight:800;cursor:pointer;flex:1;}
+.btn-line{background:#06C755;color:#fff;border:none;border-radius:10px;padding:11px 4px;font-size:12px;font-weight:800;cursor:pointer;flex:1;}
+.btn-html{background:#2980b9;color:#fff;border:none;border-radius:10px;padding:11px 4px;font-size:12px;font-weight:800;cursor:pointer;flex:1;}
+.btn-print{background:#e67e22;color:#fff;border:none;border-radius:10px;padding:11px 4px;font-size:12px;font-weight:800;cursor:pointer;flex:1;}
+#preview-modal{display:none;position:fixed;inset:0;background:#333;z-index:1000;overflow-y:auto;}
+.badge-count{padding:3px 6px;border-radius:4px;font-size:10px;font-weight:bold;display:inline-block;}
+.bc-gray{background:var(--border);color:var(--text-sub);font-weight:normal;}
+.bc-red{background:#fde8e8;color:#e74c3c;}.bc-orange{background:#fef5e7;color:#f39c12;}
+.bc-green{background:#eafaf1;color:#27ae60;}.bc-blue{background:#ebf5fb;color:#2980b9;}
+.quick-reg-box{background:var(--input-bg);border:1.5px dashed var(--border);border-radius:12px;padding:10px 12px;margin:12px 0;}
+.quick-reg-label{font-size:11px;color:var(--text-sub);font-weight:700;margin-bottom:8px;}
+.quick-reg-btns{display:flex;flex-wrap:wrap;gap:6px;}
+.qbtn{background:var(--card-bg);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:11px;font-weight:700;cursor:pointer;color:var(--text);flex:1;min-width:calc(50% - 3px);text-align:center;}
+.qbtn:active{opacity:.7;}
+#syncBar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:520px;padding:8px 14px;font-size:12px;font-weight:700;text-align:center;z-index:500;opacity:0;pointer-events:none;transition:opacity .4s;}
+#syncBar.show{opacity:1;}
+#syncBar.syncing{background:#f39c12;color:#fff;}
+#syncBar.ok{background:#27ae60;color:#fff;}
+#syncBar.conflict{background:#8e44ad;color:#fff;}
+#syncBar.error{background:#e74c3c;color:#fff;}
+#_print_frame{position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none;}
+/* ── スプラッシュアニメーション ── */
+/* ── フィールド演出スプラッシュ ── */
+#loading-screen{position:fixed;inset:0;background:radial-gradient(ellipse at 50% 20%,#0a1628 0%,#030d1a 100%);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;z-index:9999;overflow:hidden;transition:opacity .7s ease;}
+#loading-screen.hide{opacity:0;pointer-events:none;}
+.sp-sky{position:absolute;inset:0;}
+.sp-star{position:absolute;background:#fff;border-radius:50%;animation:twinkle 2s ease-in-out infinite alternate;}
+.sp-beams{position:absolute;bottom:19%;left:50%;transform:translateX(-50%);width:0;height:0;}
+.sp-beam{position:absolute;bottom:0;width:280px;height:340px;animation:beamOn .55s ease .7s both;}
+.sp-beam-l{right:10px;background:linear-gradient(165deg,transparent 35%,rgba(255,210,55,.32) 100%);clip-path:polygon(100% 100%,0% 0%,100% 0%);transform-origin:bottom right;}
+.sp-beam-r{left:10px;background:linear-gradient(195deg,transparent 35%,rgba(255,210,55,.32) 100%);clip-path:polygon(0% 100%,0% 0%,100% 0%);transform-origin:bottom left;}
+.sp-glow{position:absolute;bottom:17%;left:50%;transform:translateX(-50%);width:280px;height:45px;background:radial-gradient(ellipse,rgba(255,200,50,.28) 0%,transparent 70%);animation:glowPulse 2.5s ease-in-out 1.2s infinite alternate;}
+.sp-land{position:absolute;bottom:0;left:0;right:0;height:20%;animation:landSlide .7s ease 1s both;}
+.sp-tractor{position:absolute;bottom:17.5%;font-size:48px;filter:drop-shadow(0 0 18px rgba(255,190,40,.8));animation:tractorReveal .5s cubic-bezier(.34,1.56,.64,1) .45s both;z-index:5;}
+.sp-content{position:relative;z-index:10;text-align:center;margin-bottom:27%;width:100%;}
+.sp-jp{color:#fff;font-size:20px;font-weight:900;letter-spacing:5px;text-shadow:0 0 24px rgba(255,210,60,.55);animation:titleUp .7s ease 1.7s both;}
+.sp-en{color:#3498db;font-size:40px;font-weight:900;font-family:'Arial Black','Impact',sans-serif;text-shadow:0 0 28px rgba(52,152,219,.9),0 0 60px rgba(52,152,219,.4);animation:takaExpand .9s ease 2.1s both;}
+.sp-rule{width:0;height:2px;background:linear-gradient(90deg,#3498db,#2ecc71);border-radius:2px;margin:16px auto;animation:ruleGrow .5s ease 2.8s both;}
+.sp-bar-track{width:190px;height:3px;background:rgba(255,255,255,.1);border-radius:2px;overflow:hidden;margin:0 auto;}
+.sp-bar-fill{height:100%;width:0;background:linear-gradient(90deg,#e67e22,#27ae60);border-radius:2px;animation:barLoad 2.5s ease 3s both;}
+.sp-msg{color:#5d9ab5;font-size:10px;letter-spacing:2px;margin-top:14px;animation:msgFade .5s ease 1.4s both;}
+@keyframes twinkle{0%{opacity:.15}100%{opacity:.9}}
+@keyframes beamOn{0%{opacity:0;transform:scaleY(0)}60%{opacity:1}100%{opacity:.85;transform:scaleY(1)}}
+@keyframes glowPulse{0%{opacity:.5}100%{opacity:1}}
+@keyframes landSlide{0%{opacity:0;transform:translateY(20px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes tractorReveal{0%{opacity:0;transform:scale(.2)}70%{transform:scale(1.12)}100%{opacity:1;transform:scale(1)}}
+@keyframes titleUp{0%{opacity:0;transform:translateY(18px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes takaExpand{0%{opacity:0;letter-spacing:2px}100%{opacity:1;letter-spacing:16px}}
+@keyframes ruleGrow{0%{width:0}100%{width:80px}}
+@keyframes barLoad{0%{width:0}100%{width:100%}}
+@keyframes msgFade{0%{opacity:0}100%{opacity:1}}
+@keyframes slideUp{0%{transform:translateY(28px);opacity:0}100%{transform:translateY(0);opacity:1}}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div class="sp-sky" id="spStars"></div>
+  <div class="sp-beams">
+    <div class="sp-beam sp-beam-l"></div>
+    <div class="sp-beam sp-beam-r"></div>
+  </div>
+  <div class="sp-glow"></div>
+  <div class="sp-land">
+    <svg viewBox="0 0 400 90" preserveAspectRatio="xMidYMax slice" style="width:100%;height:100%;">
+      <path d="M0,90 C50,48 105,70 165,58 C215,48 258,74 315,60 C358,50 388,68 400,54 L400,90Z" fill="#040c18"/>
+      <rect x="52" y="40" width="5" height="26" fill="#040c18"/>
+      <ellipse cx="54" cy="33" rx="14" ry="17" fill="#040c18"/>
+      <rect x="183" y="36" width="34" height="28" fill="#040c18"/>
+      <polygon points="178,36 200,18 220,36" fill="#040c18"/>
+      <rect x="338" y="45" width="5" height="20" fill="#040c18"/>
+      <ellipse cx="340" cy="38" rx="11" ry="14" fill="#040c18"/>
+    </svg>
+  </div>
+  <div class="sp-tractor">🚜</div>
+  <div class="sp-content">
+    <div class="sp-jp">農機業務管理</div>
+    <div class="sp-en">TAKA</div>
+    <div class="sp-rule"></div>
+    <div class="sp-bar-track"><div class="sp-bar-fill"></div></div>
+    <div class="sp-msg" id="loadingMsg">データを読み込んでいます</div>
+  </div>
+</div>
+<script>
+(function(){
+  const w=document.getElementById('spStars');
+  if(!w)return;
+  for(let i=0;i<60;i++){
+    const s=document.createElement('div');
+    const sz=(Math.random()*1.8+.4).toFixed(1);
+    s.className='sp-star';
+    s.style.cssText='width:'+sz+'px;height:'+sz+'px;top:'+(Math.random()*68).toFixed(1)+'%;left:'+(Math.random()*100).toFixed(1)+'%;animation-delay:'+(Math.random()*3).toFixed(1)+'s;animation-duration:'+(Math.random()*2+2).toFixed(1)+'s;';
+    w.appendChild(s);
+  }
+})();
+</script>
+<div id="app" style="display:none;">
+<div style="background:var(--main);padding-top:14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.2);">
+<div style="display:flex;align-items:center;gap:6px;padding:0 10px 12px;">
+<span style="font-size:20px;">🚜</span>
+<div style="flex:1;min-width:0;">
+<div style="color:#fff;font-weight:900;font-size:13px;letter-spacing:1.5px;">農機業務管理</div>
+<div style="display:flex;align-items:center;gap:5px;margin-top:2px;">
+  <span style="color:#3498db;font-size:12px;font-weight:900;letter-spacing:4px;font-family:'Arial Black','Impact',sans-serif;text-shadow:0 0 8px rgba(52,152,219,.6);">TAKA</span>
+  <span style="color:#6fa8c8;font-size:9px;" id="syncLabel"></span>
+</div>
+</div>
+<button onclick="toggleDark()" style="background:none;border:none;color:#fff;font-size:17px;cursor:pointer;">🌓</button>
+<button onclick="manualSync()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:10px;padding:7px 8px;font-size:12px;margin-left:1px;">☁️</button>
+<button onclick="forcePullFromCloud()" style="background:#8e44ad;border:none;color:#fff;border-radius:10px;padding:7px 8px;font-size:11px;font-weight:800;margin-left:1px;">⬇️雲</button>
+<button onclick="openBackupModal()" style="background:#27ae60;border:none;color:#fff;border-radius:10px;padding:7px 8px;font-size:12px;font-weight:800;margin-left:1px;">🛡️</button>
+<button onclick="openSmartModal()" style="background:#e67e22;border:none;color:#fff;border-radius:10px;padding:7px 9px;font-size:12px;font-weight:800;margin-left:1px;">🎤</button>
+<button onclick="openApiKey()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:10px;padding:7px 8px;font-size:13px;margin-left:1px;">🔑</button>
+</div>
+<div class="tab-wrap" id="tabBar"></div>
+<div id="searchWrap" style="background:var(--main);padding:0 12px 10px;">
+<div style="position:relative;">
+<input type="text" id="globalSearch" placeholder="🔍 顧客名・機械名・型式を横断検索" style="width:100%;padding:8px 36px 8px 12px;border:none;border-radius:10px;font-size:13px;background:rgba(255,255,255,.13);color:#fff;font-family:inherit;" oninput="updateSearch(this.value)">
+<button id="srchClearBtn" onclick="clearSearch()" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:rgba(255,255,255,.7);font-size:17px;cursor:pointer;padding:0;line-height:1;">✕</button>
+</div>
+</div>
+</div>
+<div style="padding:16px 13px 60px;" id="content_main"></div>
+<div style="padding:16px 13px 60px;display:none;" id="content_quote_editor">
+<button onclick="closeQuoteEditor()" style="background:none;border:none;color:#3498db;font-weight:bold;font-size:14px;margin-bottom:15px;cursor:pointer;">← 見積書一覧に戻る</button>
+<div style="background:var(--card-bg);border-radius:14px;padding:16px;margin-bottom:12px;border:1.5px solid var(--border);">
+<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--border);">📋 基本情報</div>
+<div class="fl"><div class="fg"><label class="field-label">見積番号</label><input class="field-input" id="estNo" placeholder="例: 2026-001"></div><div class="fg"><label class="field-label">発行日</label><input class="field-input" id="estDate" type="date"></div></div>
+<div class="fl"><div class="fg"><label class="field-label">有効期限</label><input class="field-input" id="expDate" type="date"></div><div class="fg"><label class="field-label">納入期日</label><input class="field-input" id="delivDate" type="date"></div></div>
+<label class="field-label">納入場所</label><input class="field-input" id="delivPlace" placeholder="例: お客様敷地内">
+<label class="field-label">取引方法</label><input class="field-input" id="payMethod" placeholder="例: 現金・振込">
+</div>
+<div style="background:var(--card-bg);border-radius:14px;padding:16px;margin-bottom:12px;border:1.5px solid var(--border);">
+<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--border);">👤 宛先・件名</div>
+<label class="field-label">お客様名（様は自動付与）</label><input class="field-input" id="toName" placeholder="例: 田中 太郎">
+<label class="field-label">件名・機械名</label><input class="field-input" id="subject" placeholder="例: トラクター 修理">
+</div>
+<div style="background:var(--card-bg);border-radius:14px;padding:16px;margin-bottom:12px;border:1.5px solid var(--border);">
+<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--border);">⚙️ 品目（最大20行）</div>
+<div class="tbl-wrap"><table class="items" id="itemsTable"><tr><th style="width:28px;">No.</th><th style="width:130px;">品名</th><th style="width:90px;">銘柄</th><th style="width:110px;">型式</th><th style="width:22px;">数量</th><th style="width:72px;">単価</th><th style="width:80px;">金額</th><th style="width:80px;">備考</th></tr></table></div>
+<div class="total-section">
+<div class="total-row"><span>小計</span><span id="subtotal">¥0</span></div>
+<div class="total-row"><span>消費税（10%）</span><span id="tax">¥0</span></div>
+<div class="total-row final"><span>合計金額</span><span id="total">¥0</span></div>
+</div>
+</div>
+<div style="background:var(--card-bg);border-radius:14px;padding:16px;margin-bottom:12px;border:1.5px solid var(--border);">
+<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--border);">📝 備考</div>
+<textarea class="field-textarea" id="note" rows="3"></textarea>
+</div>
+<button class="save-btn" onclick="saveCurrentQuote()" style="width:100%;margin-bottom:10px;">💾 この見積書を保存</button>
+<button class="save-btn" onclick="showPreview()" style="width:100%;background:#e67e22;margin-bottom:15px;">📄 プレビュー・出力</button>
+<div style="text-align:center;"><button onclick="if(confirm('削除しますか？')){deleteCurrentQuote();}" style="background:none;border:none;color:#e74c3c;text-decoration:underline;cursor:pointer;font-size:12px;">この見積書を削除</button></div>
+<div style="height:20px;"></div>
+</div>
+</div>
+
+<!-- プレビューモーダル -->
+<div id="preview-modal">
+<div style="background:#1a252f;padding:12px 16px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:1001;">
+<button onclick="closePreview()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer;">← 戻る</button>
+<span style="color:#fff;font-weight:800;font-size:15px;flex:1;">見積書プレビュー</span>
+</div>
+<div class="action-row">
+<button class="btn-pdf" onclick="pdfDoc()">📄 PDF保存</button>
+<button class="btn-line" onclick="shareDoc()">📤 LINE共有</button>
+<button class="btn-html" onclick="saveHTML()">💾 HTML保存</button>
+<button class="btn-print" onclick="printDoc()">🖨️ 印刷</button>
+</div>
+<div style="background:#e8f4fd;border-left:4px solid #2980b9;padding:8px 12px;margin:0 12px 8px;border-radius:8px;font-size:11px;color:#1a5276;">
+💡 <b>PDF保存・印刷・LINE共有</b>：シェアシートが開きます。ファイル名に<b>顧客名様・件名</b>が入ります。
+</div>
+<div style="background:#fff8e1;border-left:4px solid #f39c12;padding:8px 12px;margin:0 12px 8px;border-radius:8px;font-size:12px;color:#7d6608;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+  <span>🖋️ <b>文字の濃さ</b></span>
+  <input type="range" id="fontWeightSlider" min="1" max="4" step="1" value="1"
+    oninput="updateFontWeight(this.value)"
+    style="flex:1;min-width:120px;accent-color:#f39c12;">
+  <span id="fontWeightLabel" style="min-width:48px;font-weight:700;">標　準</span>
+</div>
+<div style="overflow-x:auto;padding:8px;background:#555;"><div id="preview-inner" style="background:#fff;margin:0 auto;width:794px;"></div></div>
+</div>
+
+<!-- 通常モーダル -->
+<div class="modal-overlay" id="modalOverlay" style="display:none;" onclick="closeModalOnBg(event)">
+<div class="modal-box">
+<div class="modal-header"><h3 id="modalTitle" style="font-size:15px;font-weight:800;color:var(--text);"></h3><button onclick="closeModal()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button></div>
+<div style="padding:16px 18px 40px;" id="modalBody"></div>
+</div>
+</div>
+
+<!-- AI一括入力モーダル -->
+<div class="modal-overlay" id="smartModal" style="display:none;" onclick="closeSmartOnBg(event)">
+<div class="modal-box">
+<div class="modal-header"><h3 style="font-size:15px;font-weight:800;color:var(--text);">🎤 AI音声・一括入力</h3><button onclick="document.getElementById('smartModal').style.display='none'" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button></div>
+<div style="padding:16px 18px 30px;">
+<div style="background:#fff8e1;border:1.5px solid #ffe082;border-radius:12px;padding:10px 12px;margin-bottom:10px;"><div style="font-size:11px;color:#f57f17;font-weight:800;margin-bottom:3px;">💡 使い方</div><div style="font-size:11px;color:#555;line-height:1.7;">テキスト or 音声で話しかける → AIが自動振り分け・登録<br>金額が含まれると見積書も自動作成</div></div>
+<div style="display:flex;gap:8px;margin-bottom:8px;">
+  <button id="smartVoiceBtn" onclick="toggleSmartVoice()" style="flex:1;background:#e67e22;color:#fff;border:none;border-radius:10px;padding:11px 0;font-size:13px;font-weight:800;cursor:pointer;">🎙 音声で話す</button>
+</div>
+<div id="smartVoiceStatus" style="display:none;background:#fff3e0;border-radius:8px;padding:8px;margin-bottom:8px;font-size:12px;color:#e65100;font-weight:700;text-align:center;">🔴 録音中... もう一度タップで停止</div>
+<textarea id="smartText" placeholder="例：山田さんのヤンマーYT222 製造番号A12345 修理代85000円で見積もり作って" rows="4" class="field-textarea"></textarea>
+<button onclick="runSmartAI()" id="smartBtn" class="save-btn" style="width:100%;background:#e67e22;margin-bottom:10px;">🤖 AI自動振り分け・登録</button>
+<div id="smartStatus" style="font-size:12px;margin-top:8px;display:none;padding:10px;border-radius:8px;line-height:2.2;"></div>
+</div>
+</div>
+</div>
+
+<!-- APIキーモーダル -->
+<div class="modal-overlay" id="apiKeyModal" style="display:none;" onclick="if(event.target.id==='apiKeyModal')closeApiKey()">
+<div class="modal-box">
+<div class="modal-header"><h3 style="font-size:15px;font-weight:800;color:var(--text);">🔑 APIキー・同期設定</h3><button onclick="closeApiKey()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button></div>
+<div style="padding:16px 18px 40px;">
+<label class="field-label">Claude APIキー（AI一括入力用）</label>
+<input type="password" id="apiKeyInput" class="field-input" placeholder="sk-ant-...">
+<div style="background:#e8f4fd;border-radius:12px;padding:14px;margin-bottom:14px;">
+<div style="font-size:13px;font-weight:800;color:#2980b9;margin-bottom:6px;">☁️ クラウド同期設定</div>
+<div style="font-size:11px;color:#555;line-height:1.7;margin-bottom:10px;">複数スマホでデータを共有できます。Google Apps ScriptのURLを入力してください。</div>
+<label class="field-label">GAS デプロイ URL</label>
+<input type="url" id="gasUrlInput" class="field-input" placeholder="https://script.google.com/macros/s/...">
+<button onclick="testSync()" style="background:#2980b9;color:#fff;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;width:100%;margin-bottom:8px;">🔗 接続テスト</button>
+<div id="testResult" style="font-size:12px;min-height:18px;"></div>
+</div>
+<button onclick="saveApiKey()" class="save-btn" style="width:100%;">💾 保存する</button>
+</div>
+</div>
+</div>
+
+<!-- バックアップモーダル -->
+<div class="modal-overlay" id="backupModal" style="display:none;" onclick="if(event.target.id==='backupModal')closeBackupModal()">
+<div class="modal-box">
+<div class="modal-header"><h3 style="font-size:15px;font-weight:800;color:var(--text);">🛡️ バックアップ・データ管理</h3><button onclick="closeBackupModal()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button></div>
+<div style="padding:16px 18px 40px;">
+<div id="dataOverview" style="background:var(--input-bg);border-radius:12px;padding:12px;margin-bottom:14px;font-size:12px;"></div>
+<div style="display:flex;gap:8px;margin-bottom:16px;">
+<button onclick="exportJSON()" style="flex:1;background:#2980b9;color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:800;cursor:pointer;">📥 JSONで保存</button>
+<button onclick="importJSON()" style="flex:1;background:#27ae60;color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:800;cursor:pointer;">📤 JSONを読込</button>
+</div>
+<div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:8px;">🕐 自動バックアップ（最新24時間分）</div>
+<div id="backupList"></div>
+<div style="margin-top:16px;padding:12px;background:#fde8e8;border-radius:12px;">
+<div style="font-size:11px;font-weight:800;color:#e74c3c;margin-bottom:6px;">⚠️ 緊急時のみ：サンプルデータ読込</div>
+<div style="font-size:11px;color:#555;margin-bottom:8px;">現在のデータが消えます。</div>
+<button onclick="loadSeedData()" style="background:#e74c3c;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;width:100%;">🔴 サンプルデータを読み込む（上書き）</button>
+</div>
+</div>
+</div>
+</div>
+
+<div id="syncBar"></div>
+<iframe id="_print_frame" style="position:fixed;top:-9999px;left:-9999px;width:210mm;height:297mm;border:none;"></iframe>
+
+<!-- 修理写真追加用（非表示） -->
+<input type="file" id="repairPhotoInput" accept="image/*" capture="environment" style="display:none;" onchange="handleRepairPhotoAdd(event)">
+
+<!-- 故障診断モーダル -->
+<div class="modal-overlay" id="diagModal" style="display:none;" onclick="if(event.target.id==='diagModal')closeDiagModal()">
+<div class="modal-box">
+<div class="modal-header"><h3 style="font-size:15px;font-weight:800;color:var(--text);">🔍 AI故障診断</h3><button onclick="closeDiagModal()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button></div>
+<div style="padding:16px 18px 30px;">
+<div style="background:#f3e5f5;border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#4a148c;line-height:1.7;"><b>🔍 故障診断の使い方</b><br>不具合部位・症状の写真を撮影 → AIが考えられる原因と対処法を提示</div>
+<label style="display:block;background:#8e44ad;color:#fff;border-radius:10px;padding:12px;text-align:center;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:12px;">
+📷 診断写真を撮影・選択
+<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="runDiagnosis(event)">
+</label>
+<div id="diagResult" style="display:none;background:var(--input-bg);border-radius:12px;padding:12px;font-size:12px;line-height:1.8;white-space:pre-wrap;"></div>
+<button id="diagApplyBtn" onclick="applyDiagToIssue()" style="display:none;background:#2980b9;color:#fff;border:none;border-radius:10px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;width:100%;margin-top:10px;">📝 診断結果を不具合欄に反映</button>
+</div>
+</div>
+</div>
+
+<!-- 伝票OCRモーダル -->
+<div class="modal-overlay" id="ocrModal" style="display:none;" onclick="if(event.target.id==='ocrModal')closeOcrModal()">
+<div class="modal-box">
+<div class="modal-header"><h3 style="font-size:15px;font-weight:800;color:var(--text);">📷 伝票・ラベル読取</h3><button onclick="closeOcrModal()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button></div>
+<div style="padding:16px 18px 30px;">
+<div style="background:#e3f2fd;border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#0d47a1;line-height:1.7;"><b>📷 読取対象</b><br>納品伝票・部品ラベル・包装箱の品番シール など<br>品名・品番・数量・金額を自動で入力します</div>
+<label style="display:block;background:#2980b9;color:#fff;border-radius:10px;padding:12px;text-align:center;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:10px;">
+📷 伝票・ラベルを撮影
+<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="runPartsOCR(event)">
+</label>
+<div id="ocrPreview" style="display:none;margin-bottom:10px;"></div>
+<div id="ocrResult" style="display:none;background:var(--input-bg);border-radius:12px;padding:12px;font-size:12px;margin-bottom:10px;"></div>
+<button id="ocrApplyBtn" onclick="applyOcrToParts()" style="display:none;background:#27ae60;color:#fff;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:800;cursor:pointer;width:100%;">✅ 部品フォームに反映</button>
+</div>
+</div>
+</div>
+
+<!-- 見積書スキャンモーダル -->
+<div class="modal-overlay" id="scanQuoteModal" style="display:none;" onclick="if(event.target.id==='scanQuoteModal')closeScanQuoteModal()">
+<div class="modal-box">
+<div class="modal-header"><h3 style="font-size:15px;font-weight:800;color:var(--text);">📷 見積書スキャン→作成</h3><button onclick="closeScanQuoteModal()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button></div>
+<div style="padding:16px 18px 30px;">
+<div style="background:#fce4ec;border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#880e4f;line-height:1.7;"><b>📷 スキャン対象</b><br>・他社見積書の写真<br>・PDFファイル（アップロード）<br>品目・金額・顧客名を読み取り、当社見積書を自動作成します</div>
+<label style="display:block;background:#c0392b;color:#fff;border-radius:10px;padding:12px;text-align:center;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:8px;">
+📷 見積書を撮影（写真）
+<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="runScanQuote(event)">
+</label>
+<label style="display:block;background:#8e44ad;color:#fff;border-radius:10px;padding:12px;text-align:center;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:12px;">
+📄 PDFをアップロード
+<input type="file" accept="application/pdf" style="display:none;" onchange="runScanQuote(event)">
+</label>
+<div id="scanStatus" style="display:none;font-size:12px;padding:10px;border-radius:8px;background:var(--input-bg);color:var(--text-sub);text-align:center;"></div>
+</div>
+</div>
+</div>
+<script>
+
+const TABS=['ホーム','顧客','修理','実演','部品','製品','見積書'];
+let currentTab=0;
+const STATUS_COLORS={'修理依頼':'#e74c3c','見積中':'#9b59b6','部品待ち':'#f39c12','修理中':'#e67e22','完了(未請求)':'#3498db','請求済':'#95a5a6','実演予定':'#f39c12','実施済':'#3498db','見積提示中':'#9b59b6','成約':'#27ae60','発注前':'#e74c3c','発注済':'#e67e22','入荷済':'#f39c12','納品済':'#3498db','完了':'#27ae60','請求済み':'#95a5a6','商談中':'#9b59b6','受注':'#e67e22','納品(納車)済':'#3498db'};
+let DB={settings:[{id:1,targetSales:10000000,currentSales:0}],customers:[],repairs:[],demos:[],parts:[],products:[],quotes:[],lastModified:new Date().toISOString()};
+let apiKey='',gasUrl='',syncTimer=null,isSyncing=false;
+let searchQuery='';let calViewActive=false;let calYear=new Date().getFullYear();let calMonth=new Date().getMonth();
+function hasAnyData(){return['customers','repairs','demos','parts','products'].some(k=>Array.isArray(DB[k])&&DB[k].length>0);}
+function saveDB(){const now=Date.now(),cur=new Date(DB.lastModified||0).getTime();DB.lastModified=new Date(Math.max(now,cur+1000)).toISOString();try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}saveEmergencyBackup();scheduleSync();}
+function saveEmergencyBackup(){if(!hasAnyData())return;try{const sn={data:DB,savedAt:new Date().toISOString()};localStorage.setItem('agri_emergency_backup',JSON.stringify(sn));const hk='agri_backup_'+new Date().toISOString().slice(0,13).replace('T','_');localStorage.setItem(hk,JSON.stringify(sn));const keys=Object.keys(localStorage).filter(k=>k.startsWith('agri_backup_')).sort();if(keys.length>24)keys.slice(0,keys.length-24).forEach(k=>localStorage.removeItem(k));}catch(e){}}
+function loadDB(){try{const d=localStorage.getItem('agri_db');if(d){const p=JSON.parse(d);if(p&&typeof p==='object'){['customers','repairs','demos','parts','products','settings','quotes'].forEach(k=>{if(Array.isArray(p[k]))DB[k]=p[k];});if(p.lastModified)DB.lastModified=p.lastModified;}}}catch(e){}try{const k=localStorage.getItem('agri_api_key');if(k)apiKey=k;}catch(e){}try{const g=localStorage.getItem('agri_gas_url');if(g)gasUrl=g;}catch(e){}}
+function showSyncBar(msg,type,autohide=true){const bar=document.getElementById('syncBar');bar.textContent=msg;bar.className='show '+type;if(autohide)setTimeout(()=>{bar.className='';},3500);}
+function updateSyncLabel(msg){const el=document.getElementById('syncLabel');if(el)el.textContent=msg;}
+function scheduleSync(){if(syncTimer)clearTimeout(syncTimer);syncTimer=setTimeout(()=>{syncToCloud(false);},3000);}
+async function fetchWithTimeout(url,opts,ms=15000){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);try{return await fetch(url,{...opts,signal:c.signal,credentials:'omit'});}finally{clearTimeout(t);}}
+async function syncToCloud(showResult=false){
+  if(!gasUrl||isSyncing)return;isSyncing=true;
+  if(showResult)showSyncBar('☁️ 同期中...','syncing',false);
+  try{
+    const gr=await fetchWithTimeout(gasUrl,{method:'GET',cache:'no-cache'});
+    if(!gr.ok)throw new Error('サーバーエラー: '+gr.status);
+    const gt=await gr.text();let sd;try{sd=JSON.parse(gt);}catch(e){sd={empty:true};}
+    if(sd&&!sd.empty){
+      const st=new Date(sd.lastModified||0).getTime(),lt=new Date(DB.lastModified||0).getTime();
+      if(st>lt){
+        const shd=['customers','repairs','demos','parts','products','quotes'].some(k=>sd[k]&&sd[k].length>0);
+        const lhd=hasAnyData();
+        if(lhd&&!shd){if(showResult)showSyncBar('⚠️ クラウドが空のためローカルデータを優先','conflict');DB.lastModified=new Date().toISOString();try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}isSyncing=false;setTimeout(()=>syncToCloud(false),500);return;}
+        if(lhd)saveEmergencyBackup();
+        ['customers','repairs','demos','parts','products','settings','quotes'].forEach(k=>{if(sd[k])DB[k]=sd[k];});
+        DB.lastModified=sd.lastModified;try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}
+        renderAll();const t=new Date(DB.lastModified).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});updateSyncLabel('最終同期: '+t);
+        if(showResult)showSyncBar('✅ 最新データを受信しました','ok');isSyncing=false;return;
+      }
+    }
+    if(!hasAnyData()){if(showResult)showSyncBar('⚠️ ローカルが空のためアップロードをスキップ','conflict');isSyncing=false;return;}
+    const pr=await fetchWithTimeout(gasUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(DB)});
+    if(!pr.ok)throw new Error('保存エラー: '+pr.status);
+    const pt=await pr.text();let result;
+    try{result=JSON.parse(pt);}catch(e){const t=pt.trim().toLowerCase();if(t==='success'||t.includes('"success"')||t.includes('ok')){result={status:'ok'};}else{throw new Error('GAS応答が不正: '+pt.slice(0,80));}}
+    if(result.status==='conflict'){['customers','repairs','demos','parts','products','settings','quotes'].forEach(k=>{if(result.data[k])DB[k]=result.data[k];});DB.lastModified=result.data.lastModified;try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}renderAll();if(showResult)showSyncBar('🔄 競合を解決しました','conflict');}
+    else if(result.status==='ok'){const t=new Date(DB.lastModified).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});updateSyncLabel('最終同期: '+t);if(showResult)showSyncBar('✅ 同期完了','ok');}
+    else{if(showResult)showSyncBar('⚠️ GAS応答エラー','error');}
+  }catch(e){let em=e.message||String(e);if(e.name==='AbortError')em='接続タイムアウト（15秒）';else if(em==='Failed to fetch')em='接続失敗（GASのアクセス権限を確認してください）';if(showResult)showSyncBar('❌ '+em,'error');}
+  isSyncing=false;
+}
+async function manualSync(){if(!gasUrl){showSyncBar('⚠️ GAS URLが未設定です','error');return;}await syncToCloud(true);}
+async function forcePullFromCloud(){
+  if(!gasUrl){showSyncBar('⚠️ GAS URLが未設定です','error');return;}
+  if(!confirm('クラウドのデータを強制取得します。\nこのスマホのデータはクラウドで上書きされます。よろしいですか？'))return;
+  showSyncBar('☁️ クラウドから強制取得中...','syncing',false);
+  try{
+    const gr=await fetchWithTimeout(gasUrl,{method:'GET',cache:'no-cache'});if(!gr.ok)throw new Error('サーバーエラー: '+gr.status);
+    const sd=JSON.parse(await gr.text());
+    if(!sd||sd.empty){showSyncBar('⚠️ クラウドにデータがありません','error');return;}
+    if(!['customers','repairs','demos','parts','products'].some(k=>sd[k]&&sd[k].length>0)){showSyncBar('⚠️ クラウドが空です','error');return;}
+    saveEmergencyBackup();['customers','repairs','demos','parts','products','settings','quotes'].forEach(k=>{if(sd[k])DB[k]=sd[k];});
+    DB.lastModified=sd.lastModified;try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}
+    renderAll();updateSyncLabel('最終同期: '+new Date(DB.lastModified).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}));showSyncBar('✅ クラウドから強制取得完了！','ok');
+  }catch(e){showSyncBar('❌ '+(e.message||'取得失敗'),'error');}
+}
+async function testSync(){
+  const url=document.getElementById('gasUrlInput').value.trim();if(!url){document.getElementById('testResult').textContent='⚠️ URLを入力してください';return;}
+  document.getElementById('testResult').textContent='🔄 接続テスト中...';
+  try{const c=new AbortController();const t=setTimeout(()=>c.abort(),15000);const r=await fetch(url,{method:'GET',cache:'no-cache',credentials:'omit',signal:c.signal});clearTimeout(t);await r.json();document.getElementById('testResult').innerHTML='<span style="color:#27ae60;font-weight:bold;">✅ 接続成功！</span>';}
+  catch(e){document.getElementById('testResult').innerHTML='<span style="color:#e74c3c;">❌ 接続失敗: '+(e.name==='AbortError'?'タイムアウト（15秒）':e.message)+'</span>';}
+}
+function openApiKey(){document.getElementById('apiKeyInput').value=apiKey;document.getElementById('gasUrlInput').value=gasUrl;document.getElementById('testResult').textContent='';document.getElementById('apiKeyModal').style.display='flex';}
+function closeApiKey(){document.getElementById('apiKeyModal').style.display='none';}
+function saveApiKey(){apiKey=document.getElementById('apiKeyInput').value.trim();gasUrl=document.getElementById('gasUrlInput').value.trim();try{localStorage.setItem('agri_api_key',apiKey);}catch(e){}try{localStorage.setItem('agri_gas_url',gasUrl);}catch(e){}closeApiKey();alert('設定を保存しました');if(gasUrl)syncToCloud(true);}
+function openBackupModal(){const ov=document.getElementById('dataOverview');ov.innerHTML=`<div style="font-weight:800;margin-bottom:6px;">📊 現在のデータ</div><div>修理: <b>${DB.repairs?.length||0}件</b> / 製品: <b>${DB.products?.length||0}件</b> / 顧客: <b>${DB.customers?.length||0}件</b></div><div>部品: <b>${DB.parts?.length||0}件</b> / 実演: <b>${DB.demos?.length||0}件</b> / 見積: <b>${DB.quotes?.length||0}件</b></div><div style="margin-top:4px;color:var(--text-sub);">最終更新: ${DB.lastModified?new Date(DB.lastModified).toLocaleString('ja-JP'):'不明'}</div>`;renderBackupList();document.getElementById('backupModal').style.display='flex';}
+function closeBackupModal(){document.getElementById('backupModal').style.display='none';}
+function renderBackupList(){
+  const c=document.getElementById('backupList');
+  const keys=Object.keys(localStorage).filter(k=>k.startsWith('agri_backup_')||k==='agri_emergency_backup').sort().reverse();
+  if(!keys.length){c.innerHTML='<div style="text-align:center;color:var(--text-sub);padding:20px;font-size:12px;">バックアップなし</div>';return;}
+  let html='';
+  keys.forEach(k=>{try{const b=JSON.parse(localStorage.getItem(k));const d=b.data||b;const sa=b.savedAt||d.lastModified||'不明';const r=d.repairs?.length||0,p=d.products?.length||0,cu=d.customers?.length||0;if(!r&&!p&&!cu)return;const label=k==='agri_emergency_backup'?'🔴 最新緊急バックアップ':'🕐 '+k.replace('agri_backup_','').replace('_',' ')+'時';const ke=k.replace(/'/g,"\\'");html+=`<div class="card" style="margin-bottom:8px;border-left:4px solid ${k==='agri_emergency_backup'?'#e74c3c':'#3498db'};"><div style="font-weight:bold;font-size:13px;">${label}</div><div style="font-size:11px;color:var(--text-sub);margin:4px 0;">保存: ${new Date(sa).toLocaleString('ja-JP')}</div><div style="font-size:11px;color:var(--text-sub);">修理 ${r}件 / 製品 ${p}件 / 顧客 ${cu}件</div><button onclick="restoreBackup('${ke}')" style="margin-top:8px;background:#e67e22;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;width:100%;">⬆️ このバックアップに復元</button></div>`;}catch(e){}});
+  c.innerHTML=html||'<div style="text-align:center;color:var(--text-sub);padding:20px;font-size:12px;">有効なバックアップなし</div>';
+}
+function restoreBackup(key){if(!confirm('このバックアップに復元しますか？\n現在のデータは上書きされます。'))return;try{const b=JSON.parse(localStorage.getItem(key));const d=b.data||b;['customers','repairs','demos','parts','products','settings','quotes'].forEach(k=>{if(Array.isArray(d[k]))DB[k]=d[k];});if(d.lastModified)DB.lastModified=d.lastModified;try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}saveEmergencyBackup();renderAll();closeBackupModal();showSyncBar('✅ バックアップから復元しました','ok');}catch(e){alert('復元エラー: '+e.message);}}
+function exportJSON(){const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`農機管理PRO_バックアップ_${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),2000);}
+function importJSON(){const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.onchange=(e)=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=(ev)=>{try{const d=JSON.parse(ev.target.result);if(!confirm(`JSONファイルを読み込みます。\n修理 ${d.repairs?.length||0}件 / 製品 ${d.products?.length||0}件\n現在のデータは上書きされます。よろしいですか？`))return;saveEmergencyBackup();['customers','repairs','demos','parts','products','settings','quotes'].forEach(k=>{if(Array.isArray(d[k]))DB[k]=d[k];});DB.lastModified=new Date().toISOString();saveDB();renderAll();closeBackupModal();showSyncBar('✅ JSONファイルから復元しました','ok');}catch(e){alert('読み込みエラー: '+e.message);}};r.readAsText(f);};inp.click();}
+function loadSeedData(){if(!confirm('サンプルデータを読み込みます。\n現在のデータは上書きされます。\n本当によろしいですか？'))return;saveEmergencyBackup();DB.repairs=SCREENSHOT_REPAIRS;DB.demos=SCREENSHOT_DEMOS;DB.parts=SCREENSHOT_PARTS;DB.products=SCREENSHOT_PRODUCTS;DB.customers=SCREENSHOT_CUSTOMERS;DB.quotes=SCREENSHOT_QUOTES;DB.lastModified=new Date().toISOString();saveDB();renderAll();closeBackupModal();showSyncBar('✅ サンプルデータを読み込みました','ok');}
+
+/* ========== 出力関数 ========== */
+function getStyles(){return '*{box-sizing:border-box;margin:0;padding:0;}body{font-family:"MS Mincho","Hiragino Mincho Pro",serif;}@page{size:A4 portrait;margin:0;}@media print{html,body{width:210mm;}body{margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}';}
+
+function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
+async function generatePDFBlob(){
+  /* 独立iframeで白背景描画（ダークモード干渉・黒バグ両方回避） */
+  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}</body></html>`;
+  return new Promise((resolve,reject)=>{
+    const fr=document.createElement('iframe');
+    fr.style.cssText='position:fixed;left:-4000px;top:0;width:794px;height:300px;border:none;opacity:0;pointer-events:none;';
+    document.body.appendChild(fr);
+    const cleanup=()=>{try{document.body.removeChild(fr);}catch(e){}};
+    fr.addEventListener('load',async()=>{
+      try{
+        const bd=fr.contentDocument.body;
+        fr.style.height=Math.max(bd.scrollHeight,500)+'px';
+        await new Promise(r=>setTimeout(r,800));
+        const canvas=await html2canvas(bd,{scale:2,useCORS:true,allowTaint:true,foreignObjectRendering:false,logging:false,backgroundColor:'#ffffff',width:794,windowWidth:794,scrollX:0,scrollY:0});
+        const{jsPDF}=window.jspdf;
+        const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+        const imgData=canvas.toDataURL('image/jpeg',0.95);
+        const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
+        const ih=(canvas.height*pw)/canvas.width;
+        if(ih<=ph){pdf.addImage(imgData,'JPEG',0,0,pw,ih);}
+        else{let y=0;while(y<ih){if(y>0)pdf.addPage();pdf.addImage(imgData,'JPEG',0,-y,pw,ih);y+=ph;}}
+        resolve(pdf.output('blob'));
+      }catch(e){reject(e);}finally{cleanup();}
+    },{once:true});
+    fr.addEventListener('error',()=>{cleanup();reject(new Error('PDF生成失敗'));},{once:true});
+    fr.srcdoc=fullHTML;
+  });
+}
+async function pdfDoc(){
+  const tN=(document.getElementById('toName')?.value||'').trim();
+  const subj=(document.getElementById('subject')?.value||'').trim();
+  const pdfName=`見積書_${tN?tN+'様':''}${subj?'_'+subj:''}.pdf`;
+  showSyncBar('📄 PDF生成中...','syncing',false);
+  try{
+    const blob=await generatePDFBlob();
+    const file=new File([blob],pdfName,{type:'application/pdf'});
+    showSyncBar('','',false);
+    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+      await navigator.share({title:pdfName,files:[file]});
+    }else{
+      const url=URL.createObjectURL(blob);const a=document.createElement('a');
+      a.href=url;a.download=pdfName;document.body.appendChild(a);a.click();
+      document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),3000);
+      showSyncBar('✅ PDF保存しました','ok');
+    }
+  }catch(e){
+    if(e.name!=='AbortError'){showSyncBar('❌ PDF生成失敗','error');console.error(e);}
+  }
+}
+function saveHTML(){
+  const tN=(document.getElementById('toName')?.value||'').trim();const sv=(document.getElementById('subject')?.value||'').trim();const ed=(document.getElementById('estDate')?.value||'').replace(/-/g,'');
+  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`;
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');
+  a.download=`見積書_${tN?tN+'_':''}${sv?sv+'_':''}${ed||new Date().toISOString().slice(0,10)}.html`;a.href=url;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),3000);
+}
+async function shareDoc(){
+  const tN=(document.getElementById('toName')?.value||'').trim();
+  const subj=(document.getElementById('subject')?.value||'').trim();
+  const pdfName=`見積書_${tN?tN+'様':''}${subj?'_'+subj:''}.pdf`;
+  showSyncBar('📤 PDF生成中...','syncing',false);
+  try{
+    const blob=await generatePDFBlob();
+    const file=new File([blob],pdfName,{type:'application/pdf'});
+    showSyncBar('','',false);
+    if(navigator.share){
+      await navigator.share({title:pdfName,files:[file]});
+    }else{
+      const url=URL.createObjectURL(blob);const a=document.createElement('a');
+      a.href=url;a.download=pdfName;document.body.appendChild(a);a.click();
+      document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),3000);
+    }
+  }catch(e){
+    if(e.name!=='AbortError')showSyncBar('❌ '+(e.message||'PDF生成失敗'),'error');
+  }
+}
+function openLineShare(text){const o=window.open('https://line.me/R/msg/text/?'+encodeURIComponent(text),'_blank');if(!o){if(navigator.clipboard){navigator.clipboard.writeText(text).then(()=>alert('見積内容をコピーしました！\nLINEを開いて貼り付けてください。'));}else{prompt('以下をコピーしてLINEに貼り付けてください：',text);}}}
+async function printDoc(){
+  const tN=(document.getElementById('toName')?.value||'').trim();
+  const subj=(document.getElementById('subject')?.value||'').trim();
+  const pdfName=`見積書_${tN?tN+'様':''}${subj?'_'+subj:''}.pdf`;
+  showSyncBar('🖨️ PDF生成中...','syncing',false);
+  try{
+    const blob=await generatePDFBlob();
+    const file=new File([blob],pdfName,{type:'application/pdf'});
+    showSyncBar('','',false);
+    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+      await navigator.share({title:pdfName,files:[file]});
+    }else{
+      const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`;
+      const win=window.open('','_blank');
+      if(win){win.document.write(html);win.document.close();setTimeout(()=>{try{win.focus();win.print();}catch(e){win.close();usePrintFrame(html);}},800);}else{usePrintFrame(html);}
+    }
+  }catch(e){
+    if(e.name==='AbortError')return;
+    showSyncBar('❌ PDF生成失敗','error');console.error(e);
+  }
+}
+function usePrintFrame(html){const iframe=document.getElementById('_print_frame');const d=iframe.contentDocument||iframe.contentWindow.document;d.open();d.write(html);d.close();setTimeout(()=>{try{iframe.contentWindow.focus();iframe.contentWindow.print();}catch(e){const blob=new Blob([html],{type:'text/html;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='見積書.html';a.click();}},800);}
+function buildCalUrl(title,dateVal,details){let dt=dateVal||new Date().toISOString().slice(0,10);const d=dt.replace(/-/g,'');const s=new Date(dt);const e=new Date(s);e.setDate(s.getDate()+1);const de=e.toISOString().slice(0,10).replace(/-/g,'');return'https://www.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(title)+'&dates='+d+'/'+de+'&details='+encodeURIComponent(details);}
+// ===== 農機専用 音声補正辞書 =====
+const AGRI_DICT={
+  'かんしょ':'甘諸','あまいも':'甘諸','さつまいも':'甘諸',
+  'やんまー':'ヤンマー','くぼた':'クボタ','いせき':'井関',
+  'にぷろ':'ニプロ','まるやま':'丸山製作所','みつびし':'三菱マヒンドラ農機',
+  'あいえいち':'IHI','ぐらんどそわー':'グランドソワー',
+  'ぷらそいら':'プラソイラ','こんびそいら':'コンビソイラ',
+  'どらいぶはろー':'ドライブハロー','まにあすぷれっだー':'マニアスプレッダー',
+  'らじこんどうふん':'ラジコン動噴','どうふん':'動噴',
+  'たうえき':'田植機','こんばいん':'コンバイン','とらくたー':'トラクター',
+  'ばいんだー':'バインダー','ほいるろーだー':'ホイルローダ',
+  'ちぇーんそー':'チェーンソー','かるちべーたー':'カルチベーター',
+  'せいぞうばんごう':'製造番号','しゃたいばんごう':'製造番号',
+  'かどうじかん':'稼働時間','あわーめーたー':'アワーメーター',
+  'しゅうりいらい':'修理依頼','みつもりちゅう':'見積中','ぶひんまち':'部品待ち',
+};
+function fixVoice(t){
+  if(!t)return t;
+  Object.entries(AGRI_DICT).forEach(([k,v])=>{t=t.replace(new RegExp(k,'gi'),v);});
+  t=t.replace(/([0-9]+)万([0-9]*)千?円?/g,(_,m,k)=>String(parseInt(m)*10000+(parseInt(k||0)*1000)));
+  t=t.replace(/([0-9]+)万円?/g,(_,m)=>String(parseInt(m)*10000));
+  t=t.replace(/ヤンマ(?![ーｰ])/g,'ヤンマー');
+  return t;
+}
+
+// ===== フィールド個別音声入力 =====
+let fvRec=null;
+function fieldVoice(targetId,btn){
+  if(fvRec){try{fvRec.abort();}catch(e){}fvRec=null;btn.style.background='#e67e22';btn.textContent='🎙';return;}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){alert('このブラウザは音声認識非対応です（Chrome/Safari推奨）');return;}
+  const r=new SR();r.lang='ja-JP';r.continuous=false;r.interimResults=false;r.maxAlternatives=3;
+  r.onresult=(e)=>{
+    const t=fixVoice(e.results[0][0].transcript);
+    const el=document.getElementById(targetId);
+    if(el){if(el.tagName==='TEXTAREA'){el.value+=(el.value?'\n':'')+t;autoResize(el);}else el.value=t;}
+    btn.style.background='#e67e22';btn.textContent='🎙';fvRec=null;
+  };
+  r.onerror=()=>{btn.style.background='#e67e22';btn.textContent='🎙';fvRec=null;};
+  r.onend=()=>{btn.style.background='#e67e22';btn.textContent='🎙';fvRec=null;};
+  r.start();fvRec=r;btn.style.background='#e74c3c';btn.textContent='⏹';
+}
+
+// ===== AI呼び出し（テキスト・Vision・PDF共通）=====
+async function callAI(prompt,mediaData=null,mediaType=null){
+  if(!apiKey.trim())throw new Error('APIキーが設定されていません。🔑ボタンから設定してください。');
+  let content;
+  if(mediaData&&mediaType){
+    const isDoc=mediaType==='application/pdf';
+    content=[
+      isDoc
+        ?{type:'document',source:{type:'base64',media_type:mediaType,data:mediaData}}
+        :{type:'image',source:{type:'base64',media_type:mediaType,data:mediaData}},
+      {type:'text',text:prompt}
+    ];
+  }else{content=prompt;}
+  const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey.trim(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:2000,messages:[{role:'user',content}]})});
+  const data=await res.json();if(data.error)throw new Error(data.error.message);
+  let raw='{}';if(data.content&&data.content[0]&&data.content[0].text)raw=data.content[0].text;
+  return JSON.parse(raw.replace(/```json\n?|```/g,'').trim());
+}
+
+// ===== テキスト専用AI（JSON以外の応答を返す）=====
+async function callAIText(prompt,mediaData=null,mediaType=null){
+  if(!apiKey.trim())throw new Error('APIキーが設定されていません。🔑ボタンから設定してください。');
+  let content;
+  if(mediaData&&mediaType){
+    const isDoc=mediaType==='application/pdf';
+    content=[
+      isDoc
+        ?{type:'document',source:{type:'base64',media_type:mediaType,data:mediaData}}
+        :{type:'image',source:{type:'base64',media_type:mediaType,data:mediaData}},
+      {type:'text',text:prompt}
+    ];
+  }else{content=prompt;}
+  const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey.trim(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1000,messages:[{role:'user',content}]})});
+  const data=await res.json();if(data.error)throw new Error(data.error.message);
+  if(data.content&&data.content[0]&&data.content[0].text)return data.content[0].text;
+  return '';
+}
+
+// ===== ファイル→base64 =====
+function fileToB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result.split(',')[1]);r.onerror=()=>rej(new Error('読込失敗'));r.readAsDataURL(file);});}
+async function runSmartAI(){
+  const rawText=document.getElementById('smartText').value.trim();if(!rawText)return;
+  const text=fixVoice(rawText);
+  const btn=document.getElementById('smartBtn'),sEl=document.getElementById('smartStatus');
+  btn.textContent='⏳ AIが解析中...';btn.disabled=true;sEl.style.display='block';sEl.style.background='var(--input-bg)';sEl.style.color='var(--text-sub)';sEl.textContent='AIが内容を解析して振り分けています...';
+  const today=new Date().toISOString().slice(0,10);
+  const custList=DB.customers.map(c=>c.name).join('・')||'なし';
+  const prompt=`農業機械販売修理会社（財部農機センター）の業務管理システムです。以下テキストを解析してJSONのみ返してください。前後の文章・\`\`\`不要。
+
+今日: ${today}　登録顧客: ${custList}
+
+テキスト:「${text}」
+
+{"customer":{"name":"","phone":"","address":""},"repair":{"customerName":"","machine":"","maker":"","model":"","serialNo":"","attachment":"","hourMeter":"","issue":"","status":"修理依頼","dueDate":"","price":0},"demo":{"customerName":"","targetMachine":"","maker":"","model":"","date":"","status":"実演予定"},"parts":[{"customerName":"","name":"","maker":"","partNo":"","qty":1,"price":0,"status":"発注前","orderDate":""}],"products":[{"productName":"","maker":"","model":"","serialNo":"","customer":"","status":"受注","deliveryDate":"","price":0}],"quote":{"customerName":"","subject":"","items":[{"name":"","brand":"","model":"","serialNo":"","qty":1,"price":0,"note":""}]},"hasCustomer":false,"hasRepair":false,"hasDemo":false,"hasParts":false,"hasProducts":false,"hasQuote":false}
+
+重要ルール:
+・登録顧客リストと部分一致・読み仮名で照合して正式名に補正
+・製造番号/シリアル→serialNo（英数混在そのまま）
+・稼働時間/アワーメーター→hourMeter（数値のみ）
+・金額は数値のみ（「8万5千円」→85000）
+・見積/円含む→hasQuote:true+quote
+・農機メーカー表記正規化（ヤンマー/クボタ/井関/ニプロ/IHIアグリテック等）
+・日付表現は${today}基準で変換（「来月末」等）
+・型式の英数字は音声誤変換を考慮して補完（例：GZA651,YT222等）
+・全項目に顧客名を反映`;
+  try{
+    const r=await callAI(prompt);const msgs=[];
+    if(r.hasCustomer&&r.customer?.name){DB.customers.push({id:'ID_'+Date.now(),name:r.customer.name,phone:r.customer.phone||'',address:r.customer.address||''});msgs.push('👥 顧客登録');}
+    if(r.hasRepair&&r.repair?.customerName){DB.repairs.push({id:'ID_'+(Date.now()+1),customerName:r.repair.customerName,machine:r.repair.machine||'',maker:r.repair.maker||'',model:r.repair.model||'',serialNo:r.repair.serialNo||'',attachment:r.repair.attachment||'',hourMeter:r.repair.hourMeter||'',issue:r.repair.issue||'',status:r.repair.status||'修理依頼',dueDate:r.repair.dueDate||'',price:r.repair.price||0,date:today,usedParts:[]});const cu=buildCalUrl('【修理納期】'+r.repair.customerName+' 様 '+(r.repair.machine||''),r.repair.dueDate,'内容: '+(r.repair.issue||''));msgs.push('🔧 修理依頼登録 <a href="'+cu+'" target="_blank" style="margin-left:8px;background:#4285f4;color:#fff;padding:4px 8px;border-radius:6px;text-decoration:none;font-size:11px;">📅 カレンダー</a>');}
+    if(r.hasDemo&&r.demo?.customerName){DB.demos.push({id:'ID_'+(Date.now()+2),customerName:r.demo.customerName,targetMachine:r.demo.targetMachine||'',maker:r.demo.maker||'',model:r.demo.model||'',date:r.demo.date||'',status:r.demo.status||'実演予定'});msgs.push('🌾 実演登録');}
+    if(r.hasParts&&Array.isArray(r.parts)){r.parts.forEach((pt,i)=>{if(pt?.name){DB.parts.push({id:'ID_'+(Date.now()+3+i*10),customerName:pt.customerName||'',name:pt.name,maker:pt.maker||'',partNo:pt.partNo||'',qty:Number(pt.qty)||0,price:Number(pt.price)||0,status:pt.status||'発注前',orderDate:pt.orderDate||''});msgs.push('⚙️ 部品登録「'+pt.name+'」');}});}
+    if(r.hasProducts&&Array.isArray(r.products)){r.products.forEach((pd,i)=>{if(pd?.productName){DB.products.push({id:'ID_'+(Date.now()+4+i*10),productName:pd.productName,maker:pd.maker||'',model:pd.model||'',serialNo:pd.serialNo||'',customer:pd.customer||'',status:pd.status||'受注',deliveryDate:pd.deliveryDate||'',price:pd.price||0});msgs.push('🚜 製品登録「'+pd.productName+'」');}});}
+    if(r.hasQuote&&r.quote){const src=r.quote.items||[];const nqi=[];for(let i=0;i<ROWS;i++){if(src[i])nqi.push({name:src[i].name||'',brand:src[i].brand||'',model:src[i].model||'',qty:Number(src[i].qty)||1,price:Number(src[i].price)||0,note:src[i].serialNo?'製造番号:'+src[i].serialNo:(src[i].note||'')});else nqi.push({name:'',brand:'',model:'',qty:'',price:'',note:''});}let qs=0;nqi.forEach(it=>{qs+=(Number(it.qty)||0)*(Number(it.price)||0);});const qt=Math.floor(qs*.1);const nq={id:'Q_'+(Date.now()+5),estDate:today,toName:r.quote.customerName||'',subject:r.quote.subject||'',qItems:nqi,total:qs+qt,estNo:'',expDate:'',delivDate:'',delivPlace:'',payMethod:'',note:''};DB.quotes.push(nq);msgs.push('📄 見積書自動作成（¥'+(qs+qt).toLocaleString()+'） <a onclick="openQuoteEditor(\''+nq.id+'\')" style="margin-left:8px;background:#8e44ad;color:#fff;padding:4px 8px;border-radius:6px;text-decoration:none;font-size:11px;cursor:pointer;">📝 開く</a>');}
+    saveDB();document.getElementById('smartText').value='';
+    if(msgs.length){sEl.style.background='#f0fff4';sEl.style.color='#27ae60';sEl.innerHTML='✅ '+msgs.join('<br>✅ ');renderAll();}
+    else{sEl.style.background='#fff8e1';sEl.style.color='#f57f17';sEl.textContent='⚠️ 振り分けできる情報が見つかりませんでした。';}
+  }catch(e){sEl.style.background='#fde8e8';sEl.style.color='#e74c3c';sEl.textContent='❌ '+e.message;}
+  btn.textContent='🤖 AI自動振り分け・登録';btn.disabled=false;
+}
+function toggleDark(){document.body.classList.toggle('dark');}
+function openSmartModal(){document.getElementById('smartModal').style.display='flex';document.getElementById('smartStatus').style.display='none';}
+function closeSmartOnBg(e){if(e.target.id==='smartModal')document.getElementById('smartModal').style.display='none';}
+
+// ===== スマートモーダル音声 =====
+let smartVoiceRec=null,smartVoiceActive=false;
+function toggleSmartVoice(){
+  if(smartVoiceActive){stopSmartVoice();return;}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){alert('このブラウザは音声認識非対応です（Chrome/Safari推奨）');return;}
+  const r=new SR();r.lang='ja-JP';r.continuous=true;r.interimResults=true;r.maxAlternatives=3;
+  const ta=document.getElementById('smartText');
+  const base=ta.value;let fin='';
+  r.onresult=(e)=>{
+    let f='',im='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal)f+=e.results[i][0].transcript;
+      else im+=e.results[i][0].transcript;
+    }
+    if(f){fin+=f;ta.value=(base+fin).trim()+' ';}
+    document.getElementById('smartVoiceStatus').textContent='🔴 録音中: '+fixVoice(im||fin||'...');
+  };
+  r.onerror=(e)=>{if(e.error!=='aborted')showSyncBar('🎙 音声認識エラー: '+e.error,'error');stopSmartVoice();};
+  r.onend=()=>{if(smartVoiceActive)stopSmartVoice();};
+  r.start();smartVoiceRec=r;smartVoiceActive=true;
+  const btn=document.getElementById('smartVoiceBtn');
+  btn.textContent='⏹ 停止';btn.style.background='#e74c3c';
+  document.getElementById('smartVoiceStatus').style.display='block';
+}
+function stopSmartVoice(){
+  if(smartVoiceRec){try{smartVoiceRec.stop();}catch(e){}}
+  smartVoiceRec=null;smartVoiceActive=false;
+  const btn=document.getElementById('smartVoiceBtn');
+  if(btn){btn.textContent='🎙 音声で話す';btn.style.background='#e67e22';}
+  const vs=document.getElementById('smartVoiceStatus');
+  if(vs)vs.style.display='none';
+  // 録音終了後に補正辞書を適用
+  const ta=document.getElementById('smartText');
+  if(ta)ta.value=fixVoice(ta.value);
+}
+
+// ===== 修理写真管理 =====
+let currentRepairPhotos=[];
+function buildRepairPhotoHTML(){
+  let h=currentRepairPhotos.map((p,i)=>`<div style="position:relative;flex-shrink:0;"><img src="${p}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;border:1.5px solid var(--border);cursor:pointer;" onclick="viewPhoto('${p}')"><button type="button" onclick="removeRepairPhoto(${i})" style="position:absolute;top:-5px;right:-5px;background:#e74c3c;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer;color:#fff;padding:0;line-height:1;">×</button></div>`).join('');
+  h+=`<label style="width:70px;height:70px;background:var(--input-bg);border:2px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:24px;flex-shrink:0;">＋<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleRepairPhotoAdd(event)"></label>`;
+  return h;
+}
+async function handleRepairPhotoAdd(event){
+  const file=event.target.files[0];if(!file)return;
+  const b64=await fileToB64(file);
+  currentRepairPhotos.push('data:'+file.type+';base64,'+b64);
+  const area=document.getElementById('repairPhotoArea');
+  if(area)area.innerHTML=buildRepairPhotoHTML();
+  event.target.value='';
+}
+function removeRepairPhoto(idx){
+  currentRepairPhotos.splice(idx,1);
+  const area=document.getElementById('repairPhotoArea');
+  if(area)area.innerHTML=buildRepairPhotoHTML();
+}
+function viewPhoto(src){
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:2000;display:flex;align-items:center;justify-content:center;';
+  ov.innerHTML=`<img src="${src}" style="max-width:95vw;max-height:90vh;border-radius:8px;"><button onclick="this.parentNode.remove()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:36px;height:36px;font-size:20px;cursor:pointer;">×</button>`;
+  ov.onclick=(e)=>{if(e.target===ov)ov.remove();};
+  document.body.appendChild(ov);
+}
+function fileToB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result.split(',')[1]);r.onerror=()=>rej(new Error('読込失敗'));r.readAsDataURL(file);});}
+
+// ===== 故障診断 =====
+let lastDiagText='';
+function openDiagnosis(){document.getElementById('diagModal').style.display='flex';document.getElementById('diagResult').style.display='none';document.getElementById('diagApplyBtn').style.display='none';}
+function closeDiagModal(){document.getElementById('diagModal').style.display='none';}
+async function runDiagnosis(event){
+  const file=event.target.files[0];if(!file)return;
+  if(!apiKey.trim()){alert('APIキーが未設定です');return;}
+  const res=document.getElementById('diagResult');
+  res.style.display='block';res.textContent='🔍 診断中...';
+  document.getElementById('diagApplyBtn').style.display='none';
+  try{
+    const b64=await fileToB64(file);
+    const prompt=`あなたは農業機械整備の専門家です。この写真を見て、考えられる不具合・原因・対処法を日本語で回答してください。
+
+【確認できる状態】
+（写真から分かること）
+
+【考えられる原因】
+1. 〇〇
+2. 〇〇（複数ある場合）
+
+【推奨対処】
+（具体的な修理作業・交換部品名）
+
+【参考部品番号・型番】
+（分かる範囲で）
+
+簡潔・実用的に。整備士が現場で使える内容で。`;
+    const result=await callAIText(prompt,b64,file.type);
+    lastDiagText=result;
+    res.textContent=result;
+    document.getElementById('diagApplyBtn').style.display='block';
+  }catch(e){res.textContent='❌ 診断失敗: '+e.message;}
+  event.target.value='';
+}
+function applyDiagToIssue(){
+  const el=document.getElementById('f_issue');
+  if(el){el.value=(el.value?el.value+'\n':'')+'【AI診断】\n'+lastDiagText;autoResize(el);}
+  closeDiagModal();showSyncBar('✅ 診断結果を不具合欄に反映しました','ok');
+}
+
+// ===== 伝票・部品ラベルOCR =====
+let lastOcrParts=null;
+function openPartsOCR(){document.getElementById('ocrModal').style.display='flex';document.getElementById('ocrResult').style.display='none';document.getElementById('ocrPreview').style.display='none';document.getElementById('ocrApplyBtn').style.display='none';}
+function closeOcrModal(){document.getElementById('ocrModal').style.display='none';}
+async function runPartsOCR(event){
+  const file=event.target.files[0];if(!file)return;
+  if(!apiKey.trim()){alert('APIキーが未設定です');return;}
+  const resDiv=document.getElementById('ocrResult');
+  const prevDiv=document.getElementById('ocrPreview');
+  const b64=await fileToB64(file);
+  prevDiv.style.display='block';prevDiv.innerHTML=`<img src="data:${file.type};base64,${b64}" style="width:100%;border-radius:8px;max-height:160px;object-fit:contain;background:#eee;">`;
+  resDiv.style.display='block';resDiv.textContent='📷 読み取り中...';
+  document.getElementById('ocrApplyBtn').style.display='none';
+  try{
+    const prompt=`この農業機械の納品伝票・部品ラベル・包装箱の画像を読み取り、JSONのみ返してください。\`\`\`不要。
+[{"name":"部品名","maker":"メーカー","partNo":"品番・型番","qty":1,"price":0}]
+- 複数部品があれば配列に複数
+- 読み取れない項目は空文字・0
+- 型番・品番は英数字そのまま（例:GZA651-A,3C081-43480等）
+- 数量・価格は数値のみ`;
+    const r=await callAI(prompt,b64,file.type);
+    lastOcrParts=Array.isArray(r)?r:[r];
+    let html='<div style="font-weight:800;margin-bottom:6px;font-size:13px;">📦 読取結果</div>';
+    lastOcrParts.forEach((p,i)=>{html+=`<div style="border-bottom:1px solid var(--border);padding:6px 0;font-size:12px;"><b>${i+1}. ${p.name||'不明'}</b><br>品番: ${p.partNo||'-'} / メーカー: ${p.maker||'-'} / 数量: ${p.qty||1} / 単価: ¥${Number(p.price||0).toLocaleString()}</div>`;});
+    resDiv.innerHTML=html;
+    document.getElementById('ocrApplyBtn').style.display='block';
+  }catch(e){resDiv.textContent='❌ 読取失敗: '+e.message;}
+  event.target.value='';
+}
+function applyOcrToParts(){
+  if(!lastOcrParts||!lastOcrParts.length)return;
+  const p=lastOcrParts[0];
+  const fields={name:p.name,maker:p.maker,partNo:p.partNo,qty:p.qty,price:p.price};
+  Object.entries(fields).forEach(([k,v])=>{const el=document.getElementById('f_'+k);if(el&&v)el.value=v;});
+  for(let i=1;i<lastOcrParts.length&&i<=9;i++){
+    const pt=lastOcrParts[i];const n=i+1;
+    ['name','partNo','qty','price'].forEach(k=>{const el=document.getElementById(`f_${k}${n}`);if(el&&pt[k])el.value=pt[k];});
+  }
+  closeOcrModal();showSyncBar('✅ 伝票から'+lastOcrParts.length+'件を入力しました','ok');
+}
+
+// ===== 見積書スキャン =====
+function openScanQuoteModal(){document.getElementById('scanQuoteModal').style.display='flex';document.getElementById('scanStatus').style.display='none';}
+function closeScanQuoteModal(){document.getElementById('scanQuoteModal').style.display='none';}
+async function runScanQuote(event){
+  const file=event.target.files[0];if(!file)return;
+  if(!apiKey.trim()){alert('APIキーが未設定です');return;}
+  const st=document.getElementById('scanStatus');
+  st.style.display='block';st.style.background='var(--input-bg)';st.style.color='var(--text-sub)';st.textContent='📷 見積書を読み取り中...';
+  try{
+    const b64=await fileToB64(file);
+    const isPdf=file.type==='application/pdf';
+    const prompt=`この見積書（${isPdf?'PDF':'写真'}）を読み取り、JSONのみ返してください。\`\`\`不要。
+{"customerName":"顧客名","subject":"件名・機械名","items":[{"name":"品名","brand":"メーカー・銘柄","model":"型式","qty":1,"price":0,"note":"備考"}]}
+- 品目は全て読み取る（最大20件）
+- 金額は数値のみ（税抜単価）
+- 合計額・消費税行は除外
+- 読み取れない項目は空文字
+- 型式・品番は英数字そのまま`;
+    const r=await callAI(prompt,b64,file.type);
+    closeScanQuoteModal();
+    // 見積書エディタに反映
+    openQuoteEditor('');
+    if(r.customerName)document.getElementById('toName').value=r.customerName;
+    if(r.subject)document.getElementById('subject').value=r.subject;
+    resetQItems();
+    if(Array.isArray(r.items)){
+      r.items.slice(0,ROWS).forEach((it,i)=>{
+        qItems[i]={name:it.name||'',brand:it.brand||'',model:it.model||'',qty:Number(it.qty)||1,price:Number(it.price)||0,note:it.note||''};
+      });
+    }
+    buildTable();
+    const count=r.items?r.items.length:0;
+    showSyncBar('✅ 見積書から'+count+'件の品目を読み取りました','ok');
+    changeTab(6);
+  }catch(e){st.style.background='#fde8e8';st.style.color='#e74c3c';st.textContent='❌ 読取失敗: '+e.message;}
+  event.target.value='';
+}
+
+function updateSearch(v){searchQuery=v.trim().toLowerCase();const cb=document.getElementById('srchClearBtn');if(cb)cb.style.display=searchQuery?'block':'none';renderAll();}
+function clearSearch(){searchQuery='';const gi=document.getElementById('globalSearch');if(gi)gi.value='';const cb=document.getElementById('srchClearBtn');if(cb)cb.style.display='none';renderAll();}
+function renderAll(){
+  let h='';for(let i=0;i<TABS.length;i++)h+='<button class="tab-btn '+(currentTab===i?'active':'')+'" onclick="changeTab('+i+')">'+TABS[i]+'</button>';
+  document.getElementById('tabBar').innerHTML=h;
+  const main=document.getElementById('content_main');const qe=document.getElementById('content_quote_editor');qe.style.display='none';main.style.display='block';
+  if(currentTab===0)main.innerHTML=renderHome();else if(currentTab===1)main.innerHTML=renderCustomers();else if(currentTab===2)main.innerHTML=renderRepairs();else if(currentTab===3)main.innerHTML=renderDemos();else if(currentTab===4)main.innerHTML=renderPartsTab();else if(currentTab===5)main.innerHTML=renderProducts();else if(currentTab===6)main.innerHTML=renderQuotesList();
+}
+function changeTab(i){currentTab=i;renderAll();}
+function buildMachineStr(n,m,mo){let s='';if(m)s+=m+' ';if(n)s+=n+' ';if(mo)s+=mo;return s.trim();}
+function renderHome(){
+  if(searchQuery){
+    const q=searchQuery;const hit=(arr,fields)=>arr.filter(x=>fields.some(f=>(x[f]||'').toLowerCase().includes(q)));
+    const rR=hit(DB.repairs,['customerName','machine','maker','model','issue','serialNo']);
+    const rP=hit(DB.products,['customer','productName','maker','model','serialNo']);
+    const rPt=hit(DB.parts,['customerName','name','maker','partNo']);
+    const rD=hit(DB.demos,['customerName','targetMachine','maker','model','targetMachine2','targetMachine3']);
+    const rC=hit(DB.customers,['name','phone','address','memo']);
+    const tot=rR.length+rP.length+rPt.length+rD.length+rC.length;
+    let h='<div style="margin-bottom:12px;font-size:13px;font-weight:900;color:var(--text);">🔍 「'+searchQuery+'」の検索結果 '+tot+'件</div>';
+    if(!tot)return h+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">該当する項目がありません</div>';
+    const sec=(title,color,items,renderFn)=>{if(!items.length)return '';let s='<div style="margin-top:12px;margin-bottom:6px;font-size:12px;font-weight:900;color:'+color+';">'+title+' '+items.length+'件</div>';items.forEach(renderFn.bind(null,(x)=>{s+=x;}));return s;};
+    const card=(bc,id,tab,title,sub,status,dlabel,dval)=>'<div class="card" onclick="openEdit(\''+id+'\','+tab+')" style="border-left:4px solid '+bc+';margin-bottom:7px;"><div style="font-weight:bold;font-size:14px;margin-bottom:3px;">'+title+'</div>'+(sub?'<div style="font-size:11px;color:var(--text-sub);margin-bottom:4px;">'+sub+'</div>':'')+'<div style="display:flex;justify-content:space-between;align-items:center;">'+(status?'<span class="badge" style="background:'+(STATUS_COLORS[status]||'#95a5a6')+';display:inline-block;">'+status+'</span>':'<span></span>')+(dval?'<span style="font-size:10px;color:var(--text-sub);">'+dlabel+dval+'</span>':'')+'</div></div>';
+    if(rR.length){h+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:#e74c3c;">🔧 修理 '+rR.length+'件</div>';rR.forEach(x=>{h+=card('#e74c3c',x.id,2,(x.customerName||'')+' - '+(buildMachineStr(x.machine,x.maker,x.model)||'機械未入力'),x.issue||'',x.status,'納期: ',x.dueDate);});}
+    if(rP.length){h+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:#27ae60;">🚜 製品 '+rP.length+'件</div>';rP.forEach(x=>{h+=card('#27ae60',x.id,5,(x.customer||'')+' - '+x.productName,'型式: '+(x.model||'-'),x.status,'納品予定: ',x.deliveryDate);});}
+    if(rPt.length){h+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:#f39c12;">⚙️ 部品 '+rPt.length+'件</div>';rPt.forEach(x=>{h+=card('#f39c12',x.id,4,(x.customerName?x.customerName+' - ':'')+(x.maker?x.maker+' ':'')+x.name,'品番: '+(x.partNo||'-'),x.status,'発注日: ',x.orderDate);});}
+    if(rD.length){h+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:#9b59b6;">🌾 実演 '+rD.length+'件</div>';rD.forEach(x=>{h+=card('#9b59b6',x.id,3,(x.customerName||'')+' - '+(buildMachineStr(x.targetMachine,x.maker,x.model)||'未定'),'',x.status,'予定日: ',x.date);});}
+    if(rC.length){h+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:#2980b9;">👤 顧客 '+rC.length+'件</div>';rC.forEach(x=>{h+=card('#2980b9',x.id,1,x.name+' 様',x.phone?'📞 '+x.phone:'','','','');});}
+    return h;
+  }
+  if(calViewActive){
+    const today=new Date(),todayStr=today.toISOString().slice(0,10);
+    const evs={};
+    const addEv=(dateStr,color,label,id,tab,status)=>{if(!dateStr)return;if(!evs[dateStr])evs[dateStr]=[];evs[dateStr].push({color,label,id,tab,status});};
+    DB.repairs.filter(r=>!['請求済','完了(未請求)'].includes(r.status)).forEach(r=>addEv(r.dueDate,'#e74c3c',(r.customerName||'')+' '+(r.machine||''),r.id,2,r.status));
+    DB.demos.filter(d=>!['実施済','成約'].includes(d.status)).forEach(d=>addEv(d.date,'#9b59b6',(d.customerName||'')+' '+(d.targetMachine||''),d.id,3,d.status));
+    DB.products.filter(p=>!['完了','請求済','請求済み','納品(納車)済'].includes(p.status)).forEach(p=>addEv(p.deliveryDate,'#27ae60',(p.customer||'')+' '+(p.productName||''),p.id,5,p.status));
+    const mn=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+    const first=new Date(calYear,calMonth,1),last=new Date(calYear,calMonth+1,0);
+    let h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
+    h+='<button onclick="calViewActive=false;renderAll()" style="background:none;border:1.5px solid var(--border);color:var(--text);border-radius:10px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;">← ホームに戻る</button>';
+    h+='<div style="font-size:13px;font-weight:900;color:var(--text);">📅 納期カレンダー</div><div></div></div>';
+    h+='<div style="background:var(--card-bg);border-radius:14px;overflow:hidden;border:1.5px solid var(--border);">';
+    h+='<div style="background:var(--main);color:#fff;padding:11px 14px;display:flex;align-items:center;justify-content:space-between;">';
+    h+='<button onclick="calNav(-1)" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:7px 14px;font-size:15px;cursor:pointer;">◀</button>';
+    h+='<span style="font-weight:900;font-size:16px;">'+calYear+'年 '+mn[calMonth]+'</span>';
+    h+='<button onclick="calNav(1)" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:7px 14px;font-size:15px;cursor:pointer;">▶</button></div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(7,1fr);background:var(--input-bg);">';
+    ['日','月','火','水','木','金','土'].forEach((d,i)=>{h+='<div style="text-align:center;padding:5px 1px;font-size:10px;font-weight:700;color:'+(i===0?'#e74c3c':i===6?'#2980b9':'var(--text-sub)')+';">'+d+'</div>';});
+    h+='</div><div style="display:grid;grid-template-columns:repeat(7,1fr);border-top:1px solid var(--border);">';
+    for(let i=0;i<first.getDay();i++)h+='<div style="min-height:48px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--input-bg);opacity:.4;"></div>';
+    for(let d=1;d<=last.getDate();d++){
+      const ds=calYear+'-'+String(calMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+      const de=evs[ds]||[];const isTd=ds===todayStr;const dow=new Date(calYear,calMonth,d).getDay();
+      const clickable=de.length?'onclick="showDayEvents(\''+ds+'\')" style="cursor:pointer;"':'';
+      h+='<div '+clickable+' style="min-height:48px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:2px;'+(isTd?'background:#dbeeff;':'')+(de.length?'':'')+(dow===0||dow===6?'background-color:'+(isTd?'#dbeeff':'rgba(52,152,219,.04)')+'':'')+'">';
+      h+='<div style="font-size:10px;font-weight:'+(isTd?'900':'500')+';color:'+(isTd?'#1a6db5':dow===0?'#e74c3c':dow===6?'#2980b9':'var(--text)')+';text-align:center;margin-bottom:1px;">'+d+'</div>';
+      de.slice(0,2).forEach(ev=>{h+='<div style="background:'+ev.color+';border-radius:2px;padding:1px 2px;font-size:8px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:1px;">'+ev.label.slice(0,7)+'</div>';});
+      if(de.length>2)h+='<div style="font-size:8px;color:var(--text-sub);text-align:center;">+'+( de.length-2)+'</div>';
+      h+='</div>';
+    }
+    const rem=(first.getDay()+last.getDate())%7;if(rem>0)for(let i=0;i<7-rem;i++)h+='<div style="min-height:48px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--input-bg);opacity:.4;"></div>';
+    h+='</div>';
+    h+='<div style="padding:8px 12px;display:flex;gap:10px;flex-wrap:wrap;border-top:1px solid var(--border);">';
+    h+='<span style="font-size:10px;display:flex;align-items:center;gap:3px;"><span style="background:#e74c3c;border-radius:2px;width:10px;height:10px;display:inline-block;"></span>修理納期</span>';
+    h+='<span style="font-size:10px;display:flex;align-items:center;gap:3px;"><span style="background:#9b59b6;border-radius:2px;width:10px;height:10px;display:inline-block;"></span>実演予定</span>';
+    h+='<span style="font-size:10px;display:flex;align-items:center;gap:3px;"><span style="background:#27ae60;border-radius:2px;width:10px;height:10px;display:inline-block;"></span>納品予定</span></div></div>';
+    return h;
+  }
+  let target=10000000,current=0;if(DB.settings?.[0]){target=Number(DB.settings[0].targetSales)||10000000;current=Number(DB.settings[0].currentSales)||0;}
+  const progress=Math.min((current/target)*100,100)||0;
+  let html='<div class="dash-card"><div style="display:flex;justify-content:space-between;margin-bottom:10px;"><span>売上目標進捗</span><span style="font-weight:900;">'+progress.toFixed(1)+'%</span></div><div style="background:rgba(255,255,255,0.2);height:10px;border-radius:5px;"><div style="background:#fff;height:100%;border-radius:5px;width:'+progress+'%;"></div></div><div style="display:flex;justify-content:space-between;font-size:11px;margin-top:8px;"><span>現在: ¥'+current.toLocaleString()+'</span><span>目標: ¥'+target.toLocaleString()+'</span></div></div>';
+  html+='<button onclick="calViewActive=true;calYear=new Date().getFullYear();calMonth=new Date().getMonth();renderAll()" style="width:100%;background:var(--card-bg);border:1.5px solid var(--border);color:var(--text);border-radius:12px;padding:11px;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:6px;">📅 納期カレンダーを開く</button>';
+  const rA=DB.repairs.filter(r=>r.status==='修理依頼'||r.status==='部品待ち'||r.status==='修理中').sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999'));
+  const pA=DB.products.filter(p=>p.status==='商談中'||p.status==='受注'||p.status==='発注済'||p.status==='入荷済').sort((a,b)=>(a.deliveryDate||'9999').localeCompare(b.deliveryDate||'9999'));
+  const ptA=DB.parts.filter(p=>p.status==='発注前'||p.status==='発注済'||p.status==='入荷済').sort((a,b)=>(a.orderDate||'9999').localeCompare(b.orderDate||'9999'));
+  const dA=DB.demos.filter(d=>d.status==='実演予定'||d.status==='見積提示中').sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));
+  function rag(items,type){let h='';items.forEach(a=>{let ti=2,ts='',dl='',dv='',bc='#e74c3c';if(type==='repair'){ti=2;ts=buildMachineStr(a.machine,a.maker,a.model);dl='納期: ';dv=a.dueDate;bc='#e74c3c';}else if(type==='product'){ti=5;ts=a.productName;dl='納品: ';dv=a.deliveryDate;bc='#27ae60';}else if(type==='part'){ti=4;ts=(a.maker?a.maker+' ':'')+a.name;dl='発注: ';dv=a.orderDate;bc='#f39c12';}else if(type==='demo'){ti=3;ts=buildMachineStr(a.targetMachine,a.maker,a.model);dl='予定: ';dv=a.date;bc='#9b59b6';}h+='<div class="card" style="border-left:4px solid '+bc+';margin-bottom:7px;" onclick="openEdit(\''+a.id+'\','+ti+')">'+'<div style="font-weight:bold;font-size:13px;">'+(a.customerName||a.customer||'')+(ts?' - '+ts:'')+'</div>'+'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">'+'<span class="badge" style="background:'+(STATUS_COLORS[a.status]||'#95a5a6')+';display:inline-block;">'+a.status+'</span>'+(dv?'<span style="font-size:10px;color:var(--text-sub);">'+dl+dv+'</span>':'<span style="font-size:10px;color:var(--text-sub);">'+dl+'未定</span>')+'</div></div>';});return h;}
+  const ss='margin-top:14px;margin-bottom:8px;display:flex;align-items:center;gap:8px;',sts='font-size:13px;font-weight:900;color:var(--text);',cb=(n,c)=>'<span style="background:'+c+';color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;font-weight:700;">'+n+'件</span>';
+  if(rA.length){html+='<div style="'+ss+'"><span style="'+sts+'">🔧 修理</span>'+cb(rA.length,'#e74c3c')+'<span style="font-size:10px;color:var(--text-sub);">納期順</span></div>';html+=rag(rA,'repair');}
+  if(pA.length){html+='<div style="'+ss+'"><span style="'+sts+'">🚜 製品</span>'+cb(pA.length,'#27ae60')+'<span style="font-size:10px;color:var(--text-sub);">納品予定順</span></div>';html+=rag(pA,'product');}
+  if(ptA.length){html+='<div style="'+ss+'"><span style="'+sts+'">⚙️ 部品</span>'+cb(ptA.length,'#f39c12')+'<span style="font-size:10px;color:var(--text-sub);">発注日順</span></div>';html+=rag(ptA,'part');}
+  if(dA.length){html+='<div style="'+ss+'"><span style="'+sts+'">🌾 実演</span>'+cb(dA.length,'#9b59b6')+'<span style="font-size:10px;color:var(--text-sub);">予定日順</span></div>';html+=rag(dA,'demo');}
+  return html;
+}
+function calNav(dir){calMonth+=dir;if(calMonth<0){calMonth=11;calYear--;}if(calMonth>11){calMonth=0;calYear++;}renderAll();}
+function showDayEvents(dateStr){
+  const evs=[];
+  DB.repairs.forEach(r=>{if(r.dueDate===dateStr)evs.push({type:'修理',color:'#e74c3c',label:(r.customerName||'')+(r.machine?' - '+r.machine:''),id:r.id,tab:2,status:r.status});});
+  DB.demos.forEach(d=>{if(d.date===dateStr)evs.push({type:'実演',color:'#9b59b6',label:(d.customerName||'')+(d.targetMachine?' - '+d.targetMachine:''),id:d.id,tab:3,status:d.status});});
+  DB.products.forEach(p=>{if(p.deliveryDate===dateStr)evs.push({type:'製品',color:'#27ae60',label:(p.customer||'')+(p.productName?' - '+p.productName:''),id:p.id,tab:5,status:p.status});});
+  if(!evs.length)return;
+  const ov=document.createElement('div');ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2000;display:flex;align-items:flex-end;justify-content:center;';
+  let h='<div style="background:var(--card-bg);border-radius:20px 20px 0 0;width:100%;max-width:520px;padding:16px 18px 36px;">';
+  h+='<div style="font-weight:900;font-size:16px;margin-bottom:12px;">'+dateStr.replace(/-/g,'/')+'</div>';
+  evs.forEach(ev=>{h+='<div class="card" style="border-left:4px solid '+ev.color+';margin-bottom:8px;cursor:pointer;" id="dce_'+ev.id+'"><div style="font-size:10px;color:var(--text-sub);margin-bottom:2px;">'+ev.type+'</div><div style="font-weight:bold;font-size:14px;">'+ev.label+'</div><span class="badge" style="background:'+(STATUS_COLORS[ev.status]||'#95a5a6')+';display:inline-block;margin-top:4px;">'+ev.status+'</span></div>';});
+  h+='<button onclick="this.closest(\'div\').parentNode.remove()" style="background:var(--border);border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;width:100%;margin-top:4px;color:var(--text);">閉じる</button></div>';
+  ov.innerHTML=h;
+  evs.forEach(ev=>{const el=document.getElementById('dce_'+ev.id);if(el)el.onclick=()=>{ov.remove();openEdit(ev.id,ev.tab);};});
+  ov.addEventListener('click',(e)=>{if(e.target===ov)ov.remove();});
+  document.body.appendChild(ov);
+}
+function renderCustomers(){let html='<button onclick="openNew(1)" class="save-btn" style="margin-bottom:15px;width:100%;">＋ 顧客を新規登録</button>';let custList=DB.customers.slice();if(searchQuery)custList=custList.filter(x=>[x.name,x.phone,x.address,x.memo].some(f=>(f||'').toLowerCase().includes(searchQuery)));if(searchQuery&&!custList.length)return html+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">検索結果なし</div>';custList.forEach(item=>{const n=item.name;const rc=DB.repairs.filter(x=>x.customerName===n).length,dc=DB.demos.filter(x=>x.customerName===n).length,pc=DB.products.filter(x=>x.customer===n).length,ptc=DB.parts.filter(x=>x.customerName===n).length;html+='<div class="card" onclick="openEdit(\''+item.id+'\',1)"><div style="font-weight:bold;font-size:15px;margin-bottom:4px;">'+n+'　様</div>'+(item.phone?'<div style="font-size:12px;color:var(--text-sub);margin-bottom:6px;">📞 '+item.phone+'</div>':'')+'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;"><span class="badge-count '+(rc?'bc-red':'bc-gray')+'">🔧 修理 '+rc+'</span><span class="badge-count '+(dc?'bc-orange':'bc-gray')+'">🌾 実演 '+dc+'</span><span class="badge-count '+(pc?'bc-green':'bc-gray')+'">🚜 製品 '+pc+'</span><span class="badge-count '+(ptc?'bc-blue':'bc-gray')+'">⚙️ 部品 '+ptc+'</span></div></div>';});return html;}
+function renderRepairs(){
+  let html='<button onclick="openNew(2)" class="save-btn" style="margin-bottom:10px;width:100%;">＋ 修理依頼を新規登録</button>';
+  let items=DB.repairs.slice().sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999'));
+  if(searchQuery)items=items.filter(x=>[x.customerName,x.machine,x.maker,x.model,x.issue,x.serialNo].some(f=>(f||'').toLowerCase().includes(searchQuery)));
+  if(!items.length)return html+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">'+(searchQuery?'検索結果なし':'修理依頼はありません')+'</div>';
+  const grp={};const ord=[];
+  items.forEach(item=>{const k=item.customerName||'顧客未設定';if(!grp[k]){grp[k]=[];ord.push(k);}grp[k].push(item);});
+  ord.forEach(cName=>{
+    html+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:var(--text-sub);padding-left:2px;display:flex;align-items:center;gap:6px;">👤 '+cName+' 様<span style="font-size:10px;font-weight:400;color:var(--text-sub);">'+grp[cName].length+'件</span></div>';
+    grp[cName].forEach(item=>{
+      const mStr=buildMachineStr(item.machine,item.maker,item.model);
+      html+='<div class="card" onclick="openEdit(\''+item.id+'\',2)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-left:8px;margin-bottom:7px;">'
+        +'<div style="font-weight:bold;font-size:14px;margin-bottom:4px;">'+(mStr||'機械未入力')+'</div>'
+        +(item.serialNo?'<div style="font-size:11px;color:var(--text-sub);">製造番号: '+item.serialNo+'</div>':'')
+        +(item.hourMeter?'<div style="font-size:11px;color:var(--text-sub);">稼働: '+item.hourMeter+'h</div>':'')
+        +(item.issue?'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+item.issue+'</div>':'')
+        +'<div style="display:flex;justify-content:space-between;align-items:center;"><span class="badge" style="background:'+(STATUS_COLORS[item.status]||'#95a5a6')+';display:inline-block;">'+item.status+'</span>'
+        +(item.dueDate?'<span style="font-size:10px;color:var(--text-sub);">納期: '+item.dueDate+'</span>':'')+'</div></div>';
+    });
+  });
+  return html;
+}
+function renderDemos(){
+  let html='<button onclick="openNew(3)" class="save-btn" style="margin-bottom:15px;width:100%;">＋ 実演を新規登録</button>';
+  let items=DB.demos.slice().sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));
+  if(searchQuery)items=items.filter(x=>[x.customerName,x.targetMachine,x.maker,x.model,x.targetMachine2,x.targetMachine3].some(f=>(f||'').toLowerCase().includes(searchQuery)));
+  if(!items.length)return html+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">'+(searchQuery?'検索結果なし':'実演はありません')+'</div>';
+  const grp={};const ord=[];
+  items.forEach(item=>{const k=item.customerName||'顧客未設定';if(!grp[k]){grp[k]=[];ord.push(k);}grp[k].push(item);});
+  ord.forEach(cName=>{
+    html+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:var(--text-sub);padding-left:2px;display:flex;align-items:center;gap:6px;">👤 '+cName+' 様<span style="font-size:10px;font-weight:400;color:var(--text-sub);">'+grp[cName].length+'件</span></div>';
+    grp[cName].forEach(item=>{
+      const m1=buildMachineStr(item.targetMachine,item.maker,item.model),m2=buildMachineStr(item.targetMachine2,item.maker2,item.model2),m3=buildMachineStr(item.targetMachine3,item.maker3,item.model3);
+      let ms=m1?'🚜 '+m1:'🚜 未定';if(m2)ms+='<br>🚜 '+m2;if(m3)ms+='<br>🚜 '+m3;
+      html+='<div class="card" onclick="openEdit(\''+item.id+'\',3)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-left:8px;margin-bottom:7px;">'
+        +'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;line-height:1.4;">'+ms+'</div>'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;"><span class="badge" style="background:'+(STATUS_COLORS[item.status]||'#95a5a6')+';display:inline-block;">'+item.status+'</span>'
+        +(item.date?'<span style="font-size:10px;color:var(--text-sub);">予定日: '+item.date+'</span>':'')+'</div></div>';
+    });
+  });
+  return html;
+}
+function renderPartsTab(){
+  let html='<button onclick="openNew(4)" class="save-btn" style="margin-bottom:10px;width:100%;">＋ 部品を新規登録</button>';
+  html+='<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--text-sub);">ステータス: <b style="color:#e74c3c;">発注前</b>→<b style="color:#e67e22;">発注済</b>→<b style="color:#f39c12;">入荷済</b>→<b style="color:#3498db;">納品済</b>→<b style="color:#27ae60;">完了</b>→請求済</div>';
+  let items=DB.parts.slice().sort((a,b)=>(a.orderDate||'9999').localeCompare(b.orderDate||'9999'));
+  if(searchQuery)items=items.filter(x=>[x.customerName,x.name,x.maker,x.partNo].some(f=>(f||'').toLowerCase().includes(searchQuery)));
+  if(!items.length)return html+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">'+(searchQuery?'検索結果なし':'部品はありません')+'</div>';
+  const grp={};const ord=[];
+  items.forEach(item=>{const k=item.customerName||'顧客未設定';if(!grp[k]){grp[k]=[];ord.push(k);}grp[k].push(item);});
+  ord.forEach(cName=>{
+    html+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:var(--text-sub);padding-left:2px;display:flex;align-items:center;gap:6px;">👤 '+cName+' 様<span style="font-size:10px;font-weight:400;color:var(--text-sub);">'+grp[cName].length+'件</span></div>';
+    grp[cName].forEach(item=>{
+      html+='<div class="card" onclick="openEdit(\''+item.id+'\',4)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-left:8px;margin-bottom:7px;">'
+        +'<div style="font-weight:bold;font-size:14px;margin-bottom:4px;">'+(item.maker?item.maker+' ':'')+item.name+'</div>'
+        +'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;">品番: '+(item.partNo||'-')+' / 数量: '+(item.qty||0)+'個</div>'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;"><span class="badge" style="background:'+(STATUS_COLORS[item.status]||'#95a5a6')+';display:inline-block;">'+(item.status||'発注前')+'</span>'
+        +(item.orderDate?'<span style="font-size:10px;color:var(--text-sub);">発注日: '+item.orderDate+'</span>':'')+'</div></div>';
+    });
+  });
+  return html;
+}
+function renderProducts(){
+  let html='<button onclick="openNew(5)" class="save-btn" style="margin-bottom:10px;width:100%;">＋ 製品を新規登録</button>';
+  html+='<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--text-sub);">ステータス: <b style="color:#9b59b6;">商談中</b>→<b style="color:#e67e22;">受注</b>→<b style="color:#f39c12;">発注済</b>→<b style="color:#e67e22;">入荷済</b>→<b style="color:#3498db;">納品(納車)済</b>→<b style="color:#27ae60;">完了</b>→請求済</div>';
+  let items=DB.products.slice().sort((a,b)=>(a.deliveryDate||'9999').localeCompare(b.deliveryDate||'9999'));
+  if(searchQuery)items=items.filter(x=>[x.customer,x.productName,x.maker,x.model,x.serialNo].some(f=>(f||'').toLowerCase().includes(searchQuery)));
+  if(!items.length)return html+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">'+(searchQuery?'検索結果なし':'製品はありません')+'</div>';
+  const grp={};const ord=[];
+  items.forEach(item=>{const k=item.customer||'顧客未設定';if(!grp[k]){grp[k]=[];ord.push(k);}grp[k].push(item);});
+  ord.forEach(cName=>{
+    html+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:var(--text-sub);padding-left:2px;display:flex;align-items:center;gap:6px;">👤 '+cName+' 様<span style="font-size:10px;font-weight:400;color:var(--text-sub);">'+grp[cName].length+'件</span></div>';
+    grp[cName].forEach(item=>{
+      html+='<div class="card" onclick="openEdit(\''+item.id+'\',5)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-left:8px;margin-bottom:7px;">'
+        +'<div style="font-weight:bold;font-size:14px;margin-bottom:4px;">'+item.productName+'</div>'
+        +(item.serialNo?'<div style="font-size:11px;color:var(--text-sub);">製造番号: '+item.serialNo+'</div>':'')
+        +'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;">メーカー: '+(item.maker||'-')+' / 型式: '+(item.model||'-')+' / 販売額: ¥'+Number(item.price||0).toLocaleString()+'</div>'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;"><span class="badge" style="background:'+(STATUS_COLORS[item.status]||'#95a5a6')+';display:inline-block;">'+(item.status||'受注')+'</span>'
+        +(item.deliveryDate?'<span style="font-size:10px;color:var(--text-sub);">納品予定: '+item.deliveryDate+'</span>':'')+'</div></div>';
+    });
+  });
+  return html;
+}
+function renderQuotesList(){
+  let html='<div style="display:flex;gap:8px;margin-bottom:15px;">';
+  html+='<button onclick="openQuoteEditor(\'\')" class="save-btn" style="flex:2;">＋ 新規作成</button>';
+  html+='<button onclick="openScanQuoteModal()" class="save-btn" style="flex:1;background:#8e44ad;font-size:12px;padding:13px 4px;">📷 スキャン</button>';
+  html+='</div>';
+  const sq=DB.quotes||[];if(!sq.length){html+='<div style="text-align:center;color:var(--text-sub);padding:40px 0;">保存された見積書はありません</div>';}else{sq.slice().reverse().forEach(q=>{html+='<div class="card" onclick="openQuoteEditor(\''+q.id+'\')" style="border-left:4px solid #8e44ad;"><div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-weight:bold;font-size:15px;margin-bottom:4px;">'+(q.toName?q.toName+' 様':'宛名なし')+'</div><div style="font-size:14px;font-weight:bold;color:#2c3e50;">¥'+Number(q.total||0).toLocaleString()+'</div></div><div style="font-size:12px;color:var(--text-sub);">'+(q.subject||'件名未入力')+'</div><div style="font-size:11px;color:var(--text-sub);margin-top:4px;">発行日: '+(q.estDate||'-')+'</div></div>';});}
+  return html;
+}
+
+function regToCalendar(type){const cN=document.getElementById('f_customerName')?.value||document.getElementById('f_customer')?.value||'';let title='',dv='',details='';if(type==='repair'){title='【修理納期】'+cN+' 様 '+(document.getElementById('f_machine')?.value||'');dv=document.getElementById('f_dueDate')?.value;details='メーカー: '+(document.getElementById('f_maker')?.value||'')+'\n型式: '+(document.getElementById('f_model')?.value||'')+'\n内容: '+(document.getElementById('f_issue')?.value||'');}else if(type==='demo'){title='【実演予定】'+cN+' 様 '+(document.getElementById('f_targetMachine')?.value||'');dv=document.getElementById('f_date')?.value;details='メーカー: '+(document.getElementById('f_maker')?.value||'')+'\n型式: '+(document.getElementById('f_model')?.value||'');}else if(type==='part'){title='【部品発注】'+cN+' 様 '+(document.getElementById('f_name')?.value||'');dv=document.getElementById('f_orderDate')?.value;details='品番: '+(document.getElementById('f_partNo')?.value||'')+'\n数量: '+(document.getElementById('f_qty')?.value||'');}else if(type==='product'){title='【製品納品】'+cN+' 様 '+(document.getElementById('f_productName')?.value||'');dv=document.getElementById('f_deliveryDate')?.value;details='メーカー: '+(document.getElementById('f_maker')?.value||'')+'\n型式: '+(document.getElementById('f_model')?.value||'');}window.open(buildCalUrl(title,dv,details),'_blank');}
+
+let quickDefaults={};
+function quickReg(tab,defaults){quickDefaults=defaults||{};document.getElementById('modalOverlay').style.display='none';setTimeout(()=>{modalState={tab,mode:'new',item:Object.assign({},quickDefaults)};showModal();},150);}
+function buildQuickRegBox(tab,it){let btns='';const cN=(it.name||it.customerName||it.customer||''),cE=cN.replace(/'/g,"\\'");if(tab===1){btns+='<button class="qbtn" onclick="quickReg(2,{customerName:\''+cE+'\'})">🔧 修理依頼を登録</button><button class="qbtn" onclick="quickReg(3,{customerName:\''+cE+'\'})">🌾 実演を登録</button><button class="qbtn" onclick="quickReg(4,{customerName:\''+cE+'\'})">⚙️ 部品を発注登録</button><button class="qbtn" onclick="quickReg(5,{customer:\''+cE+'\'})">🚜 製品を登録</button><button class="qbtn" style="background:#8e44ad;color:#fff;border-color:#8e44ad;" onclick="quickReg(6,{toName:\''+cE+'\'})">📄 見積書を作成</button>';}else if(tab===2){const m=(it.machine||'').replace(/'/g,"\\'");btns+='<button class="qbtn" onclick="quickReg(4,{customerName:\''+cE+'\',name:\''+m+'\'})">⚙️ 関連部品を発注登録</button><button class="qbtn" onclick="quickReg(5,{customer:\''+cE+'\',productName:\''+m+'\'})">🚜 製品として登録</button>';}else if(tab===3){const m=(it.targetMachine||'').replace(/'/g,"\\'");btns+='<button class="qbtn" onclick="quickReg(4,{customerName:\''+cE+'\',name:\''+m+'\'})">⚙️ 関連部品を発注登録</button><button class="qbtn" onclick="quickReg(5,{customer:\''+cE+'\',productName:\''+m+'\'})">🚜 製品として登録</button>';}else if(tab===4){const p=(it.name||'').replace(/'/g,"\\'");btns+='<button class="qbtn" onclick="quickReg(2,{customerName:\''+cE+'\',machine:\''+p+'\'})">🔧 修理依頼として登録</button><button class="qbtn" onclick="quickReg(5,{customer:\''+cE+'\',productName:\''+p+'\'})">🚜 製品として登録</button><button class="qbtn" onclick="quickReg(1,{name:\''+cE+'\'})">👥 顧客として登録</button>';}else if(tab===5){const p=(it.productName||'').replace(/'/g,"\\'"),mk=(it.maker||'').replace(/'/g,"\\'");btns+='<button class="qbtn" onclick="quickReg(2,{customerName:\''+cE+'\',machine:\''+p+'\',maker:\''+mk+'\'})">🔧 修理依頼として登録</button><button class="qbtn" onclick="quickReg(4,{customerName:\''+cE+'\',name:\''+p+'\',maker:\''+mk+'\'})">⚙️ 関連部品を発注登録</button><button class="qbtn" onclick="quickReg(1,{name:\''+cE+'\'})">👥 顧客として登録</button>';}if(!btns)return'';return'<div class="quick-reg-box"><div class="quick-reg-label">➕ この内容から新規登録</div><div class="quick-reg-btns">'+btns+'</div></div>';}
+
+let modalState=null;
+function openNew(tab){modalState={tab,mode:'new',item:Object.assign({},quickDefaults)};quickDefaults={};showModal();}
+function openEdit(id,tab){const keys=['','customers','repairs','demos','parts','products'];const item=DB[keys[tab]].find(x=>String(x.id)===String(id));if(!item){alert('データが見つかりません');return;}modalState={tab,mode:'edit',item:JSON.parse(JSON.stringify(item))};showModal();}
+function showModal(){
+  document.getElementById('modalTitle').innerText=TABS[modalState.tab]+' 詳細';let form='';const it=modalState.item;
+  if(modalState.tab===1){form+=inp('name','顧客名',it.name)+inp('phone','電話番号',it.phone)+inp('address','住所',it.address);form+='<label class="field-label">メモ・備考</label><textarea id="f_memo" class="field-textarea" rows="2">'+esc(it.memo)+'</textarea>';form+=buildQuickRegBox(1,it);}
+  else if(modalState.tab===2){form+=inp('customerName','顧客名',it.customerName)+inp('machine','機械名 (品名)',it.machine)+'<div class="fl"><div class="fg">'+inp('maker','メーカー',it.maker)+'</div><div class="fg">'+inp('model','型式',it.model)+'</div></div>'+inp('serialNo','製造番号',it.serialNo)+'<div class="fl"><div class="fg">'+inp('attachment','アタッチメント',it.attachment)+'</div><div class="fg">'+inp('hourMeter','稼働時間(h)',it.hourMeter,'number')+'</div></div>';
+  form+='<label class="field-label">不具合内容・依頼事項</label><div style="position:relative;"><button type="button" onclick="fieldVoice(\'f_issue\',this)" style="position:absolute;right:6px;top:6px;background:#e67e22;border:none;border-radius:6px;width:26px;height:26px;font-size:12px;cursor:pointer;color:#fff;padding:0;line-height:1;z-index:1;">🎙</button><textarea id="f_issue" class="field-textarea" rows="2" style="padding-right:38px;">'+esc(it.issue)+'</textarea></div>';
+  form+='<div class="fl"><div class="fg">'+sel('status','ステータス',['修理依頼','見積中','部品待ち','修理中','完了(未請求)','請求済'],it.status)+'</div><div class="fg">'+inp('dueDate','納期・予定日',it.dueDate,'date')+'</div></div>';
+  // --- 修理写真エリア ---
+  currentRepairPhotos=JSON.parse(JSON.stringify(it.photos||[]));
+  form+='<div style="margin-bottom:10px;"><label class="field-label">📷 修理写真</label><div id="repairPhotoArea" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">'+buildRepairPhotoHTML()+'</div>';
+  form+='<button type="button" onclick="openDiagnosis()" style="background:#8e44ad;color:#fff;border:none;border-radius:10px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;width:100%;margin-bottom:4px;">🔍 故障写真でAI診断</button></div>';
+  form+='<button onclick="regToCalendar(\'repair\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに納期を登録</button><button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 見積書を作成</button>';form+=buildQuickRegBox(2,it);}
+  else if(modalState.tab===3){form+=inp('customerName','対象顧客',it.customerName);[['','🚜 実演機 1',''],['2','🚜 実演機 2 (任意)','var(--text-sub)'],['3','🚜 実演機 3 (任意)','var(--text-sub)']].forEach(([n,label,color])=>{form+='<div style="padding:10px;background:var(--input-bg);border-radius:10px;margin-bottom:12px;"><div style="font-size:12px;font-weight:bold;color:'+(color||'var(--text)')+';margin-bottom:8px;">'+label+'</div>'+inp('targetMachine'+n,'対象機械 (品名)',it['targetMachine'+n])+'<div class="fl" style="margin-bottom:0;"><div class="fg">'+inp('maker'+n,'メーカー',it['maker'+n])+'</div><div class="fg">'+inp('model'+n,'型式',it['model'+n])+'</div></div></div>';});form+='<div class="fl"><div class="fg">'+sel('status','ステータス',['実演予定','実施済','見積提示中','成約'],it.status)+'</div><div class="fg">'+inp('date','予定日/実施日',it.date,'date')+'</div></div>';form+='<button onclick="regToCalendar(\'demo\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに予定を登録</button><button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 見積書を作成</button>';form+=buildQuickRegBox(3,it);}
+  else if(modalState.tab===4){form+='<button type="button" onclick="openPartsOCR()" style="background:#2980b9;color:#fff;border:none;border-radius:10px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;width:100%;margin-bottom:12px;">📷 納品伝票・部品ラベルを読取→自動入力</button>';form+=inp('customerName','顧客名（任意）',it.customerName)+inp('name','部品名① (必須)',it.name)+'<div class="fl"><div class="fg">'+inp('maker','メーカー',it.maker)+'</div><div class="fg">'+inp('partNo','品番・型式①',it.partNo)+'</div></div><div class="fl"><div class="fg">'+inp('qty','数量',it.qty,'number')+'</div><div class="fg">'+inp('price','仕入・販売単価',it.price,'number')+'</div></div>';form+='<div style="background:var(--input-bg);border-radius:10px;padding:10px;margin-bottom:10px;"><div style="font-size:11px;color:var(--text-sub);font-weight:700;margin-bottom:8px;">➕ 追加部品②〜⑩（任意）</div>';for(let i=2;i<=10;i++){form+=inp('name'+i,'部品名'+i,it['name'+i])+inp('partNo'+i,'品番'+i,it['partNo'+i])+'<div class="fl"><div class="fg">'+inp('qty'+i,'数量'+i,it['qty'+i],'number')+'</div><div class="fg">'+inp('price'+i,'単価'+i,it['price'+i],'number')+'</div></div>';}form+='</div><div class="fl"><div class="fg">'+sel('status','ステータス',['発注前','発注済','入荷済','納品済','完了','請求済'],it.status)+'</div><div class="fg">'+inp('orderDate','発注日',it.orderDate,'date')+'</div></div>';form+='<button onclick="regToCalendar(\'part\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに発注日を登録</button><button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 この部品で見積書を作成</button>';form+=buildQuickRegBox(4,it);}
+  else if(modalState.tab===5){form+=inp('customer','顧客名',it.customer)+inp('productName','製品名① (必須)',it.productName)+'<div class="fl"><div class="fg">'+inp('maker','メーカー',it.maker)+'</div><div class="fg">'+inp('model','型式①',it.model)+'</div></div>'+inp('serialNo','製造番号①',it.serialNo);form+='<div style="background:var(--input-bg);border-radius:10px;padding:10px;margin-bottom:10px;"><div style="font-size:11px;color:var(--text-sub);font-weight:700;margin-bottom:8px;">➕ 追加品目②〜⑩（任意）</div>';for(let i=2;i<=10;i++){form+=inp('productName'+i,'製品名'+i,it['productName'+i])+inp('model'+i,'型式'+i,it['model'+i])+inp('serialNo'+i,'製造番号'+i,it['serialNo'+i]);}form+='</div><div class="fl"><div class="fg">'+sel('status','ステータス',['商談中','受注','発注済','入荷済','納品(納車)済','完了','請求済'],it.status)+'</div><div class="fg">'+inp('deliveryDate','納品予定日',it.deliveryDate,'date')+'</div></div>'+inp('price','販売額',it.price,'number');form+='<button onclick="regToCalendar(\'product\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに納品予定を登録</button><button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 この製品で見積書を作成</button>';form+=buildQuickRegBox(5,it);}
+  form+='<div class="fl" style="margin-top:15px;"><button class="save-btn" onclick="saveItem()">💾 保存する</button>'+(modalState.mode==='edit'?'<button class="save-btn" style="background:#e74c3c;" onclick="delItem()">削除</button>':'')+'</div>';
+  document.getElementById('modalBody').innerHTML=form;document.getElementById('modalOverlay').style.display='flex';
+}
+function inp(id,label,val,type='text'){
+  const hasVoice=(type==='text');
+  const vb=hasVoice?`<button type="button" onclick="fieldVoice('f_${id}',this)" style="position:absolute;right:6px;top:8px;background:#e67e22;border:none;border-radius:6px;width:26px;height:26px;font-size:12px;cursor:pointer;color:#fff;padding:0;line-height:1;">🎙</button>`:'';
+  const wr=hasVoice?`<div style="position:relative;">`:'';
+  const wre=hasVoice?'</div>':'';
+  const pr=hasVoice?'padding-right:38px;':'';
+  return `<label class="field-label">${label}</label>${wr}<input type="${type}" id="f_${id}" class="field-input" value="${esc(val||'')}" style="margin-bottom:11px;${pr}"${type==='number'?' min="0"':''}>${vb}${wre}`;
+}function sel(id,label,opts,cur){let o='';opts.forEach(v=>{o+='<option value="'+v+'"'+(cur===v?' selected':'')+'>'+v+'</option>';});return'<label class="field-label">'+label+'</label><select id="f_'+id+'" class="field-select" style="margin-bottom:11px;">'+o+'</select>';}
+function esc(s){return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function closeModal(){document.getElementById('modalOverlay').style.display='none';}
+function closeModalOnBg(e){if(e.target.id==='modalOverlay')closeModal();}
+function saveItem(){
+  const keys=['','customers','repairs','demos','parts','products'];const dbKey=keys[modalState.tab];const item={id:modalState.mode==='new'?'ID_'+Date.now():modalState.item.id};
+  document.querySelectorAll('#modalBody input,#modalBody select,#modalBody textarea').forEach(el=>{const key=el.id.replace('f_','');if(key&&el.type!=='file')item[key]=el.value;});
+  // 修理写真を保存
+  if(modalState.tab===2)item.photos=currentRepairPhotos;
+  if(modalState.mode==='new')DB[dbKey].push(item);else DB[dbKey]=DB[dbKey].map(x=>String(x.id)===String(item.id)?item:x);
+  if(modalState.tab===5&&modalState.mode==='new'){for(let i=2;i<=10;i++){const pN=document.getElementById('f_productName'+i)?.value?.trim();if(pN)DB.products.push({id:'ID_'+(Date.now()+Math.random()),productName:pN,maker:item.maker||'',model:document.getElementById('f_model'+i)?.value||'',serialNo:document.getElementById('f_serialNo'+i)?.value||'',customer:item.customer||'',status:item.status||'受注',deliveryDate:item.deliveryDate||'',price:0});}}
+  if(modalState.tab===4&&modalState.mode==='new'){for(let i=2;i<=10;i++){const pN=document.getElementById('f_name'+i)?.value?.trim();if(pN)DB.parts.push({id:'ID_'+(Date.now()+Math.random()),customerName:item.customerName||'',name:pN,maker:item.maker||'',partNo:document.getElementById('f_partNo'+i)?.value||'',qty:Number(document.getElementById('f_qty'+i)?.value)||0,price:Number(document.getElementById('f_price'+i)?.value)||0,status:item.status||'発注前',orderDate:item.orderDate||''}); }}
+  saveDB();closeModal();renderAll();
+}
+function delItem(){if(!confirm('削除しますか？'))return;const keys=['','customers','repairs','demos','parts','products'];DB[keys[modalState.tab]]=DB[keys[modalState.tab]].filter(x=>String(x.id)!==String(modalState.item.id));saveDB();closeModal();renderAll();}
+
+let currentQuoteId='';const ROWS=20;let qItems=[];
+function resetQItems(){qItems=[];for(let i=0;i<ROWS;i++)qItems.push({name:'',brand:'',model:'',qty:'',price:'',note:''});}
+resetQItems();
+function jumpToQuote(){
+  const it=modalState.item,tab=modalState.tab;closeModal();openQuoteEditor('');
+  if(tab===2||tab===3||tab===4)document.getElementById('toName').value=it.customerName||'';
+  if(tab===5)document.getElementById('toName').value=it.customer||'';
+  resetQItems();
+  if(tab===2)qItems[0]={name:it.machine||'',brand:it.maker||'',model:it.model||'',qty:1,price:'',note:it.serialNo?'製造番号:'+it.serialNo:''};
+  else if(tab===3){let l=0;[['targetMachine','maker','model'],['targetMachine2','maker2','model2'],['targetMachine3','maker3','model3']].forEach(([t,m,mo])=>{if(it[t]||it[m]||it[mo])qItems[l++]={name:it[t]||'',brand:it[m]||'',model:it[mo]||'',qty:1,price:'',note:''};});}
+  else if(tab===4)qItems[0]={name:it.name||'',brand:it.maker||'',model:it.partNo||'',qty:1,price:it.price||'',note:''};
+  else if(tab===5)qItems[0]={name:it.productName||'',brand:it.maker||'',model:it.model||'',qty:1,price:it.price||'',note:it.serialNo?'製造番号:'+it.serialNo:''};
+  buildTable();
+}
+function openQuoteEditor(id){
+  document.getElementById('content_main').style.display='none';document.getElementById('content_quote_editor').style.display='block';currentTab=6;
+  document.querySelectorAll('.tab-btn').forEach(t=>t.classList.remove('active'));const tbs=document.querySelectorAll('.tab-btn');if(tbs[6])tbs[6].classList.add('active');
+  currentQuoteId=id;
+  if(id===''){['estNo','delivPlace','payMethod','toName','subject','note'].forEach(i=>document.getElementById(i).value='');document.getElementById('estDate').value=new Date().toISOString().slice(0,10);const exp=new Date();exp.setMonth(exp.getMonth()+1);document.getElementById('expDate').value=exp.toISOString().slice(0,10);document.getElementById('delivDate').value='';resetQItems();}
+  else{const q=DB.quotes.find(x=>x.id===id);if(q){['estNo','estDate','expDate','delivDate','delivPlace','payMethod','toName','subject','note'].forEach(k=>{document.getElementById(k).value=q[k]||'';});if(q.qItems){qItems=JSON.parse(JSON.stringify(q.qItems));while(qItems.length<ROWS)qItems.push({name:'',brand:'',model:'',qty:'',price:'',note:''});}else resetQItems();}}
+  buildTable();
+}
+function closeQuoteEditor(){document.getElementById('content_quote_editor').style.display='none';renderAll();}
+function saveCurrentQuote(){
+  let sub=0;for(let i=0;i<ROWS;i++)sub+=(Number(qItems[i].qty)||0)*(Number(qItems[i].price)||0);const tax=Math.floor(sub*.1);
+  const qd={id:currentQuoteId||'Q_'+Date.now(),estNo:document.getElementById('estNo').value,estDate:document.getElementById('estDate').value,expDate:document.getElementById('expDate').value,delivDate:document.getElementById('delivDate').value,delivPlace:document.getElementById('delivPlace').value,payMethod:document.getElementById('payMethod').value,toName:document.getElementById('toName').value,subject:document.getElementById('subject').value,note:document.getElementById('note').value,qItems:JSON.parse(JSON.stringify(qItems)),total:sub+tax};
+  if(currentQuoteId===''){DB.quotes.push(qd);currentQuoteId=qd.id;}else DB.quotes=DB.quotes.map(q=>q.id===qd.id?qd:q);
+  saveDB();showSyncBar('✅ 見積書を保存しました','ok');
+}
+function deleteCurrentQuote(){if(currentQuoteId!==''){DB.quotes=DB.quotes.filter(q=>q.id!==currentQuoteId);saveDB();}closeQuoteEditor();}
+function buildTable(){
+  const tbody=document.getElementById('itemsTable');while(tbody.rows.length>1)tbody.deleteRow(1);
+  const ts='width:100%;border:none;background:transparent;padding:4px;font-size:12px;border-bottom:1px dashed var(--border);resize:none;overflow:hidden;font-family:inherit;min-height:26px;line-height:1.4;color:var(--text);display:block;box-sizing:border-box;';
+  for(let i=0;i<ROWS;i++){const tr=tbody.insertRow();tr.innerHTML=
+    '<td class="tc" style="font-size:10px;padding:4px 2px;">'+(i+1)+'</td>'
+    +'<td><textarea oninput="qItems['+i+'].name=this.value;autoResize(this)" placeholder="品名" style="'+ts+'">'+esc(qItems[i].name)+'</textarea></td>'
+    +'<td><textarea oninput="qItems['+i+'].brand=this.value;autoResize(this)" placeholder="銘柄" style="'+ts+'">'+esc(qItems[i].brand)+'</textarea></td>'
+    +'<td><textarea oninput="qItems['+i+'].model=this.value;autoResize(this)" placeholder="型式" style="'+ts+'">'+esc(qItems[i].model)+'</textarea></td>'
+    +'<td><input type="number" class="tr" value="'+qItems[i].qty+'" onchange="qItems['+i+'].qty=this.value;calcTotal()" min="0"></td>'
+    +'<td><input type="number" class="tr" value="'+qItems[i].price+'" onchange="qItems['+i+'].price=this.value;calcTotal()" min="0"></td>'
+    +'<td class="tr" id="amt_'+i+'" style="padding:5px;font-size:12px;font-weight:bold;">—</td>'
+    +'<td><textarea oninput="qItems['+i+'].note=this.value;autoResize(this)" placeholder="備考" style="'+ts+'">'+esc(qItems[i].note)+'</textarea></td>';}
+  calcTotal();
+  setTimeout(()=>{document.querySelectorAll('#itemsTable textarea').forEach(autoResize);},50);
+}
+function calcTotal(){let sub=0;for(let i=0;i<ROWS;i++){const amt=(Number(qItems[i].qty)||0)*(Number(qItems[i].price)||0);const td=document.getElementById('amt_'+i);if(td)td.textContent=amt?'¥'+amt.toLocaleString():'—';sub+=amt;}const tax=Math.floor(sub*.1);[['subtotal',sub],['tax',tax],['total',sub+tax]].forEach(([id,v])=>{const el=document.getElementById(id);if(el)el.textContent='¥'+v.toLocaleString();});}
+
+/* ============================================================
+   buildEstHTML - 見積書HTML生成
+   ============================================================ */
+function fmtDate(d){if(!d)return'';const dt=new Date(d);return'令和'+(dt.getFullYear()-2018)+'年'+(dt.getMonth()+1)+'月'+dt.getDate()+'日';}
+function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function buildEstHTML(){
+  const[date,dD,dP,pM,tN,nt,ex]=['estDate','delivDate','delivPlace','payMethod','toName','note','expDate'].map(id=>document.getElementById(id).value);
+  const rowH=6.5;
+
+  // プリスキャン：末尾の連続空行の開始インデックスを特定
+  let emptyStartIdx=-1;
+  for(let i=0;i<qItems.length;i++){
+    const it=qItems[i];
+    const isEmpty=!it.name&&!it.brand&&!it.model&&!it.qty&&!it.price&&!it.note;
+    if(isEmpty&&emptyStartIdx===-1)emptyStartIdx=i;
+    else if(!isEmpty)emptyStartIdx=-1;
+  }
+
+  let sub=0,rowsHTML='';
+  for(let i=0;i<qItems.length;i++){
+    const it=qItems[i];
+    const qty=Number(it.qty)||0,price=Number(it.price)||0,amt=qty*price;
+    sub+=amt;
+    const isEmptyRow=(emptyStartIdx!==-1&&i>=emptyStartIdx);
+    const isFirstEmpty=(i===emptyStartIdx);
+    const ch=isEmptyRow
+      ?`height:${rowH}mm;overflow:hidden;box-sizing:border-box;`
+      :`min-height:${rowH}mm;box-sizing:border-box;`;
+    const nameDiv=isFirstEmpty
+      ?`<div style="${ch}padding:0 3px;font-size:9px;display:flex;align-items:center;justify-content:center;color:#888;letter-spacing:3px;">＊　以下余白　＊</div>`
+      :(isEmptyRow
+        ?`<div style="${ch}"></div>`
+        :`<div style="${ch}padding:0 3px;font-size:9.5px;white-space:pre-wrap;word-break:break-all;line-height:1.4;overflow:hidden;">${escH(it.name)}</div>`);
+    rowsHTML+=`<tr>`
+      +`<td style="border:1px solid #000;padding:0;"><div style="${ch}display:flex;align-items:center;justify-content:center;font-size:9px;">${isEmptyRow?'':i+1}</div></td>`
+      +`<td style="border:1px solid #000;padding:0;">${nameDiv}</td>`
+      +`<td style="border:1px solid #000;padding:0;"><div style="${ch}padding:0 2px;font-size:9px;white-space:pre-wrap;word-break:break-all;line-height:1.4;overflow:hidden;">${isEmptyRow?'':escH(it.brand)}</div></td>`
+      +`<td style="border:1px solid #000;padding:0;"><div style="${ch}padding:0 2px;font-size:${isEmptyRow?'9':(it.model||'').length>14?'7':(it.model||'').length>9?'8':'9'}px;white-space:pre-wrap;word-break:break-all;line-height:1.3;overflow:hidden;">${isEmptyRow?'':escH(it.model)}</div></td>`
+      +`<td style="border:1px solid #000;padding:0;"><div style="${ch}padding:0 1px;font-size:9px;display:flex;align-items:center;justify-content:center;">${isEmptyRow?'':(qty||'')}</div></td>`
+      +`<td style="border:1px solid #000;padding:0;"><div style="${ch}padding:0 3px;font-size:9px;display:flex;align-items:center;justify-content:flex-end;">${isEmptyRow?'':(price?price.toLocaleString():'')}</div></td>`
+      +`<td style="border:1px solid #000;padding:0;"><div style="${ch}padding:0 3px;font-size:9px;display:flex;align-items:center;justify-content:flex-end;${amt?'font-weight:bold;':''}">${isEmptyRow?'':(amt?amt.toLocaleString():'')}</div></td>`
+      +`<td style="border:1px solid #000;padding:0;"><div style="${ch}padding:1px 2px;font-size:7.5px;word-break:break-all;white-space:pre-wrap;line-height:1.25;overflow:hidden;">${isEmptyRow?'':escH(it.note)}</div></td>`
+      +`</tr>`;
+  }
+  const tax=Math.floor(sub*.1),total=sub+tax;
+
+    const thS=`border:1px solid #000;font-size:9px;font-weight:normal;text-align:center;height:${rowH}mm;`;
+
+  let h=`<div style="width:210mm;min-height:296mm;padding:10mm 18mm;background:#fff;font-family:'MS Mincho',serif;color:#000;box-sizing:border-box;font-weight:${estFontWeight||400};">`;
+
+  h+=`<div style="text-align:center;font-size:22px;letter-spacing:13mm;margin-bottom:6mm;padding-left:13mm;">見　積　書</div>`;
+  h+=`<div style="text-align:right;font-size:10px;margin-bottom:3mm;">${fmtDate(date)}</div>`;
+
+  h+=`<div style="margin-bottom:2mm;">`;
+  h+=`<div style="display:inline-block;border-bottom:1.5px solid #000;padding-bottom:1px;vertical-align:bottom;">`;
+  h+=`<span style="display:inline-flex;justify-content:space-between;min-width:40mm;font-size:16px;font-weight:bold;vertical-align:bottom;">`
+    +[...escH(tN)].map(c=>`<span>${c}</span>`).join('')
+    +`</span>`;
+  h+=`<span style="font-size:16px;font-weight:bold;"> 様</span>`;
+  h+=`</div></div>`;
+  h+=`<div style="font-size:11px;letter-spacing:2px;margin-bottom:3mm;">下　記　の　通　り　御　見　積　致　し　ま　す　。</div>`;
+
+  h+=`<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3mm;">`;
+  h+=`<div><table style="font-size:10px;border-collapse:collapse;text-align:left;">`;
+  const lStyle=`padding:1.5px 0;width:15mm;`;
+  const jL=(t)=>`<span style="display:flex;justify-content:space-between;">${[...t].map(c=>`<span>${c}</span>`).join('')}</span>`;
+  h+=`<tr><td style="${lStyle}">${jL('納入期日')}</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:28mm;padding:1.5px 2px;text-align:right;">${fmtDate(dD)}</td></tr>`;
+  h+=`<tr><td style="${lStyle}">${jL('納入場所')}</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:28mm;padding:1.5px 2px;text-align:right;">${escH(dP)}</td></tr>`;
+  h+=`<tr><td style="${lStyle}">${jL('取引方法')}</td><td style="padding:1.5px 2px;">：</td><td style="border-bottom:1px solid #000;width:28mm;padding:1.5px 2px;text-align:right;">${escH(pM)}</td></tr>`;
+  h+=`</table></div>`;
+
+  h+=`<div style="font-size:10px;line-height:1.7;width:56mm;overflow:hidden;">`;
+  h+=`<div style="display:flex;justify-content:space-between;">${[...'鹿児島県曽於市大隅町岩川5591番地'].map(c=>`<span>${c}</span>`).join('')}</div>`;
+  h+=`<div style="display:flex;justify-content:space-between;">${[...'そお鹿児島農業協同組合'].map(c=>`<span>${c}</span>`).join('')}</div>`;
+  h+=`<div style="display:flex;justify-content:space-between;"><span>代表理事組合長</span><span>竹　内　和　久</span></div>`;
+  h+=`<div style="text-align:right;">財部農機センター</div>`;
+  h+=`</div>`;
+  h+=`</div>`;
+
+  h+=`<div style="display:flex;align-items:flex-end;margin-bottom:2mm;">`;
+  h+=`<div style="display:flex;align-items:baseline;border-bottom:1.5px solid #000;padding-bottom:1px;gap:2mm;">`;
+  h+=`<span style="font-size:14px;font-weight:bold;white-space:nowrap;">合計金額 ￥</span>`;
+  h+=`<span style="font-size:17px;font-weight:bold;">${total.toLocaleString()}</span>`;
+  h+=`<span style="font-size:14px;font-weight:bold;">円也</span>`;
+  h+=`</div>`;
+  h+=`<div style="font-size:10px;margin-left:4mm;">（内消費税　${tax.toLocaleString()}　円）</div>`;
+  h+=`</div>`;
+
+  // ★ 品目テーブル（SVGをtop:0で重ねて絶対mm座標で斜線）
+  h+=`<div style="position:relative;width:174mm;margin-top:2mm;">`;
+  h+=`<table style="width:174mm;border-collapse:collapse;table-layout:fixed;">`;
+  h+=`<colgroup>`;
+  h+=`<col style="width:8mm"><col style="width:41mm"><col style="width:20mm">`;
+  h+=`<col style="width:28mm"><col style="width:5mm"><col style="width:18mm">`;
+  h+=`<col style="width:22mm"><col style="width:32mm">`;
+  h+=`</colgroup>`;
+  h+=`<tr>`;
+  ['No.','品　　名','銘柄','型　式','数量','単　価','金　額','備　考'].forEach(t=>{h+=`<th style="${thS}">${t}</th>`;});
+  h+=`</tr>`;
+  h+=rowsHTML;
+  const rH=`height:${rowH}mm;`;
+  h+=`<tr style="${rH}"><td colspan="6" style="border:1px solid #000;text-align:center;font-size:10px;letter-spacing:8mm;padding-left:8mm;">小　計</td><td style="border:1px solid #000;text-align:right;padding-right:3px;font-size:10px;">${sub.toLocaleString()}</td><td style="border:1px solid #000;"></td></tr>`;
+  h+=`<tr style="${rH}"><td colspan="6" style="border:1px solid #000;text-align:center;font-size:10px;letter-spacing:6mm;padding-left:6mm;">消　費　税</td><td style="border:1px solid #000;text-align:right;padding-right:3px;font-size:10px;">${tax.toLocaleString()}</td><td style="border:1px solid #000;"></td></tr>`;
+  h+=`<tr style="${rH}"><td colspan="6" style="border:1px solid #000;text-align:center;font-size:10px;letter-spacing:8mm;padding-left:8mm;">合　計</td><td style="border:1px solid #000;text-align:right;padding-right:3px;font-size:10px;font-weight:bold;">${total.toLocaleString()}</td><td style="border:1px solid #000;"></td></tr>`;
+  h+=`</table></div>`;
+
+  h+=`<div style="margin-top:2mm;font-size:10px;border:0.8px solid #000;padding:2px 5px;min-height:10mm;box-sizing:border-box;white-space:pre-wrap;word-break:break-all;line-height:1.6;">`;
+  h+=`<span style="font-weight:bold;">備　考</span>`;
+  if(nt)h+=`\n${escH(nt)}`;
+  h+=`</div>`;
+
+  if(ex)h+=`<div style="margin-top:2mm;font-size:10px;">有効期限：${fmtDate(ex)}</div>`;
+
+  h+=`</div>`;
+  return h;
+}
+
+let estFontWeight=400;
+const fwMap={1:{w:400,l:'標　準'},2:{w:500,l:'やや濃'},3:{w:600,l:'濃　い'},4:{w:700,l:'太　字'}};
+function updateFontWeight(v){
+  const m=fwMap[v]||fwMap[1];
+  estFontWeight=m.w;
+  document.getElementById('fontWeightLabel').textContent=m.l;
+  document.getElementById('preview-inner').innerHTML=buildEstHTML();
+}
+function showPreview(){document.getElementById('preview-inner').innerHTML=buildEstHTML();document.getElementById('preview-modal').style.display='block';}
+function closePreview(){document.getElementById('preview-modal').style.display='none';}
+
+const SCREENSHOT_REPAIRS=[{id:'REC_1',customerName:'山下 林作',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'2233',status:'修理中',dueDate:'2026-07-15',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_2',customerName:'渡邊 誠',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-20',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_3',customerName:'渡邊 誠',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GRA650',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-20',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_4',customerName:'上丸 勝芳',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_5',customerName:'上丸 勝芳',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GRA650',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-20',issue:'点検整備',date:'2026-05-03',usedParts:[]},{id:'REC_6',customerName:'徳丸 秋雄',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_7',customerName:'東丸 和久',machine:'タイヤローラー',maker:'',model:'',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'回転しない',date:'2026-05-03',usedParts:[]},{id:'REC_22',customerName:'東丸 和久',machine:'ホイルローダ',maker:'古川',model:'FL302',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_8',customerName:'園田 正志',machine:'薪わり機',maker:'',model:'KT155PRO',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'油圧作動油漏れ',date:'2026-05-03',usedParts:[]},{id:'REC_9',customerName:'徳丸 秋雄',machine:'甘諸ハーベスタ',maker:'',model:'GRA650',serialNo:'',hourMeter:'1963',status:'修理依頼',dueDate:'2026-07-05',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_10',customerName:'グッドカンパニー',machine:'田植機',maker:'',model:'YR6D',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_11',customerName:'野村 治雄',machine:'田植機',maker:'ヤンマー',model:'VP50',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-05-31',issue:'縦おくりがおかしく、欠株になる',date:'2026-05-03',usedParts:[]},{id:'REC_12',customerName:'今村 三男',machine:'マニアスプレッダー',maker:'',model:'TMS1890',serialNo:'',hourMeter:'',status:'部品待ち',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_13',customerName:'吉満 忠吉',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GRA650',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-20',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_14',customerName:'徳丸 勉',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_15',customerName:'徳丸 勉',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_16',customerName:'上丸 文友',machine:'ヤンマートラクター',maker:'ヤンマー',model:'EG224',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_17',customerName:'山田',machine:'トラクター',maker:'ヤンマー',model:'EG224',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_18',customerName:'延時 暁寿',machine:'だいこん収穫機',maker:'井関',model:'VHD1250',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-04-25',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_19',customerName:'森山 光治',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'点検整備',date:'2026-05-03',usedParts:[]},{id:'REC_20',customerName:'東丸 和久',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GRA650',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'点検整備',date:'2026-05-03',usedParts:[]},{id:'REC_21',customerName:'東丸 和久',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'点検整備',date:'2026-05-03',usedParts:[]},{id:'REC_23',customerName:'満行 翼',machine:'自走ラジコン動噴',maker:'丸山製作所',model:'MSA413R3-M(10x130)',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-05-15',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_24',customerName:'飯野 孝仁',machine:'田植機',maker:'井関',model:'PRJ8',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-05-22',issue:'',date:'2026-05-03',usedParts:[]}];
+const SCREENSHOT_DEMOS=[{id:'DEMO_1',customerName:'立和田',targetMachine:'トラクター',maker:'',model:'TJW1233',targetMachine2:'プラソイラ',maker2:'',model2:'J805',targetMachine3:'',maker3:'',model3:'',date:'2026-05-15',status:'実演予定'},{id:'DEMO_2',customerName:'立和田',targetMachine:'トラクター',maker:'',model:'M135GEP',targetMachine2:'コンビソイラ',maker2:'',model2:'H604',targetMachine3:'グランドハロー',maker3:'',model3:'LXE2630HS-2LH',date:'2026-10-31',status:'実演予定'}];
+const SCREENSHOT_PARTS=[{id:'PART_1',customerName:'岩井 一昭',name:'ネット駆動スプリング',maker:'IHIアグリテック',partNo:'',qty:0,price:0,status:'発注済',orderDate:'2026-04-30'}];
+const SCREENSHOT_PRODUCTS=[{id:'PROD_N1',productName:'畦畔草刈機',maker:'',model:'',serialNo:'',customer:'野村 治雄',status:'発注済',deliveryDate:'2026-05-07',price:0},{id:'PROD_N2',productName:'チェーンソー',maker:'',model:'MC3101R',serialNo:'',customer:'柳田 忠良',status:'入荷済',deliveryDate:'2026-05-07',price:0},{id:'PROD_N3',productName:'刈払機',maker:'新ダイワ',model:'RA3021UT',serialNo:'',customer:'満行 翼',status:'受注',deliveryDate:'2026-05-08',price:55000},{id:'PROD_8',productName:'急速充電器',maker:'やまびこ',model:'LCJQ-560D',serialNo:'',customer:'社会福祉法人エンゼル会',status:'発注済',deliveryDate:'2026-05-11',price:107000},{id:'PROD_N4',productName:'電動マルチチェアー',maker:'',model:'',serialNo:'',customer:'社会福祉法人エンゼル会',status:'発注済',deliveryDate:'2026-05-11',price:0},{id:'PROD_N5',productName:'リチウムイオンバッテリー',maker:'',model:'',serialNo:'',customer:'社会福祉法人エンゼル会',status:'発注済',deliveryDate:'2026-05-11',price:0},{id:'PROD_1',productName:'ドライブハロー HS2430',maker:'ニプロ',model:'HS2430',serialNo:'',customer:'東丸 和久',status:'入荷済',deliveryDate:'2026-05-25',price:0},{id:'PROD_2',productName:'甘諸ツルキリ機 FNC1002K',maker:'ニプロ',model:'FNC1002K',serialNo:'',customer:'満行 翼',status:'受注',deliveryDate:'2026-07-20',price:0},{id:'PROD_3',productName:'甘諸ハーベスタ GZA651',maker:'ニプロ',model:'GZA651',serialNo:'',customer:'満行 翼',status:'受注',deliveryDate:'2026-07-25',price:0},{id:'PROD_7',productName:'マルチデガー',maker:'東洋農機',model:'TMD1V24',serialNo:'',customer:'延時 暁寿',status:'受注',deliveryDate:'2026-07-31',price:5026120},{id:'PROD_N6',productName:'掘取機',maker:'',model:'',serialNo:'',customer:'社会福祉法人エンゼル会',status:'受注',deliveryDate:'2026-07-31',price:0},{id:'PROD_N7',productName:'外部油圧2連キット',maker:'',model:'',serialNo:'',customer:'延時 暁寿',status:'受注',deliveryDate:'2026-07-31',price:0},{id:'PROD_4',productName:'中古トラクター YT333RJ',maker:'ヤンマー',model:'YT333RJ',serialNo:'',customer:'松元 崇',status:'受注',deliveryDate:'2026-08-31',price:0},{id:'PROD_5',productName:'中古田植機',maker:'',model:'RPQ40DL',serialNo:'',customer:'松元 崇',status:'受注',deliveryDate:'',price:0},{id:'PROD_N8',productName:'昇降機張込みホッパ',maker:'',model:'',serialNo:'',customer:'飯野 孝仁',status:'受注',deliveryDate:'',price:0},{id:'PROD_N9',productName:'農業用ドローン',maker:'',model:'',serialNo:'',customer:'西 聡一郎',status:'受注',deliveryDate:'',price:0},{id:'PROD_N10',productName:'MUFBウルトラポンプ バッテリータイプ',maker:'',model:'',serialNo:'',customer:'アールエスユニット',status:'商談中',deliveryDate:'',price:0},{id:'PROD_6',productName:'グランドソワー RS1411',maker:'',model:'RS1411',serialNo:'',customer:'',status:'受注',deliveryDate:'',price:0}];
+const SCREENSHOT_CUSTOMERS=[{id:'CUST_1',name:'山下 林作',phone:'',address:'',memo:''},{id:'CUST_2',name:'渡邊 誠',phone:'',address:'',memo:''},{id:'CUST_3',name:'上丸 勝芳',phone:'',address:'',memo:''},{id:'CUST_4',name:'徳丸 秋雄',phone:'',address:'',memo:''},{id:'CUST_5',name:'吉満 忠吉',phone:'',address:'',memo:''},{id:'CUST_6',name:'徳丸 勉',phone:'',address:'',memo:''},{id:'CUST_7',name:'東丸 和久',phone:'',address:'',memo:''},{id:'CUST_8',name:'森山 光治',phone:'',address:'',memo:''},{id:'CUST_9',name:'立和田',phone:'',address:'',memo:''},{id:'CUST_10',name:'満行 翼',phone:'',address:'',memo:''},{id:'CUST_11',name:'松元 崇',phone:'',address:'',memo:''},{id:'CUST_12',name:'上丸 文友',phone:'',address:'',memo:''},{id:'CUST_13',name:'野村 治雄',phone:'',address:'',memo:''},{id:'CUST_14',name:'園田 正志',phone:'',address:'',memo:''},{id:'CUST_15',name:'山田',phone:'',address:'',memo:''},{id:'CUST_16',name:'今村 三男',phone:'',address:'',memo:''},{id:'CUST_17',name:'延時 暁寿',phone:'',address:'',memo:''},{id:'CUST_18',name:'グッドカンパニー',phone:'',address:'',memo:''},{id:'CUST_19',name:'社会福祉法人エンゼル会',phone:'',address:'',memo:''},{id:'CUST_20',name:'川崎 ちえ子',phone:'',address:'',memo:''},{id:'CUST_21',name:'岩井 一昭',phone:'',address:'',memo:''},{id:'CUST_22',name:'飯野 孝仁',phone:'',address:'',memo:''},{id:'CUST_23',name:'西 聡一郎',phone:'',address:'',memo:''},{id:'CUST_24',name:'アールエスユニット',phone:'',address:'',memo:''},{id:'CUST_25',name:'柳田 忠良',phone:'',address:'',memo:''}];
+const SCREENSHOT_QUOTES=[{id:'Q_REC_1',estNo:'',estDate:'2026-04-30',expDate:'2026-08-31',delivDate:'2026-07-31',delivPlace:'貴指定場所',payMethod:'口座振替',toName:'延時 暁寿',subject:'マルチデガー',qItems:[{name:'マルチデガー',brand:'東洋農機',model:'TMD1V24',qty:1,price:4358000,note:''},{name:'揺さぶり前側',brand:'同上',model:'TMD1V24-B',qty:1,price:105600,note:''},{name:'揺さぶり後ろ側',brand:'同上',model:'TMD1V24-C',qty:1,price:105600,note:''}],total:5026120,note:''}];
+
+window.onload=async function(){
+  try{
+    loadDB();const lm=document.getElementById('loadingMsg');
+    if(gasUrl){lm.textContent='☁️ クラウドから最新データを確認中...';try{await syncToCloud(false);}catch(e){console.error('起動時同期エラー:',e);}}
+    if(!hasAnyData()){
+      const er=localStorage.getItem('agri_emergency_backup');
+      if(er){try{const eb=JSON.parse(er),ed=eb.data||eb;const eHas=['customers','repairs','demos','parts','products'].some(k=>Array.isArray(ed[k])&&ed[k].length>0);if(eHas){const sa=eb.savedAt?new Date(eb.savedAt).toLocaleString('ja-JP'):'不明',rc=ed.repairs?.length||0;if(confirm(`⚠️ データが見つかりません！\n\n緊急バックアップが見つかりました。\n保存日時: ${sa}\n修理 ${rc}件\n\n復元しますか？`)){['customers','repairs','demos','parts','products','settings','quotes'].forEach(k=>{if(Array.isArray(ed[k]))DB[k]=ed[k];});if(ed.lastModified)DB.lastModified=ed.lastModified;try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}}};}catch(e){console.error('緊急バックアップ読込エラー:',e);}}
+    }
+    const ls=document.getElementById('loading-screen');
+    document.getElementById('app').style.display='block';
+    ls.classList.add('hide');
+    setTimeout(()=>{ls.style.display='none';},650);
+    renderAll();
+    if(!hasAnyData())showSyncBar('⚠️ データなし。🛡️ボタンからバックアップを復元できます。','conflict',false);
+    if(gasUrl){setInterval(()=>{if(gasUrl)syncToCloud(false);},30000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&gasUrl)syncToCloud(false);});}
+  }catch(e){alert('起動処理中にエラーが発生しました。\n詳細: '+e.message);console.error(e);}
+};
+</script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('sw.js').catch(function(e){console.log('SW登録失敗',e);});
+  });
+}
+</script>
+</body>
+</html>
