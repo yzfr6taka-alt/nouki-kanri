@@ -1,3 +1,9 @@
+@font-face{
+  font-family:'Pinyon Script';
+  font-style:normal;font-weight:400;font-display:swap;
+  src:url('data:font/woff2;base64,d09GMgABAAAAxxxxxx') format('woff2');
+  unicode-range:U+0020-007E,U+3040-309F;
+}
 <!DOCTYPE html>
 <!--
   Font: Pinyon Script
@@ -86,7 +92,25 @@ table.items td input{width:100%;border:none;background:transparent;padding:5px 4
 }
 /* ▲▲▲ 差し込み口ここまで ▲▲▲ */
 
-#loading-screen{position:fixed;inset:0;background:radial-gradient(ellipse at 50% 35%,#1c2b3a 0%,#0c151e 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;overflow:hidden;transition:opacity .7s ease;}
+#loading-screen{
+  background:radial-gradient(ellipse at 50% 35%,#1c2b3a 0%,#0c151e 100%);
+}
+#loading-screen .sp-text{
+  color:#e8f4f8;
+  font-size:2rem;
+  font-weight:700;
+  text-shadow:0 2px 8px rgba(0,0,0,0.6);
+  letter-spacing:0.15em;
+  line-height:1.4;
+}
+#loading-screen .sp-progress{
+  height:6px;
+  width:200px;
+  background:#2a3f52;
+  border-radius:3px;
+  overflow:hidden;
+  margin-top:2rem;
+}position:fixed;inset:0;background:radial-gradient(ellipse at 50% 35%,#1c2b3a 0%,#0c151e 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;overflow:hidden;transition:opacity .7s ease;}
 #loading-screen.hide{opacity:0;pointer-events:none;}
 .sp-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(46,204,113,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(46,204,113,.05) 1px,transparent 1px);background-size:28px 28px;-webkit-mask-image:radial-gradient(ellipse at 50% 42%,#000 0%,transparent 78%);mask-image:radial-gradient(ellipse at 50% 42%,#000 0%,transparent 78%);opacity:0;animation:spFadeIn 1.4s ease .2s forwards;}
 .sp-content{position:relative;z-index:10;text-align:center;width:100%;padding:0 24px;}
@@ -430,7 +454,17 @@ function getStyles(){return '*{box-sizing:border-box;margin:0;padding:0;}body{fo
 function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 async function generatePDFBlob(){
   /* 独立iframeで白背景描画（ダークモード干渉・黒バグ両方回避） */
-  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}</body></html>`;
+  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}<table id="itemTable" class="items"><thead><tr><th>機械名</th><th>状態</th></tr></thead><tbody></tbody></table>
+<div id="preview" class="preview-area"></div>
+<form id="loginForm" method="post">
+  <input type="email" name="email" placeholder="メールアドレス">
+  <input type="password" name="password" placeholder="パ��ワード">
+  <button type="submit">ログイン</button>
+</form>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1c2b3a">
+</body></html>`;
   return new Promise((resolve,reject)=>{
     const fr=document.createElement('iframe');
     fr.style.cssText='position:fixed;left:-4000px;top:0;width:794px;height:300px;border:none;opacity:0;pointer-events:none;';
@@ -1289,6 +1323,29 @@ if('serviceWorker' in navigator){
   window.addEventListener('load',function(){
     navigator.serviceWorker.register('sw.js').catch(function(e){console.log('SW登録失敗',e);});
   });
+}
+document.addEventListener('DOMContentLoaded',function(){
+  const itemTable=document.getElementById('itemTable');
+  const preview=document.getElementById('preview');
+  if(itemTable)itemTable.innerHTML='<tr><td>読み込み中...</td></tr>';
+  if(preview)preview.textContent='プレビュー';
+});
+function initLoadingScreen(){
+  const screen=document.getElementById('loading-screen');
+  const progress=screen.querySelector('.sp-progress-bar');
+  let percent=0;
+  const interval=setInterval(()=>{
+    percent+=Math.random()*30;
+    if(percent>=100){
+      percent=100;
+      clearInterval(interval);
+      setTimeout(()=>screen.classList.add('hide'),700);
+    }
+    if(progress)progress.style.width=percent+'%';
+  },400);
+  screen.setAttribute('role','status');
+  screen.setAttribute('aria-live','polite');
+  screen.setAttribute('aria-label','アプリケーション読み込み中');
 }
 </script>
 </body>
