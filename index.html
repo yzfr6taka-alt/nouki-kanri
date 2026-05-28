@@ -547,19 +547,61 @@ function dataUrlToFile(dataUrl,filename){
   while(n--)u8[n]=bstr.charCodeAt(n);
   return new File([u8],filename+'.'+ext,{type:mime});
 }
+async function buildMessageImage(msg,title){
+  const W=1080,pad=70,lineH=58,fontSize=42,headerH=130,footerH=80;
+  const fontFamily="'Hiragino Sans','Yu Gothic','Noto Sans CJK JP','Noto Sans JP',sans-serif";
+  // 折り返し計算用に一度ダミーcanvasで計測
+  const tmp=document.createElement('canvas');const tctx=tmp.getContext('2d');
+  tctx.font='400 '+fontSize+"px "+fontFamily;
+  const maxW=W-pad*2;
+  const wrapped=[];
+  msg.split('\n').forEach(ln=>{
+    if(!ln){wrapped.push('');return;}
+    let cur='';
+    for(const ch of ln){
+      const t=cur+ch;
+      if(tctx.measureText(t).width>maxW){wrapped.push(cur);cur=ch;}else cur=t;
+    }
+    if(cur)wrapped.push(cur);
+  });
+  const H=headerH+pad+wrapped.length*lineH+pad+footerH;
+  const canvas=document.createElement('canvas');canvas.width=W;canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  // 背景
+  ctx.fillStyle='#ffffff';ctx.fillRect(0,0,W,H);
+  // ヘッダー帯
+  ctx.fillStyle='#06C755';ctx.fillRect(0,0,W,headerH);
+  ctx.fillStyle='#ffffff';ctx.font='700 48px '+fontFamily;
+  ctx.textBaseline='middle';ctx.textAlign='left';
+  ctx.fillText(title||'お知らせ',pad,headerH/2);
+  // 本文
+  ctx.fillStyle='#2c3e50';ctx.font='400 '+fontSize+"px "+fontFamily;
+  ctx.textBaseline='top';
+  wrapped.forEach((ln,i)=>ctx.fillText(ln,pad,headerH+pad+i*lineH));
+  // フッター
+  ctx.fillStyle='#7f8c8d';ctx.font='400 30px '+fontFamily;
+  ctx.textAlign='right';ctx.textBaseline='bottom';
+  ctx.fillText('そお鹿児島農業協同組合 財部農機センター',W-pad,H-pad/2);
+  // 細い区切り線
+  ctx.strokeStyle='#ecf0f1';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(pad,H-footerH+10);ctx.lineTo(W-pad,H-footerH+10);ctx.stroke();
+  return await new Promise(res=>canvas.toBlob(b=>res(new File([b],'お知らせ.png',{type:'image/png'})),'image/png',0.95));
+}
 async function notifyComplete(type){
   let name='',item='',msg='';
   if(type==='repair'){
     name=(document.getElementById('f_customerName')?.value||'').trim();
     item=(document.getElementById('f_machine')?.value||'').trim();
-    msg=`${name?name+'様':'お客様'}\n\nいつもお世話になっております。\n財部農機センターです。\n\nお預かりしておりました${item?'【'+item+'】':'機械'}の修理が完了いたしました。\nご都合のよろしい時に、お引き取り・ご確認をお願いいたします。\n\nどうぞよろしくお願いいたします。`;
+    msg=`${name?name+'様':'お客様'}\n\nいつもお世話になっております。\n\n${item?'【'+item+'】':'機械'}の修理が完了いたしました。\nご確認のほど、よろしくお願いいたします。\n\nご不明な点等ございましたら、お気軽にご連絡ください。\nどうぞよろしくお願いいたします。`;
     const photos=(typeof currentRepairPhotos!=='undefined'&&Array.isArray(currentRepairPhotos))?currentRepairPhotos.filter(p=>typeof p==='string'&&p.indexOf('data:')===0):[];
     if(photos.length){
       try{
         const base=((item||'修理写真').replace(/[\\\/:*?"<>|\s]/g,'_')).slice(0,30)||'修理写真';
-        const files=photos.map((d,i)=>dataUrlToFile(d,base+'_'+(i+1)));
+        const photoFiles=photos.map((d,i)=>dataUrlToFile(d,base+'_'+(i+1)));
+        const msgImg=await buildMessageImage(msg,'🔧 修理完了のお知らせ');
+        const files=[msgImg,...photoFiles];
         if(navigator.share&&navigator.canShare&&navigator.canShare({files})){
-          await navigator.share({title:'修理完了のお知らせ',text:msg,files});
+          await navigator.share({files});
           return;
         }
         showSyncBar('⚠️ この端末は画像付き共有に未対応。本文のみLINEで送ります','conflict');
