@@ -54,6 +54,8 @@ table.items td input{width:100%;border:none;background:transparent;padding:5px 4
 .btn-line{background:#06C755;color:#fff;border:none;border-radius:10px;padding:11px 4px;font-size:12px;font-weight:800;cursor:pointer;flex:1;}
 .btn-html{background:#2980b9;color:#fff;border:none;border-radius:10px;padding:11px 4px;font-size:12px;font-weight:800;cursor:pointer;flex:1;}
 .btn-print{background:#e67e22;color:#fff;border:none;border-radius:10px;padding:11px 4px;font-size:12px;font-weight:800;cursor:pointer;flex:1;}
+.dtbtn{flex:1;background:rgba(255,255,255,.12);border:1.5px solid transparent;color:#cdd9e3;border-radius:10px;padding:9px 4px;font-size:12px;font-weight:800;cursor:pointer;}
+.dtbtn.active{background:#fff;color:#1a252f;border-color:#fff;}
 #preview-modal{display:none;position:fixed;inset:0;background:#333;z-index:1000;overflow-y:auto;}
 .badge-count{padding:3px 6px;border-radius:4px;font-size:10px;font-weight:bold;display:inline-block;}
 .bc-gray{background:var(--border);color:var(--text-sub);font-weight:normal;}
@@ -194,7 +196,12 @@ table.items td input{width:100%;border:none;background:transparent;padding:5px 4
 <div id="preview-modal">
 <div style="background:#1a252f;padding:12px 16px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:1001;">
 <button onclick="closePreview()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer;">← 戻る</button>
-<span style="color:#fff;font-weight:800;font-size:15px;flex:1;">見積書プレビュー</span>
+<span id="previewTitle" style="color:#fff;font-weight:800;font-size:15px;flex:1;">見積書プレビュー</span>
+</div>
+<div id="docTypeBar" style="background:#1a252f;padding:0 12px 12px;display:flex;gap:6px;">
+<button id="dt_est" class="dtbtn active" onclick="setDocType('est')">📋 見積書</button>
+<button id="dt_inv" class="dtbtn" onclick="setDocType('inv')">💰 請求書</button>
+<button id="dt_deliv" class="dtbtn" onclick="setDocType('deliv')">📦 納品書</button>
 </div>
 <div class="action-row">
 <button class="btn-pdf" onclick="pdfDoc()">📄 PDF保存</button>
@@ -459,7 +466,7 @@ async function generatePDFBlob(){
 async function pdfDoc(){
   const tN=(document.getElementById('toName')?.value||'').trim();
   const subj=(document.getElementById('subject')?.value||'').trim();
-  const pdfName=`見積書_${tN?tN+'様':''}${subj?'_'+subj:''}.pdf`;
+  const pdfName=`${docTypeLabel()}_${tN?tN+'様':''}${subj?'_'+subj:''}.pdf`;
   showSyncBar('📄 PDF生成中...','syncing',false);
   try{
     const blob=await generatePDFBlob();
@@ -481,12 +488,12 @@ function saveHTML(){
   const tN=(document.getElementById('toName')?.value||'').trim();const sv=(document.getElementById('subject')?.value||'').trim();const ed=(document.getElementById('estDate')?.value||'').replace(/-/g,'');
   const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`;
   const blob=new Blob([html],{type:'text/html;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');
-  a.download=`見積書_${tN?tN+'_':''}${sv?sv+'_':''}${ed||new Date().toISOString().slice(0,10)}.html`;a.href=url;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),3000);
+  a.download=`${docTypeLabel()}_${tN?tN+'_':''}${sv?sv+'_':''}${ed||new Date().toISOString().slice(0,10)}.html`;a.href=url;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),3000);
 }
 async function shareDoc(){
   const tN=(document.getElementById('toName')?.value||'').trim();
   const subj=(document.getElementById('subject')?.value||'').trim();
-  const pdfName=`見積書_${tN?tN+'様':''}${subj?'_'+subj:''}.pdf`;
+  const pdfName=`${docTypeLabel()}_${tN?tN+'様':''}${subj?'_'+subj:''}.pdf`;
   showSyncBar('📤 PDF生成中...','syncing',false);
   try{
     const blob=await generatePDFBlob();
@@ -507,7 +514,7 @@ function openLineShare(text){const o=window.open('https://line.me/R/msg/text/?'+
 async function printDoc(){
   const tN=(document.getElementById('toName')?.value||'').trim();
   const subj=(document.getElementById('subject')?.value||'').trim();
-  const pdfName=`見積書_${tN?tN+'様':''}${subj?'_'+subj:''}.pdf`;
+  const pdfName=`${docTypeLabel()}_${tN?tN+'様':''}${subj?'_'+subj:''}.pdf`;
   showSyncBar('🖨️ PDF生成中...','syncing',false);
   try{
     const blob=await generatePDFBlob();
@@ -1083,7 +1090,7 @@ function saveItem(){
 }
 function delItem(){if(!confirm('削除しますか？'))return;const keys=['','customers','repairs','demos','parts','products'];DB[keys[modalState.tab]]=DB[keys[modalState.tab]].filter(x=>String(x.id)!==String(modalState.item.id));saveDB();closeModal();renderAll();}
 
-let currentQuoteId='';const ROWS=20;let qItems=[];
+let currentQuoteId='';const ROWS=20;let qItems=[];let currentDocType='est';
 function resetQItems(){qItems=[];for(let i=0;i<ROWS;i++)qItems.push({name:'',brand:'',model:'',qty:'',price:'',note:''});}
 resetQItems();
 function jumpToQuote(){
@@ -1139,6 +1146,12 @@ function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 function buildEstHTML(){
   const[date,dD,dP,pM,tN,nt,ex]=['estDate','delivDate','delivPlace','payMethod','toName','note','expDate'].map(id=>document.getElementById(id).value);
   const rowH=6.5;
+  const DOC_TYPES={
+    est:{title:'見　積　書',lead:'下　記　の　通　り　御　見　積　致　し　ま　す　。',totalLabel:'合計金額 ￥',showExp:true},
+    inv:{title:'請　求　書',lead:'下　記　の　通　り　御　請　求　申　し　上　げ　ま　す　。',totalLabel:'御請求金額 ￥',showExp:false},
+    deliv:{title:'納　品　書',lead:'下　記　の　通　り　納　品　致　し　ま　し　た　。',totalLabel:'合計金額 ￥',showExp:false}
+  };
+  const dtc=DOC_TYPES[currentDocType]||DOC_TYPES.est;
 
   // プリスキャン：末尾の連続空行の開始インデックスを特定
   let emptyStartIdx=-1;
@@ -1181,7 +1194,7 @@ function buildEstHTML(){
 
   let h=`<div style="width:210mm;min-height:296mm;padding:10mm 18mm;background:#fff;font-family:'MS Mincho',serif;color:#000;box-sizing:border-box;font-weight:${estFontWeight||400};">`;
 
-  h+=`<div style="text-align:center;font-size:22px;letter-spacing:13mm;margin-bottom:6mm;padding-left:13mm;">見　積　書</div>`;
+  h+=`<div style="text-align:center;font-size:22px;letter-spacing:13mm;margin-bottom:6mm;padding-left:13mm;">${dtc.title}</div>`;
   h+=`<div style="text-align:right;font-size:10px;margin-bottom:3mm;">${fmtDate(date)}</div>`;
 
   h+=`<div style="margin-bottom:2mm;">`;
@@ -1191,7 +1204,7 @@ function buildEstHTML(){
     +`</span>`;
   h+=`<span style="font-size:16px;font-weight:bold;"> 様</span>`;
   h+=`</div></div>`;
-  h+=`<div style="font-size:11px;letter-spacing:2px;margin-bottom:3mm;">下　記　の　通　り　御　見　積　致　し　ま　す　。</div>`;
+  h+=`<div style="font-size:11px;letter-spacing:2px;margin-bottom:3mm;">${dtc.lead}</div>`;
 
   h+=`<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3mm;">`;
   h+=`<div><table style="font-size:10px;border-collapse:collapse;text-align:left;">`;
@@ -1212,7 +1225,7 @@ function buildEstHTML(){
 
   h+=`<div style="display:flex;align-items:flex-end;margin-bottom:2mm;">`;
   h+=`<div style="display:flex;align-items:baseline;border-bottom:1.5px solid #000;padding-bottom:1px;gap:2mm;">`;
-  h+=`<span style="font-size:14px;font-weight:bold;white-space:nowrap;">合計金額 ￥</span>`;
+  h+=`<span style="font-size:14px;font-weight:bold;white-space:nowrap;">${dtc.totalLabel}</span>`;
   h+=`<span style="font-size:17px;font-weight:bold;">${total.toLocaleString()}</span>`;
   h+=`<span style="font-size:14px;font-weight:bold;">円也</span>`;
   h+=`</div>`;
@@ -1242,7 +1255,7 @@ function buildEstHTML(){
   if(nt)h+=`\n${escH(nt)}`;
   h+=`</div>`;
 
-  if(ex)h+=`<div style="margin-top:2mm;font-size:10px;">有効期限：${fmtDate(ex)}</div>`;
+  if(dtc.showExp&&ex)h+=`<div style="margin-top:2mm;font-size:10px;">有効期限：${fmtDate(ex)}</div>`;
 
   h+=`</div>`;
   return h;
@@ -1256,7 +1269,15 @@ function updateFontWeight(v){
   document.getElementById('fontWeightLabel').textContent=m.l;
   document.getElementById('preview-inner').innerHTML=buildEstHTML();
 }
-function showPreview(){document.getElementById('preview-inner').innerHTML=buildEstHTML();document.getElementById('preview-modal').style.display='block';}
+function docTypeLabel(){return{est:'見積書',inv:'請求書',deliv:'納品書'}[currentDocType]||'見積書';}
+function setDocType(t){
+  currentDocType=t;
+  ['est','inv','deliv'].forEach(k=>{const b=document.getElementById('dt_'+k);if(b)b.classList.toggle('active',k===t);});
+  const titles={est:'見積書プレビュー',inv:'請求書プレビュー',deliv:'納品書プレビュー'};
+  const pt=document.getElementById('previewTitle');if(pt)pt.textContent=titles[t]||titles.est;
+  document.getElementById('preview-inner').innerHTML=buildEstHTML();
+}
+function showPreview(){currentDocType='est';document.getElementById('preview-modal').style.display='block';setDocType('est');}
 function closePreview(){document.getElementById('preview-modal').style.display='none';}
 
 const SCREENSHOT_REPAIRS=[{id:'REC_1',customerName:'山下 林作',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'2233',status:'修理中',dueDate:'2026-07-15',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_2',customerName:'渡邊 誠',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-20',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_3',customerName:'渡邊 誠',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GRA650',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-20',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_4',customerName:'上丸 勝芳',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_5',customerName:'上丸 勝芳',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GRA650',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-20',issue:'点検整備',date:'2026-05-03',usedParts:[]},{id:'REC_6',customerName:'徳丸 秋雄',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_7',customerName:'東丸 和久',machine:'タイヤローラー',maker:'',model:'',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'回転しない',date:'2026-05-03',usedParts:[]},{id:'REC_22',customerName:'東丸 和久',machine:'ホイルローダ',maker:'古川',model:'FL302',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_8',customerName:'園田 正志',machine:'薪わり機',maker:'',model:'KT155PRO',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'油圧作動油漏れ',date:'2026-05-03',usedParts:[]},{id:'REC_9',customerName:'徳丸 秋雄',machine:'甘諸ハーベスタ',maker:'',model:'GRA650',serialNo:'',hourMeter:'1963',status:'修理依頼',dueDate:'2026-07-05',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_10',customerName:'グッドカンパニー',machine:'田植機',maker:'',model:'YR6D',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_11',customerName:'野村 治雄',machine:'田植機',maker:'ヤンマー',model:'VP50',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-05-31',issue:'縦おくりがおかしく、欠株になる',date:'2026-05-03',usedParts:[]},{id:'REC_12',customerName:'今村 三男',machine:'マニアスプレッダー',maker:'',model:'TMS1890',serialNo:'',hourMeter:'',status:'部品待ち',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_13',customerName:'吉満 忠吉',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GRA650',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-20',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_14',customerName:'徳丸 勉',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_15',customerName:'徳丸 勉',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_16',customerName:'上丸 文友',machine:'ヤンマートラクター',maker:'ヤンマー',model:'EG224',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_17',customerName:'山田',machine:'トラクター',maker:'ヤンマー',model:'EG224',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_18',customerName:'延時 暁寿',machine:'だいこん収穫機',maker:'井関',model:'VHD1250',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-04-25',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_19',customerName:'森山 光治',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'点検整備',date:'2026-05-03',usedParts:[]},{id:'REC_20',customerName:'東丸 和久',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GRA650',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'点検整備',date:'2026-05-03',usedParts:[]},{id:'REC_21',customerName:'東丸 和久',machine:'甘諸ハーベスタ',maker:'ニプロ',model:'GZA651',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-07-25',issue:'点検整備',date:'2026-05-03',usedParts:[]},{id:'REC_23',customerName:'満行 翼',machine:'自走ラジコン動噴',maker:'丸山製作所',model:'MSA413R3-M(10x130)',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-05-15',issue:'',date:'2026-05-03',usedParts:[]},{id:'REC_24',customerName:'飯野 孝仁',machine:'田植機',maker:'井関',model:'PRJ8',serialNo:'',hourMeter:'',status:'修理依頼',dueDate:'2026-05-22',issue:'',date:'2026-05-03',usedParts:[]}];
