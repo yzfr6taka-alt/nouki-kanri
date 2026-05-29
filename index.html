@@ -9,7 +9,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="農機管理PRO">
 <meta name="theme-color" content="#1a252f">
 <link rel="manifest" href="manifest.json">
@@ -446,7 +446,15 @@ function getStyles(){return '*{box-sizing:border-box;margin:0;padding:0;}body{fo
 function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 async function generatePDFBlob(){
   /* 独立iframeで白背景描画（ダークモード干渉・黒バグ両方回避） */
-  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}</body></html>`;
+  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}<table id="itemTable" style="width:100%;margin-top:10px;"></table>
+<div id="preview" style="padding:10px;border:1px solid #ccc;margin-top:10px;"></div>
+<form id="loginForm">
+  <input type="password" id="password" name="password" />
+  <button type="submit">ログイン</button>
+</form>
+<div style="background-color:#f5f5f5;color:#333;padding:20px;border-radius:8px;"><!--改善前より明るい背景--></div>
+<span style="color:#000;font-weight:bold;opacity:1;">農機管理PRO</span>
+</body></html>`;
   return new Promise((resolve,reject)=>{
     const fr=document.createElement('iframe');
     fr.style.cssText='position:fixed;left:-4000px;top:0;width:794px;height:300px;border:none;opacity:0;pointer-events:none;';
@@ -1448,6 +1456,22 @@ if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').catch(function(e){console.log('SW登録失敗',e);});
   });
 }
+<!-- 読み込みパスの確認：
+スクリプト/CSS/画像のパスが正しいか確認
+サーバーのRoute設定でファイルが正しく配信されているか確認
+NETWORKタブで404のリソースを特定し修正 -->
 </script>
 </body>
 </html>
+
+/* AUTO-FIX:
+const el = document.getElementById('targetId');
+if(el) el.textContent = content;
+*/
+/* AUTO-FIX:
+const el = document.getElementById('targetId');
+if(el) {
+  el.textContent = text; // テキストのみ
+  // HTMLが必要な場合はDOMParser使用
+}
+*/
