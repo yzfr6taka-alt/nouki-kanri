@@ -1337,7 +1337,7 @@ function buildEstHTML(){
   h+=`<div style="margin-bottom:2mm;">`;
   h+=`<div style="display:inline-block;border-bottom:1.5px solid #000;padding-bottom:1px;vertical-align:bottom;">`;
   h+=`<span style="display:inline-flex;justify-content:space-between;min-width:40mm;font-size:16px;font-weight:bold;vertical-align:bottom;">`
-    +[...escH(tN)].map(c=>`<span>${c}</span>`).join('')
+    +[...escH(tN)].map(c=>`<span>${c===' '?'&nbsp;':c}</span>`).join('')
     +`</span>`;
   h+=`<span style="font-size:16px;font-weight:bold;"> 様</span>`;
   h+=`</div></div>`;
