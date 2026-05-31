@@ -9,7 +9,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="農機管理PRO">
 <meta name="theme-color" content="#1a252f">
 <link rel="manifest" href="manifest.json">
@@ -471,7 +471,17 @@ function getStyles(){return '*{box-sizing:border-box;margin:0;padding:0;}body{fo
 function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 async function generatePDFBlob(){
   /* 独立iframeで白背景描画（ダークモード干渉・黒バグ両方回避） */
-  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}</body></html>`;
+  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}<table id="itemTable" class="items-table" style="width:100%;border-collapse:collapse;margin-top:10px;"><thead><tr><th>項目</th><th>数量</th><th>単価</th><th>合計</th></tr></thead><tbody></tbody></table>
+<div id="preview" style="display:none;margin-top:20px;padding:15px;background:#f5f5f5;border-radius:8px;"></div>
+<script>
+function closeRecall() { document.getElementById('recallModal').style.display='none'; }
+function closeMachineModal() { document.getElementById('machineModal').style.display='none'; }
+function openRecall(mode) { document.getElementById('recallModal').style.display='flex'; }
+function renderRecallList(query) { /* 検索フィルタリング実装 */ }
+function smartScanNameplate(event) { /* OCR実装 */ }
+function smartScanMeter(event) { /* メーター読み取り実装 */ }
+</script>
+</body></html>`;
   return new Promise((resolve,reject)=>{
     const fr=document.createElement('iframe');
     fr.style.cssText='position:fixed;left:-4000px;top:0;width:794px;height:300px;border:none;opacity:0;pointer-events:none;';
@@ -1787,6 +1797,26 @@ if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').catch(function(e){console.log('SW登録失敗',e);});
   });
 }
+<form id="authForm" style="display:none;">
+  <input type="password" id="passwordField" placeholder="パスワード" required>
+  <button type="submit">ログイン</button>
+</form>
+window.addEventListener('error', (event) => {
+  if(event.message.includes('404')) {
+    console.error('リソース読み込みエラー:', event.filename);
+    // フォールバック処理
+  }
+}, true);
 </script>
 </body>
 </html>
+
+/* AUTO-FIX:
+document.getElementById('targetElement').innerHTML = content;
+*/
+/* AUTO-FIX:
+element.textContent = userInput;
+*/
+/* AUTO-FIX:
+<h1 style="color:#ffffff;font-weight:800;text-shadow:0 2px 4px rgba(0,0,0,0.3);">農機管理</h1>
+*/
