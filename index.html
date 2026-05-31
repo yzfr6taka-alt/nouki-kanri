@@ -1073,6 +1073,7 @@ function closeTopModal(){
 }
 function goPrevTab(){const prev=tabHistory.length?tabHistory.pop():0;currentTab=prev;renderAll();}
 function clearExitConfirm(){ if(exitConfirmPending){ exitConfirmPending=false; const b=document.getElementById('syncBar'); if(b)b.className=''; } }
+let _lastPop=0; // 直近のpopstate発火時刻（連続発火ガード）
 window.addEventListener('popstate',function(e){
   // 戻る操作で番兵は消費された。まず番兵フラグを下ろす
   sentinelActive=false;
@@ -1085,17 +1086,23 @@ window.addEventListener('popstate',function(e){
   if(calViewActive){ calViewActive=false; renderAll(); clearExitConfirm(); ensureSentinel(); return; }
   // 4) ホーム以外のタブなら1つ前へ
   if(currentTab!==0){ goPrevTab(); clearExitConfirm(); ensureSentinel(); return; }
-  // 5) ホーム・何も開いていない：初回は終了確認を出してアプリ継続（番兵を戻す）
-  if(!exitConfirmPending){
+
+  // --- ホーム・何も開いていない場合の終了確認 ---
+  const now=Date.now();
+  // 5) 初回、または前回の戻りから時間が経っている（誤連打防止）→ 確認を出してアプリ継続
+  if(!exitConfirmPending || (now-_lastPop)>600){
+    _lastPop=now;
     exitConfirmPending=true; ensureSentinel();
     showSyncBar('もう一度「戻る」でアプリを終了します','conflict',false);
     if(_exitTimer)clearTimeout(_exitTimer);
     _exitTimer=setTimeout(clearExitConfirm,4000);
     return;
   }
-  // 6) 2回目：番兵を戻さず、本当に戻る（=アプリ離脱）
+  // 6) 2回目（4秒以内かつ連打でない）：番兵を積み直さず離脱を許可
+  //    history.back()は呼ばない（番兵を消費済みのこのpopで自然に離脱する）
   if(_exitTimer)clearTimeout(_exitTimer);
-  try{ history.back(); }catch(e2){}
+  exitConfirmPending=false;
+  // 番兵を積まないことで、この時点の履歴位置は離脱先。これ以上戻る操作は不要。
 });
 // ===== 機械カルテ =====
 let editingMachineId='';let currentMachinePhoto='';let lastNameplate=null;
