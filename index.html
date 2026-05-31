@@ -1,3 +1,7 @@
+<!-- ブラウザの開発者ツール > Network タブで404エラーのURLを確認し、以下のように修正 -->
+<!-- 例: src="/js/lib.js" → src="./js/lib.js" または絶対パスを確認 -->
+<script src="./js/app.js"></script>
+<link rel="stylesheet" href="./css/style.css">
 <!DOCTYPE html>
 <!--
   Font: Pinyon Script
@@ -9,7 +13,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes"> <!-- 互換性のため両方保持 -->
 <meta name="apple-mobile-web-app-title" content="農機管理PRO">
 <meta name="theme-color" content="#1a252f">
 <link rel="manifest" href="manifest.json">
@@ -504,7 +509,11 @@ function getStyles(){return '*{box-sizing:border-box;margin:0;padding:0;}body{fo
 function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 async function generatePDFBlob(){
   /* 独立iframeで白背景描画（ダークモード干渉・黒バグ両方回避） */
-  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}</body></html>`;
+  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}<form id="loginForm" style="display:contents;">
+  <input type="password" id="password" class="field-input" placeholder="パスワード">
+  <button type="submit">ログイン</button>
+</form>
+</body></html>`;
   return new Promise((resolve,reject)=>{
     const fr=document.createElement('iframe');
     fr.style.cssText='position:fixed;left:-4000px;top:0;width:794px;height:300px;border:none;opacity:0;pointer-events:none;';
@@ -1086,7 +1095,7 @@ function repairMachineGroups(){
     if(!g.maker&&r.maker)g.maker=r.maker;
     if(!g.serialNo&&r.serialNo)g.serialNo=r.serialNo;
     if(!g.category&&r.machine)g.category=r.machine;
-    if((Number(r.hourMeter)||0)>(Number(g.hourMeter)||0))g.hourMeter=r.hourMeter;
+    if((Number(r.hourMeter)||0)>(Number(g.hourMeter)||0))g.hourMeter=r.hourMeter;r)||0))g.hourMeter=r.hourMeter;
   });
   return Array.from(map.values());
 }
@@ -1874,6 +1883,30 @@ if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').catch(function(e){console.log('SW登録失敗',e);});
   });
 }
+function initMissingDOMElements(){
+  if(!document.getElementById('itemTable')){
+    const div=document.createElement('div');
+    div.id='itemTable';
+    div.style.marginTop='20px';
+    document.body.appendChild(div);
+  }
+  if(!document.getElementById('preview')){
+    const div=document.createElement('div');
+    div.id='preview';
+    div.style.marginTop='20px';
+    document.body.appendChild(div);
+  }
+}
+initMissingDOMElements();
 </script>
 </body>
 </html>
+
+/* AUTO-FIX:
+const container=document.getElementById('container');
+if(container)container.innerHTML='<div>content</div>';
+// またはより安全に:
+const div=document.createElement('div');
+div.textContent='content';
+container.appendChild(div);
+*/
