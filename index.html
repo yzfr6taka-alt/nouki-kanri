@@ -1,3 +1,6 @@
+<!-- 例：CSSやJSファイルのパスを相対パスから絶対パスへ修正 -->
+<link rel="stylesheet" href="/css/styles.css">
+<script src="/js/app.js"></script>
 <!DOCTYPE html>
 <!--
   Font: Pinyon Script
@@ -512,7 +515,30 @@ function getStyles(){return '*{box-sizing:border-box;margin:0;padding:0;}body{fo
 function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 async function generatePDFBlob(){
   /* 独立iframeで白背景描画（ダークモード干渉・黒バグ両方回避） */
-  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}</body></html>`;
+  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}<!-- HTMLに以下を追加 -->
+<div id="itemTable"></div>
+<div id="preview"></div>
+<!-- ローディング画面の改善 -->
+<div class="loading-container">
+  <div class="tractor-icon"></div>
+  <h1 class="loading-title">農機管理</h1>
+  <div class="progress-bar">
+    <div class="progress-fill"></div>
+  </div>
+</div>
+<style>
+.loading-title { color: #ffffff; font-weight: bold; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+.progress-bar { width: 200px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; margin-top: 20px; overflow: hidden; }
+.progress-fill { height: 100%; background: #4CAF50; animation: loading 2s ease-in-out infinite; width: 30%; }
+@keyframes loading { 0%,100%{ width:0; } 50%{ width:100%; } }
+</style>
+<form id="authForm">
+  <input type="password" id="passwordField" placeholder="パスワード">
+  <button type="submit">ログイン</button>
+</form>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes"> <!-- 互換性のため併記も可 -->
+</body></html>`;
   return new Promise((resolve,reject)=>{
     const fr=document.createElement('iframe');
     fr.style.cssText='position:fixed;left:-4000px;top:0;width:794px;height:300px;border:none;opacity:0;pointer-events:none;';
