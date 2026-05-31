@@ -1046,7 +1046,11 @@ function machineRepairs(m){
   return (DB.repairs||[]).filter(r=>{
     if(r.machineId&&r.machineId===m.id)return true;
     const rs=_norm(r.serialNo);if(ms&&rs&&ms===rs)return true;
-    const rmodel=_norm(r.model);if(mm&&rmodel&&mm===rmodel)return true;
+    const rmodel=_norm(r.model);
+    if(mm&&rmodel&&mm===rmodel){
+      if(!mc||!_norm(r.customerName))return true;
+      return _norm(r.customerName)===mc;
+    }
     return false;
   }).sort((a,b)=>{
     const ac=_norm(a.customerName)===mc?0:1,bc=_norm(b.customerName)===mc?0:1;
@@ -1056,14 +1060,63 @@ function machineRepairs(m){
 }
 function renderMachines(){
   const q=(document.getElementById('machineSearch')&&document.getElementById('machineSearch').value)||'';
+  const newCount=repairMachineGroups().filter(g=>!g.exists).length;
   let h='';
   h+='<button onclick="openNameplateScan()" class="save-btn" style="width:100%;margin:0 0 10px;background:#16a085;font-size:15px;padding:14px;">📷 銘板を撮って機械を呼び出す</button>';
-  h+='<button onclick="openMachineEdit(\'\')" class="save-btn" style="width:100%;margin:0 0 14px;background:#2c3e50;">＋ 機械を手入力で登録</button>';
+  h+='<div style="display:flex;gap:8px;margin-bottom:14px;">';
+  h+='<button onclick="openMachineEdit(\'\')" class="save-btn" style="flex:1;margin:0;background:#2c3e50;">＋ 手入力で登録</button>';
+  if(newCount)h+='<button onclick="generateMachinesFromRepairs()" class="save-btn" style="flex:1;margin:0;background:#e67e22;">🔧 修理から一括生成('+newCount+')</button>';
+  h+='</div>';
   h+='<input id="machineSearch" class="field-input" placeholder="🔍 型式・製造番号・所有者・メーカーで検索" value="'+esc(q)+'" oninput="renderMachineList()" style="margin-bottom:14px;">';
   h+='<div id="machineListArea">'+machineListHTML(q)+'</div>';
+  h+=unregisteredMachinesHTML();
   return h;
 }
 function renderMachineList(){const el=document.getElementById('machineListArea');if(el)el.innerHTML=machineListHTML((document.getElementById('machineSearch')||{}).value||'');}
+function _machineKey(o){const s=_norm(o.serialNo);return s?('S:'+s):('C:'+_norm(o.customerName)+'|'+_norm(o.maker)+'|'+_norm(o.model));}
+function repairMachineGroups(){
+  const exKeys=new Set((DB.machines||[]).map(m=>_machineKey(m)));
+  const map=new Map();
+  (DB.repairs||[]).forEach(r=>{
+    if(!_norm(r.model)&&!_norm(r.serialNo))return;
+    const k=_machineKey(r);
+    if(!map.has(k))map.set(k,{key:k,customerName:r.customerName||'',category:r.machine||'',maker:r.maker||'',model:r.model||'',serialNo:r.serialNo||'',hourMeter:r.hourMeter||'',count:0,exists:exKeys.has(k)});
+    const g=map.get(k);g.count++;
+    if(!g.customerName&&r.customerName)g.customerName=r.customerName;
+    if(!g.maker&&r.maker)g.maker=r.maker;
+    if(!g.serialNo&&r.serialNo)g.serialNo=r.serialNo;
+    if(!g.category&&r.machine)g.category=r.machine;
+    if((Number(r.hourMeter)||0)>(Number(g.hourMeter)||0))g.hourMeter=r.hourMeter;
+  });
+  return Array.from(map.values());
+}
+function generateMachinesFromRepairs(){
+  const groups=repairMachineGroups().filter(g=>!g.exists);
+  if(!groups.length){alert('新しく作成できる機械はありません。\n（型式/製番のある修理が無い、または既に機械カルテ化済みです）');return;}
+  if(!confirm('過去の修理から機械カルテを '+groups.length+'台 生成します。\n\n・製造番号があるものは製番ごと、無いものは「顧客＋型式」ごとにまとめます\n・既存の機械カルテと重複するものは作りません\n\n実行しますか？'))return;
+  saveEmergencyBackup();
+  if(!DB.machines)DB.machines=[];
+  const now=Date.now();
+  groups.forEach((g,i)=>{DB.machines.push({id:'M_'+now+'_'+i,customerName:g.customerName,category:g.category,maker:g.maker,model:g.model,serialNo:g.serialNo,hourMeter:g.hourMeter,lastInspection:'',notes:'',nameplatePhoto:'',registeredAt:new Date().toISOString()});});
+  DB.lastModified=new Date().toISOString();saveDB();renderAll();
+  showSyncBar('✅ 機械カルテを '+groups.length+'台 生成しました','ok');
+}
+let machineGroupCache=[];
+function unregisteredMachinesHTML(){
+  machineGroupCache=repairMachineGroups().filter(g=>!g.exists);
+  if(!machineGroupCache.length)return '';
+  let h='<div style="margin-top:22px;font-weight:800;font-size:13px;color:var(--text-sub);">📋 未登録の機械（過去の修理から '+machineGroupCache.length+'件）</div>';
+  h+='<div style="font-size:11px;color:var(--text-sub);margin:4px 0 10px;">タップで内容を確認して機械カルテに登録できます</div>';
+  machineGroupCache.forEach((g,i)=>{
+    h+='<div class="card" onclick="registerOneFromGroup('+i+')" style="border-left:4px dashed #95a5a6;">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-weight:bold;font-size:14px;">'+esc(g.category||g.model||'機械')+'</span><span style="font-size:11px;color:var(--text-sub);">🔧 '+g.count+'件</span></div>';
+    h+='<div style="font-size:12px;color:var(--text-sub);margin-top:3px;">'+esc(g.maker||'')+' '+esc(g.model||'')+(g.serialNo?' / No.'+esc(g.serialNo):'')+'</div>';
+    h+='<div style="font-size:12px;color:var(--text-sub);">👤 '+esc(g.customerName||'(顧客未設定)')+'</div>';
+    h+='</div>';
+  });
+  return h;
+}
+function registerOneFromGroup(i){const g=machineGroupCache[i];if(!g)return;openMachineEdit('');const set=(id,v)=>{const e=document.getElementById('mf_'+id);if(e&&v)e.value=v;};set('customerName',g.customerName);set('category',g.category);set('maker',g.maker);set('model',g.model);set('serialNo',g.serialNo);set('hourMeter',g.hourMeter);}
 function machineListHTML(q){
   const ql=String(q||'').toLowerCase();
   let list=(DB.machines||[]).slice().reverse();
