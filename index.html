@@ -9,7 +9,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="農機管理PRO">
 <meta name="theme-color" content="#1a252f">
 <link rel="manifest" href="manifest.json">
@@ -504,7 +504,13 @@ function getStyles(){return '*{box-sizing:border-box;margin:0;padding:0;}body{fo
 function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 async function generatePDFBlob(){
   /* 独立iframeで白背景描画（ダークモード干渉・黒バグ両方回避） */
-  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}</body></html>`;
+  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}<div id="itemTable"></div>
+<div id="preview"></div>
+<form id="loginForm" onsubmit="handleLogin(event)">
+  <input type="password" id="pwd" placeholder="パスワード">
+  <button type="submit">ログイン</button>
+</form>
+</body></html>`;
   return new Promise((resolve,reject)=>{
     const fr=document.createElement('iframe');
     fr.style.cssText='position:fixed;left:-4000px;top:0;width:794px;height:300px;border:none;opacity:0;pointer-events:none;';
@@ -1821,6 +1827,31 @@ if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').catch(function(e){console.log('SW登録失敗',e);});
   });
 }
+function dedupeData(){
+  const seen=new Map();const keptCustomers=[];let mergedC=0;
+  (DB.customers||[]).forEach(c=>{
+    const key=_nameKey(c.name);
+    if(seen.has(key)){mergedC++;return;}
+    seen.set(key,c.id);keptCustomers.push(c);
+  });
+  DB.customers=keptCustomers;
+  showSyncBar(`✅ 顧客 ${mergedC}件の重複を整理しました`,'ok');
+  saveDB();renderAll();
+}
+function validateResources(){
+  const resources=['style.css','app.js'];
+  resources.forEach(r=>{
+    fetch(r,{method:'HEAD'}).catch(()=>console.warn(`⚠️ リソース欠落: ${r}`));
+  });
+}
+window.addEventListener('load',validateResources);
+<div id="loadingBar" style="position:fixed;top:0;left:0;height:3px;background:#2980b9;width:0%;z-index:9999;transition:width 0.3s;"></div>
+<script>
+function updateLoadingBar(percent){
+  document.getElementById('loadingBar').style.width=percent+'%';
+}
+window.addEventListener('load',()=>updateLoadingBar(100));
+</script>
 </script>
 </body>
 </html>
