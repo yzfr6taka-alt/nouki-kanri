@@ -1046,9 +1046,14 @@ function renderAll(){
   if(currentTab===0)main.innerHTML=renderHome();else if(currentTab===1)main.innerHTML=renderCustomers();else if(currentTab===2)main.innerHTML=renderRepairs();else if(currentTab===3)main.innerHTML=renderDemos();else if(currentTab===4)main.innerHTML=renderPartsTab();else if(currentTab===5)main.innerHTML=renderProducts();else if(currentTab===6)main.innerHTML=renderQuotesList();else if(currentTab===7)main.innerHTML=renderMachines();
 }
 function changeTab(i){if(i!==currentTab)tabHistory.push(currentTab);currentTab=i;renderAll();armBack();}
-// ===== スワイプ/ハードウェア「戻る」対応 =====
-let tabHistory=[],backArmed=false;
-function armBack(){if(!backArmed){try{history.pushState({agriTrap:1},'');backArmed=true;}catch(e){}}}
+// ===== スワイプ/ハードウェア「戻る」対応（段階的に戻る） =====
+let tabHistory=[];
+let exitConfirmPending=false; // ホームで一度確認を出した状態
+let _exitTimer=null;
+// 罠を1段積む（戻る操作で1段ずつ消費される）
+function pushTrap(){try{history.pushState({agriTrap:1},'');}catch(e){}}
+function armBack(){pushTrap();}
+// 開いているモーダルがあれば1つだけ閉じる。閉じたら true
 function closeTopModal(){
   const isOpen=id=>{const e=document.getElementById(id);return e&&e.style&&e.style.display&&e.style.display!=='none';};
   const doClose=(id,fn)=>{try{if(fn){fn();return;}}catch(e){}const el=document.getElementById(id);if(el)el.style.display='none';};
@@ -1063,10 +1068,24 @@ function closeTopModal(){
 }
 function goPrevTab(){const prev=tabHistory.length?tabHistory.pop():0;currentTab=prev;renderAll();}
 window.addEventListener('popstate',function(){
-  backArmed=false;
-  if(closeTopModal()){armBack();return;}
-  if(currentTab!==0){goPrevTab();armBack();return;}
-  if(confirm('農機業務管理を閉じますか？')){try{history.back();}catch(e){}}else{armBack();}
+  // 1) モーダルが開いていれば1つ閉じる
+  if(closeTopModal()){ exitConfirmPending=false; pushTrap(); return; }
+  // 2) 検索中なら検索解除
+  if(searchQuery){ clearSearch(); exitConfirmPending=false; pushTrap(); return; }
+  // 3) カレンダー表示中なら閉じる
+  if(calViewActive){ calViewActive=false; renderAll(); exitConfirmPending=false; pushTrap(); return; }
+  // 4) ホーム以外のタブなら1つ前へ
+  if(currentTab!==0){ goPrevTab(); exitConfirmPending=false; pushTrap(); return; }
+  // 5) ホーム・何も開いていない状態：初回スワイプは終了確認を出してアプリ継続
+  if(!exitConfirmPending){
+    exitConfirmPending=true; pushTrap();
+    showSyncBar('もう一度スワイプ（戻る）でアプリを終了します','conflict',false);
+    if(_exitTimer)clearTimeout(_exitTimer);
+    _exitTimer=setTimeout(()=>{ if(exitConfirmPending){ exitConfirmPending=false; const b=document.getElementById('syncBar'); if(b)b.className=''; } },4000);
+    return;
+  }
+  // 6) 2回目のスワイプ：本当に終了
+  try{ history.back(); }catch(e){}
 });
 // ===== 機械カルテ =====
 let editingMachineId='';let currentMachinePhoto='';let lastNameplate=null;
@@ -1690,7 +1709,7 @@ function showModal(){
   else if(modalState.tab===4){form+='<button type="button" onclick="openPartsOCR()" style="background:#2980b9;color:#fff;border:none;border-radius:10px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;width:100%;margin-bottom:12px;">📷 納品伝票・部品ラベルを読取→自動入力</button>';form+=inp('customerName','顧客名（任意）',it.customerName)+inp('name','部品名① (必須)',it.name)+'<div class="fl"><div class="fg">'+inp('maker','メーカー',it.maker)+'</div><div class="fg">'+inp('partNo','品番・型式①',it.partNo)+'</div></div><div class="fl"><div class="fg">'+inp('qty','数量',it.qty,'number')+'</div><div class="fg">'+inp('price','仕入・販売単価',it.price,'number')+'</div></div>';form+='<div style="background:var(--input-bg);border-radius:10px;padding:10px;margin-bottom:10px;"><div style="font-size:11px;color:var(--text-sub);font-weight:700;margin-bottom:8px;">➕ 追加部品②〜⑩（任意）</div>';for(let i=2;i<=10;i++){form+=inp('name'+i,'部品名'+i,it['name'+i])+inp('partNo'+i,'品番'+i,it['partNo'+i])+'<div class="fl"><div class="fg">'+inp('qty'+i,'数量'+i,it['qty'+i],'number')+'</div><div class="fg">'+inp('price'+i,'単価'+i,it['price'+i],'number')+'</div></div>';}form+='</div><div class="fl"><div class="fg">'+sel('status','ステータス',['発注前','発注済','入荷済','納品済','完了','請求済'],it.status)+'</div><div class="fg">'+inp('orderDate','発注日',it.orderDate,'date')+'</div></div>';form+='<button onclick="regToCalendar(\'part\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに発注日を登録</button><button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 この部品で見積書を作成</button>';form+=buildQuickRegBox(4,it);}
   else if(modalState.tab===5){form+=inp('customer','顧客名',it.customer)+inp('productName','製品名① (必須)',it.productName)+'<div class="fl"><div class="fg">'+inp('maker','メーカー',it.maker)+'</div><div class="fg">'+inp('model','型式①',it.model)+'</div></div>'+inp('serialNo','製造番号①',it.serialNo);form+='<div style="background:var(--input-bg);border-radius:10px;padding:10px;margin-bottom:10px;"><div style="font-size:11px;color:var(--text-sub);font-weight:700;margin-bottom:8px;">➕ 追加品目②〜⑩（任意）</div>';for(let i=2;i<=10;i++){form+=inp('productName'+i,'製品名'+i,it['productName'+i])+inp('model'+i,'型式'+i,it['model'+i])+inp('serialNo'+i,'製造番号'+i,it['serialNo'+i]);}form+='</div><div class="fl"><div class="fg">'+sel('status','ステータス',['商談中','受注','発注済','入荷済','納品(納車)済','完了','請求済'],it.status)+'</div><div class="fg">'+inp('deliveryDate','納品予定日',it.deliveryDate,'date')+'</div></div>'+inp('price','販売額',it.price,'number');form+='<button onclick="regToCalendar(\'product\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに納品予定を登録</button><button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 この製品で見積書を作成</button><button type="button" onclick="notifyComplete(\'product\')" class="save-btn" style="background:#06C755;width:100%;margin:0 0 10px;">💬 入荷・準備完了をLINEで通知</button>';form+=buildQuickRegBox(5,it);}
   form+='<div class="fl" style="margin-top:15px;"><button class="save-btn" onclick="saveItem()">💾 保存する</button>'+(modalState.mode==='edit'?'<button class="save-btn" style="background:#e74c3c;" onclick="delItem()">削除</button>':'')+'</div>';
-  document.getElementById('modalBody').innerHTML=form;document.getElementById('modalOverlay').style.display='flex';
+  document.getElementById('modalBody').innerHTML=form;document.getElementById('modalOverlay').style.display='flex';pushTrap();
 }
 function inp(id,label,val,type='text'){
   const hasVoice=(type==='text');
@@ -1737,6 +1756,7 @@ function openQuoteEditor(id){
   if(id===''){['estNo','delivPlace','payMethod','toName','subject','note'].forEach(i=>document.getElementById(i).value='');document.getElementById('estDate').value=new Date().toISOString().slice(0,10);const exp=new Date();exp.setMonth(exp.getMonth()+1);document.getElementById('expDate').value=exp.toISOString().slice(0,10);document.getElementById('delivDate').value='';resetQItems();}
   else{const q=DB.quotes.find(x=>x.id===id);if(q){['estNo','estDate','expDate','delivDate','delivPlace','payMethod','toName','subject','note'].forEach(k=>{document.getElementById(k).value=q[k]||'';});if(q.qItems){qItems=JSON.parse(JSON.stringify(q.qItems));while(qItems.length<ROWS)qItems.push({name:'',brand:'',model:'',qty:'',price:'',note:''});}else resetQItems();}}
   buildTable();
+  pushTrap();
 }
 function closeQuoteEditor(){document.getElementById('content_quote_editor').style.display='none';renderAll();}
 function saveCurrentQuote(){
