@@ -240,6 +240,11 @@ table.items td input{width:100%;border:none;background:transparent;padding:5px 4
 <div style="display:flex;gap:8px;margin-bottom:8px;">
   <button id="smartVoiceBtn" onclick="toggleSmartVoice()" style="flex:1;background:#e67e22;color:#fff;border:none;border-radius:10px;padding:11px 0;font-size:13px;font-weight:800;cursor:pointer;">🎙 音声で話す</button>
 </div>
+<div style="display:flex;gap:8px;margin-bottom:8px;">
+  <label style="flex:1;text-align:center;background:#16a085;color:#fff;border-radius:10px;padding:11px 0;font-size:12px;font-weight:800;cursor:pointer;">📷 銘板を読取<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="smartScanNameplate(event)"></label>
+  <label style="flex:1;text-align:center;background:#16a085;color:#fff;border-radius:10px;padding:11px 0;font-size:12px;font-weight:800;cursor:pointer;">📷 稼働時間<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="smartScanMeter(event)"></label>
+</div>
+<button type="button" onclick="openRecall('smart')" style="width:100%;background:#2980b9;color:#fff;border:none;border-radius:10px;padding:11px 0;font-size:12px;font-weight:800;cursor:pointer;margin-bottom:8px;">📋 お客様・機械を呼び出して追加</button>
 <div id="smartVoiceStatus" style="display:none;background:#fff3e0;border-radius:8px;padding:8px;margin-bottom:8px;font-size:12px;color:#e65100;font-weight:700;text-align:center;">🔴 録音中... もう一度タップで停止</div>
 <textarea id="smartText" placeholder="例：山田さんのヤンマーYT222 製造番号A12345 修理代85000円で見積もり作って" rows="4" class="field-textarea"></textarea>
 <button onclick="runSmartAI()" id="smartBtn" class="save-btn" style="width:100%;background:#e67e22;margin-bottom:10px;">🤖 AI自動振り分け・登録</button>
@@ -336,6 +341,26 @@ table.items td input{width:100%;border:none;background:transparent;padding:5px 4
 </div>
 </div>
 
+<!-- 呼び出しモーダル -->
+<div class="modal-overlay" id="recallModal" style="display:none;" onclick="if(event.target.id==='recallModal')closeRecall()">
+<div class="modal-box">
+<div class="modal-header"><h3 style="font-size:15px;font-weight:800;color:var(--text);">📋 お客様・機械を呼び出し</h3><button onclick="closeRecall()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button></div>
+<div style="padding:16px 18px 40px;">
+<input id="recallSearch" class="field-input" placeholder="🔍 お客様名・機械名・型式・製造番号で検索" oninput="renderRecallList(this.value)" style="margin-bottom:14px;">
+<div id="recallList"></div>
+</div>
+</div>
+</div>
+
+<!-- 機械カルテモーダル -->
+<div class="modal-overlay" id="machineModal" style="display:none;" onclick="if(event.target.id==='machineModal')closeMachineModal()">
+<div class="modal-box">
+<div class="modal-header"><h3 id="machineModalTitle" style="font-size:15px;font-weight:800;color:var(--text);">🚜 機械カルテ</h3><button onclick="closeMachineModal()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button></div>
+<div style="padding:16px 18px 40px;" id="machineModalBody"></div>
+</div>
+</div>
+<input type="file" id="nameplateScanInput" accept="image/*" capture="environment" style="display:none;" onchange="runNameplateLookup(event)">
+
 <!-- 見積書スキャンモーダル -->
 <div class="modal-overlay" id="scanQuoteModal" style="display:none;" onclick="if(event.target.id==='scanQuoteModal')closeScanQuoteModal()">
 <div class="modal-box">
@@ -356,16 +381,16 @@ table.items td input{width:100%;border:none;background:transparent;padding:5px 4
 </div>
 <script>
 
-const TABS=['ホーム','顧客','修理','実演','部品','製品','見積書'];
+const TABS=['ホーム','顧客','修理','実演','部品','製品','見積書','機械'];
 let currentTab=0;
 const STATUS_COLORS={'修理依頼':'#e74c3c','見積中':'#9b59b6','部品待ち':'#f39c12','修理中':'#e67e22','完了(未請求)':'#3498db','請求済':'#95a5a6','実演予定':'#f39c12','実施済':'#3498db','見積提示中':'#9b59b6','成約':'#27ae60','発注前':'#e74c3c','発注済':'#e67e22','入荷済':'#f39c12','納品済':'#3498db','完了':'#27ae60','請求済み':'#95a5a6','商談中':'#9b59b6','受注':'#e67e22','納品(納車)済':'#3498db'};
-let DB={settings:[{id:1,targetSales:10000000,currentSales:0}],customers:[],repairs:[],demos:[],parts:[],products:[],quotes:[],memos:[],lastModified:new Date().toISOString()};
+let DB={settings:[{id:1,targetSales:10000000,currentSales:0}],customers:[],repairs:[],demos:[],parts:[],products:[],quotes:[],memos:[],machines:[],lastModified:new Date().toISOString()};
 let apiKey='',gasUrl='',syncTimer=null,isSyncing=false;
 let searchQuery='';let calViewActive=false;let calYear=new Date().getFullYear();let calMonth=new Date().getMonth();
 function hasAnyData(){return['customers','repairs','demos','parts','products'].some(k=>Array.isArray(DB[k])&&DB[k].length>0);}
 function saveDB(){const now=Date.now(),cur=new Date(DB.lastModified||0).getTime();DB.lastModified=new Date(Math.max(now,cur+1000)).toISOString();try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}saveEmergencyBackup();scheduleSync();}
 function saveEmergencyBackup(){if(!hasAnyData())return;try{const sn={data:DB,savedAt:new Date().toISOString()};localStorage.setItem('agri_emergency_backup',JSON.stringify(sn));const hk='agri_backup_'+new Date().toISOString().slice(0,13).replace('T','_');localStorage.setItem(hk,JSON.stringify(sn));const keys=Object.keys(localStorage).filter(k=>k.startsWith('agri_backup_')).sort();if(keys.length>24)keys.slice(0,keys.length-24).forEach(k=>localStorage.removeItem(k));}catch(e){}}
-function loadDB(){try{const d=localStorage.getItem('agri_db');if(d){const p=JSON.parse(d);if(p&&typeof p==='object'){['customers','repairs','demos','parts','products','settings','quotes','memos'].forEach(k=>{if(Array.isArray(p[k]))DB[k]=p[k];});if(p.lastModified)DB.lastModified=p.lastModified;}}}catch(e){}try{const k=localStorage.getItem('agri_api_key');if(k)apiKey=k;}catch(e){}try{const g=localStorage.getItem('agri_gas_url');if(g)gasUrl=g;}catch(e){}}
+function loadDB(){try{const d=localStorage.getItem('agri_db');if(d){const p=JSON.parse(d);if(p&&typeof p==='object'){['customers','repairs','demos','parts','products','settings','quotes','memos','machines'].forEach(k=>{if(Array.isArray(p[k]))DB[k]=p[k];});if(p.lastModified)DB.lastModified=p.lastModified;}}}catch(e){}try{const k=localStorage.getItem('agri_api_key');if(k)apiKey=k;}catch(e){}try{const g=localStorage.getItem('agri_gas_url');if(g)gasUrl=g;}catch(e){}}
 function showSyncBar(msg,type,autohide=true){const bar=document.getElementById('syncBar');bar.textContent=msg;bar.className='show '+type;if(autohide)setTimeout(()=>{bar.className='';},3500);}
 function updateSyncLabel(msg){const el=document.getElementById('syncLabel');if(el)el.textContent=msg;}
 function scheduleSync(){if(syncTimer)clearTimeout(syncTimer);syncTimer=setTimeout(()=>{syncToCloud(false);},3000);}
@@ -384,7 +409,7 @@ async function syncToCloud(showResult=false){
         const lhd=hasAnyData();
         if(lhd&&!shd){if(showResult)showSyncBar('⚠️ クラウドが空のためローカルデータを優先','conflict');DB.lastModified=new Date().toISOString();try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}isSyncing=false;setTimeout(()=>syncToCloud(false),500);return;}
         if(lhd)saveEmergencyBackup();
-        ['customers','repairs','demos','parts','products','settings','quotes','memos'].forEach(k=>{if(sd[k])DB[k]=sd[k];});
+        ['customers','repairs','demos','parts','products','settings','quotes','memos','machines'].forEach(k=>{if(sd[k])DB[k]=sd[k];});
         DB.lastModified=sd.lastModified;try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}
         renderAll();const t=new Date(DB.lastModified).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});updateSyncLabel('最終同期: '+t);
         if(showResult)showSyncBar('✅ 最新データを受信しました','ok');isSyncing=false;return;
@@ -395,7 +420,7 @@ async function syncToCloud(showResult=false){
     if(!pr.ok)throw new Error('保存エラー: '+pr.status);
     const pt=await pr.text();let result;
     try{result=JSON.parse(pt);}catch(e){const t=pt.trim().toLowerCase();if(t==='success'||t.includes('"success"')||t.includes('ok')){result={status:'ok'};}else{throw new Error('GAS応答が不正: '+pt.slice(0,80));}}
-    if(result.status==='conflict'){['customers','repairs','demos','parts','products','settings','quotes','memos'].forEach(k=>{if(result.data[k])DB[k]=result.data[k];});DB.lastModified=result.data.lastModified;try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}renderAll();if(showResult)showSyncBar('🔄 競合を解決しました','conflict');}
+    if(result.status==='conflict'){['customers','repairs','demos','parts','products','settings','quotes','memos','machines'].forEach(k=>{if(result.data[k])DB[k]=result.data[k];});DB.lastModified=result.data.lastModified;try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}renderAll();if(showResult)showSyncBar('🔄 競合を解決しました','conflict');}
     else if(result.status==='ok'){const t=new Date(DB.lastModified).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});updateSyncLabel('最終同期: '+t);if(showResult)showSyncBar('✅ 同期完了','ok');}
     else{if(showResult)showSyncBar('⚠️ GAS応答エラー','error');}
   }catch(e){let em=e.message||String(e);if(e.name==='AbortError')em='接続タイムアウト（15秒）';else if(em==='Failed to fetch')em='接続失敗（GASのアクセス権限を確認してください）';if(showResult)showSyncBar('❌ '+em,'error');}
@@ -411,7 +436,7 @@ async function forcePullFromCloud(){
     const sd=JSON.parse(await gr.text());
     if(!sd||sd.empty){showSyncBar('⚠️ クラウドにデータがありません','error');return;}
     if(!['customers','repairs','demos','parts','products'].some(k=>sd[k]&&sd[k].length>0)){showSyncBar('⚠️ クラウドが空です','error');return;}
-    saveEmergencyBackup();['customers','repairs','demos','parts','products','settings','quotes','memos'].forEach(k=>{if(sd[k])DB[k]=sd[k];});
+    saveEmergencyBackup();['customers','repairs','demos','parts','products','settings','quotes','memos','machines'].forEach(k=>{if(sd[k])DB[k]=sd[k];});
     DB.lastModified=sd.lastModified;try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}
     renderAll();updateSyncLabel('最終同期: '+new Date(DB.lastModified).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}));showSyncBar('✅ クラウドから強制取得完了！','ok');
   }catch(e){showSyncBar('❌ '+(e.message||'取得失敗'),'error');}
@@ -435,9 +460,9 @@ function renderBackupList(){
   keys.forEach(k=>{try{const b=JSON.parse(localStorage.getItem(k));const d=b.data||b;const sa=b.savedAt||d.lastModified||'不明';const r=d.repairs?.length||0,p=d.products?.length||0,cu=d.customers?.length||0;if(!r&&!p&&!cu)return;const label=k==='agri_emergency_backup'?'🔴 最新緊急バックアップ':'🕐 '+k.replace('agri_backup_','').replace('_',' ')+'時';const ke=k.replace(/'/g,"\\'");html+=`<div class="card" style="margin-bottom:8px;border-left:4px solid ${k==='agri_emergency_backup'?'#e74c3c':'#3498db'};"><div style="font-weight:bold;font-size:13px;">${label}</div><div style="font-size:11px;color:var(--text-sub);margin:4px 0;">保存: ${new Date(sa).toLocaleString('ja-JP')}</div><div style="font-size:11px;color:var(--text-sub);">修理 ${r}件 / 製品 ${p}件 / 顧客 ${cu}件</div><button onclick="restoreBackup('${ke}')" style="margin-top:8px;background:#e67e22;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;width:100%;">⬆️ このバックアップに復元</button></div>`;}catch(e){}});
   c.innerHTML=html||'<div style="text-align:center;color:var(--text-sub);padding:20px;font-size:12px;">有効なバックアップなし</div>';
 }
-function restoreBackup(key){if(!confirm('このバックアップに復元しますか？\n現在のデータは上書きされます。'))return;try{const b=JSON.parse(localStorage.getItem(key));const d=b.data||b;['customers','repairs','demos','parts','products','settings','quotes','memos'].forEach(k=>{if(Array.isArray(d[k]))DB[k]=d[k];});if(d.lastModified)DB.lastModified=d.lastModified;try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}saveEmergencyBackup();renderAll();closeBackupModal();showSyncBar('✅ バックアップから復元しました','ok');}catch(e){alert('復元エラー: '+e.message);}}
+function restoreBackup(key){if(!confirm('このバックアップに復元しますか？\n現在のデータは上書きされます。'))return;try{const b=JSON.parse(localStorage.getItem(key));const d=b.data||b;['customers','repairs','demos','parts','products','settings','quotes','memos','machines'].forEach(k=>{if(Array.isArray(d[k]))DB[k]=d[k];});if(d.lastModified)DB.lastModified=d.lastModified;try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}saveEmergencyBackup();renderAll();closeBackupModal();showSyncBar('✅ バックアップから復元しました','ok');}catch(e){alert('復元エラー: '+e.message);}}
 function exportJSON(){const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`農機管理PRO_バックアップ_${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),2000);}
-function importJSON(){const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.onchange=(e)=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=(ev)=>{try{const d=JSON.parse(ev.target.result);if(!confirm(`JSONファイルを読み込みます。\n修理 ${d.repairs?.length||0}件 / 製品 ${d.products?.length||0}件\n現在のデータは上書きされます。よろしいですか？`))return;saveEmergencyBackup();['customers','repairs','demos','parts','products','settings','quotes','memos'].forEach(k=>{if(Array.isArray(d[k]))DB[k]=d[k];});DB.lastModified=new Date().toISOString();saveDB();renderAll();closeBackupModal();showSyncBar('✅ JSONファイルから復元しました','ok');}catch(e){alert('読み込みエラー: '+e.message);}};r.readAsText(f);};inp.click();}
+function importJSON(){const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.onchange=(e)=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=(ev)=>{try{const d=JSON.parse(ev.target.result);if(!confirm(`JSONファイルを読み込みます。\n修理 ${d.repairs?.length||0}件 / 製品 ${d.products?.length||0}件\n現在のデータは上書きされます。よろしいですか？`))return;saveEmergencyBackup();['customers','repairs','demos','parts','products','settings','quotes','memos','machines'].forEach(k=>{if(Array.isArray(d[k]))DB[k]=d[k];});DB.lastModified=new Date().toISOString();saveDB();renderAll();closeBackupModal();showSyncBar('✅ JSONファイルから復元しました','ok');}catch(e){alert('読み込みエラー: '+e.message);}};r.readAsText(f);};inp.click();}
 function loadSeedData(){if(!confirm('サンプルデータを読み込みます。\n現在のデータは上書きされます。\n本当によろしいですか？'))return;saveEmergencyBackup();DB.repairs=SCREENSHOT_REPAIRS;DB.demos=SCREENSHOT_DEMOS;DB.parts=SCREENSHOT_PARTS;DB.products=SCREENSHOT_PRODUCTS;DB.customers=SCREENSHOT_CUSTOMERS;DB.quotes=SCREENSHOT_QUOTES;DB.lastModified=new Date().toISOString();saveDB();renderAll();closeBackupModal();showSyncBar('✅ サンプルデータを読み込みました','ok');}
 
 /* ========== 出力関数 ========== */
@@ -977,9 +1002,323 @@ function renderAll(){
   let h='';for(let i=0;i<TABS.length;i++)h+='<button class="tab-btn '+(currentTab===i?'active':'')+'" onclick="changeTab('+i+')">'+TABS[i]+'</button>';
   document.getElementById('tabBar').innerHTML=h;
   const main=document.getElementById('content_main');const qe=document.getElementById('content_quote_editor');qe.style.display='none';main.style.display='block';
-  if(currentTab===0)main.innerHTML=renderHome();else if(currentTab===1)main.innerHTML=renderCustomers();else if(currentTab===2)main.innerHTML=renderRepairs();else if(currentTab===3)main.innerHTML=renderDemos();else if(currentTab===4)main.innerHTML=renderPartsTab();else if(currentTab===5)main.innerHTML=renderProducts();else if(currentTab===6)main.innerHTML=renderQuotesList();
+  if(currentTab===0)main.innerHTML=renderHome();else if(currentTab===1)main.innerHTML=renderCustomers();else if(currentTab===2)main.innerHTML=renderRepairs();else if(currentTab===3)main.innerHTML=renderDemos();else if(currentTab===4)main.innerHTML=renderPartsTab();else if(currentTab===5)main.innerHTML=renderProducts();else if(currentTab===6)main.innerHTML=renderQuotesList();else if(currentTab===7)main.innerHTML=renderMachines();
 }
 function changeTab(i){currentTab=i;renderAll();}
+// ===== 機械カルテ =====
+let editingMachineId='';let currentMachinePhoto='';let lastNameplate=null;
+function _norm(s){return String(s||'').toLowerCase().replace(/[\s\-_./　]/g,'');}
+function machineRepairs(m){
+  const mm=_norm(m.model),ms=_norm(m.serialNo),mc=_norm(m.customerName);
+  return (DB.repairs||[]).filter(r=>{
+    if(r.machineId&&r.machineId===m.id)return true;
+    const rs=_norm(r.serialNo);if(ms&&rs&&ms===rs)return true;
+    const rmodel=_norm(r.model);if(mm&&rmodel&&mm===rmodel)return true;
+    return false;
+  }).sort((a,b)=>{
+    const ac=_norm(a.customerName)===mc?0:1,bc=_norm(b.customerName)===mc?0:1;
+    if(ac!==bc)return ac-bc;
+    return String(b.date||'').localeCompare(String(a.date||''));
+  });
+}
+function renderMachines(){
+  const q=(document.getElementById('machineSearch')&&document.getElementById('machineSearch').value)||'';
+  let h='';
+  h+='<button onclick="openNameplateScan()" class="save-btn" style="width:100%;margin:0 0 10px;background:#16a085;font-size:15px;padding:14px;">📷 銘板を撮って機械を呼び出す</button>';
+  h+='<button onclick="openMachineEdit(\'\')" class="save-btn" style="width:100%;margin:0 0 14px;background:#2c3e50;">＋ 機械を手入力で登録</button>';
+  h+='<input id="machineSearch" class="field-input" placeholder="🔍 型式・製造番号・所有者・メーカーで検索" value="'+esc(q)+'" oninput="renderMachineList()" style="margin-bottom:14px;">';
+  h+='<div id="machineListArea">'+machineListHTML(q)+'</div>';
+  return h;
+}
+function renderMachineList(){const el=document.getElementById('machineListArea');if(el)el.innerHTML=machineListHTML((document.getElementById('machineSearch')||{}).value||'');}
+function machineListHTML(q){
+  const ql=String(q||'').toLowerCase();
+  let list=(DB.machines||[]).slice().reverse();
+  if(ql)list=list.filter(m=>[m.customerName,m.maker,m.model,m.serialNo,m.category].some(x=>String(x||'').toLowerCase().includes(ql)));
+  if(!list.length)return '<div style="text-align:center;color:var(--text-sub);padding:30px 0;">'+((DB.machines||[]).length?'該当する機械がありません':'まだ機械が登録されていません')+'</div>';
+  let h='';
+  list.forEach(m=>{
+    const rc=machineRepairs(m).length;
+    h+='<div class="card" onclick="openMachineCard(\''+m.id+'\')" style="border-left:4px solid #16a085;">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-weight:bold;font-size:15px;">'+esc(m.category||m.model||'機械')+'</span><span style="font-size:11px;color:var(--text-sub);">🔧 '+rc+'件</span></div>';
+    h+='<div style="font-size:12px;color:var(--text-sub);margin-top:3px;">'+esc(m.maker||'')+' '+esc(m.model||'')+(m.serialNo?' / No.'+esc(m.serialNo):'')+'</div>';
+    h+='<div style="font-size:12px;color:var(--text-sub);">👤 '+esc(m.customerName||'(所有者未設定)')+(m.hourMeter?'　⏱ '+esc(m.hourMeter)+'h':'')+'</div>';
+    h+='</div>';
+  });
+  return h;
+}
+function closeMachineModal(){document.getElementById('machineModal').style.display='none';}
+function openMachineCard(id){
+  const m=(DB.machines||[]).find(x=>x.id===id);if(!m){alert('機械が見つかりません');return;}
+  const reps=machineRepairs(m);
+  let h='';
+  if(m.nameplatePhoto)h+='<img src="'+m.nameplatePhoto+'" style="width:100%;max-height:180px;object-fit:contain;background:#000;border-radius:10px;margin-bottom:12px;">';
+  h+='<div style="font-size:20px;font-weight:900;margin-bottom:2px;">'+esc(m.category||m.model||'機械')+'</div>';
+  h+='<div style="color:var(--text-sub);font-size:13px;margin-bottom:12px;">'+esc(m.maker||'')+' '+esc(m.model||'')+'</div>';
+  const row=(label,val)=>val?'<div style="display:flex;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;"><span style="width:90px;color:var(--text-sub);flex-shrink:0;">'+label+'</span><span style="flex:1;font-weight:600;word-break:break-all;">'+esc(val)+'</span></div>':'';
+  h+=row('所有者',m.customerName)+row('機種',m.category)+row('メーカー',m.maker)+row('型式',m.model)+row('製造番号',m.serialNo)+row('稼働時間',m.hourMeter?m.hourMeter+' h':'')+row('前回点検',m.lastInspection);
+  if(m.notes)h+='<div style="background:var(--input-bg);border-radius:10px;padding:10px;margin-top:10px;font-size:12px;white-space:pre-wrap;">📝 '+esc(m.notes)+'</div>';
+  h+='<div style="display:flex;gap:8px;margin:14px 0;">';
+  h+='<button onclick="repairFromMachine(\''+m.id+'\')" class="save-btn" style="flex:1;margin:0;background:#e67e22;">🔧 この機械で修理登録</button>';
+  h+='<button onclick="openMachineEdit(\''+m.id+'\')" class="save-btn" style="flex:0 0 auto;margin:0;background:#2980b9;padding:0 18px;">編集</button>';
+  h+='</div>';
+  h+='<div style="font-weight:800;font-size:14px;margin:8px 0;">🔧 修理履歴（型式一致 '+reps.length+'件）</div>';
+  if(!reps.length)h+='<div style="color:var(--text-sub);font-size:12px;padding:10px 0;">関連する修理履歴はありません</div>';
+  else reps.forEach(r=>{
+    const same=_norm(r.customerName)===_norm(m.customerName);
+    h+='<div style="border-left:3px solid '+(same?'#16a085':'#ccc')+';background:var(--input-bg);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:12px;">';
+    h+='<div style="display:flex;justify-content:space-between;"><span style="font-weight:700;">'+esc(r.date||'日付なし')+'</span><span style="color:var(--text-sub);">'+esc(r.status||'')+'</span></div>';
+    h+='<div>'+esc(r.issue||r.machine||'')+'</div>';
+    if(!same)h+='<div style="color:var(--text-sub);font-size:11px;margin-top:2px;">👤 '+esc(r.customerName||'')+'（別の所有者）</div>';
+    h+='</div>';
+  });
+  h+='<button onclick="deleteMachine(\''+m.id+'\')" style="width:100%;margin-top:14px;background:none;border:1.5px solid #e74c3c;color:#e74c3c;border-radius:10px;padding:10px;font-weight:700;cursor:pointer;">この機械を削除</button>';
+  document.getElementById('machineModalTitle').textContent='🚜 機械カルテ';
+  document.getElementById('machineModalBody').innerHTML=h;
+  document.getElementById('machineModal').style.display='flex';
+}
+function machinePhotoPrevHTML(){return currentMachinePhoto?'<img src="'+currentMachinePhoto+'" style="width:100%;max-height:160px;object-fit:contain;background:#000;border-radius:10px;margin-bottom:12px;">':'';}
+function openMachineEdit(id){
+  const m=id?(DB.machines||[]).find(x=>x.id===id):null;
+  const it=m?JSON.parse(JSON.stringify(m)):{};
+  currentMachinePhoto=it.nameplatePhoto||'';editingMachineId=id||'';
+  const fld=(id2,label,val,type)=>'<label class="field-label">'+label+'</label><input type="'+(type||'text')+'" id="mf_'+id2+'" class="field-input" value="'+esc(val||'')+'" style="margin-bottom:11px;"'+(type==='number'?' min="0"':'')+'>';
+  let h='';
+  h+='<label class="save-btn" style="display:block;text-align:center;cursor:pointer;background:#16a085;margin:0 0 6px;">📷 銘板を一括読取（メーカー・型式・製番）<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="runMachineNameplate(event)"></label>';
+  h+='<div style="font-size:11px;color:var(--text-sub);margin-bottom:12px;text-align:center;">各項目の 📷 で、その項目だけ個別に撮影できます（稼働時間はメーターを撮影）</div>';
+  h+='<div id="machinePhotoPrev">'+machinePhotoPrevHTML()+'</div>';
+  h+=fld('customerName','所有者（顧客名）',it.customerName);
+  h+=fldCam('category','機種（例: トラクタ / 草刈機）',it.category);
+  h+='<div class="fl"><div class="fg">'+fldCam('maker','メーカー',it.maker)+'</div><div class="fg">'+fldCam('model','型式',it.model)+'</div></div>';
+  h+=fldCam('serialNo','製造番号',it.serialNo);
+  h+='<div class="fl"><div class="fg">'+fldCam('hourMeter','稼働時間(h)',it.hourMeter,'number')+'</div><div class="fg">'+fld('lastInspection','前回点検日',it.lastInspection,'date')+'</div></div>';
+  h+='<label class="field-label">メモ（持病・常連の不具合など）</label><textarea id="mf_notes" class="field-textarea" rows="2" style="margin-bottom:11px;">'+esc(it.notes||'')+'</textarea>';
+  h+='<button onclick="saveMachine()" class="save-btn" style="width:100%;margin:6px 0 0;">💾 保存</button>';
+  document.getElementById('machineModalTitle').textContent=id?'🚜 機械を編集':'🚜 機械を登録';
+  document.getElementById('machineModalBody').innerHTML=h;
+  document.getElementById('machineModal').style.display='flex';
+}
+function saveMachine(){
+  const g=id=>{const e=document.getElementById('mf_'+id);return e?e.value.trim():'';};
+  if(!g('model')&&!g('serialNo')&&!g('maker')){alert('メーカー・型式・製造番号のいずれかは入力してください');return;}
+  const prev=editingMachineId?((DB.machines||[]).find(x=>x.id===editingMachineId)||{}):{};
+  const obj={id:editingMachineId||'M_'+Date.now(),customerName:g('customerName'),category:g('category'),maker:g('maker'),model:g('model'),serialNo:g('serialNo'),hourMeter:g('hourMeter'),lastInspection:g('lastInspection'),notes:g('notes'),nameplatePhoto:currentMachinePhoto||'',registeredAt:prev.registeredAt||new Date().toISOString()};
+  if(!DB.machines)DB.machines=[];
+  if(editingMachineId)DB.machines=DB.machines.map(x=>x.id===editingMachineId?obj:x);else DB.machines.push(obj);
+  saveDB();renderAll();
+  showSyncBar('✅ 機械を保存しました','ok');
+  openMachineCard(obj.id);
+}
+function deleteMachine(id){if(!confirm('この機械カルテを削除しますか？（修理履歴は削除されません）'))return;DB.machines=(DB.machines||[]).filter(x=>x.id!==id);saveDB();closeMachineModal();renderAll();}
+function repairFromMachine(id){
+  const m=(DB.machines||[]).find(x=>x.id===id);if(!m)return;closeMachineModal();
+  quickReg(2,{machineId:m.id,customerName:m.customerName||'',machine:m.category||m.model||'',maker:m.maker||'',model:m.model||'',serialNo:m.serialNo||'',hourMeter:m.hourMeter||''});
+}
+function machineBadgeHTML(mid){
+  if(!mid)return '';
+  const m=(DB.machines||[]).find(x=>x.id===mid);
+  if(!m)return '';
+  const sub=[m.maker,m.model].filter(Boolean).join(' ');
+  const label=esc((m.category||m.model||'機械')+(sub?'（'+sub+'）':''));
+  return '<div id="machineLinkBadge" style="display:flex;align-items:center;gap:8px;background:#e8f8f3;border:1.5px solid #16a085;border-radius:10px;padding:8px 12px;margin-bottom:12px;">'
+    +'<span style="font-size:11px;font-weight:800;color:#16a085;flex-shrink:0;">🚜 機械カルテ連携</span>'
+    +'<span onclick="openMachineCard(\''+m.id+'\')" style="flex:1;font-size:13px;font-weight:700;color:#0e6b56;cursor:pointer;text-decoration:underline;word-break:break-all;">'+label+'</span>'
+    +'<span onclick="unlinkMachine()" style="font-size:11px;color:#999;cursor:pointer;flex-shrink:0;">解除</span>'
+    +'</div>';
+}
+function unlinkMachine(){const e=document.getElementById('f_machineId');if(e)e.value='';const b=document.getElementById('machineLinkBadge');if(b)b.style.display='none';showSyncBar('機械カルテ連携を解除しました（保存で確定）','sync');}
+const NAMEPLATE_PROMPT='この農業機械の銘板（ネームプレート）の画像です。メーカー名(maker)、型式(model)、製造番号(serialNo)、稼働時間(hourMeter、数値のみ)を読み取り、JSONのみで返してください。読み取れない項目は空文字。例:{"maker":"クボタ","model":"GL241","serialNo":"12345","hourMeter":"320"}';
+async function runMachineNameplate(event){
+  const file=event.target.files[0];if(!file)return;event.target.value='';
+  showSyncBar('🔍 銘板を解析中...','sync',false);
+  let r={},dataUrl='';
+  try{
+    const b64=await fileToB64(file);const mediaType=file.type||'image/jpeg';
+    dataUrl='data:'+mediaType+';base64,'+b64;
+    r=await callAI(NAMEPLATE_PROMPT,b64,mediaType);
+  }catch(e){showSyncBar('⚠️ 読取失敗: '+e.message,'conflict');return;}
+  const fields=[['maker','メーカー'],['model','型式'],['serialNo','製造番号'],['hourMeter','稼働時間']];
+  const found=fields.filter(([k])=>r[k]&&String(r[k]).trim());
+  if(!found.length){showSyncBar('⚠️ 銘板から読み取れませんでした','conflict');return;}
+  const summary=found.map(([k,l])=>'　'+l+'：'+String(r[k]).trim()).join('\n');
+  if(!confirm('銘板の読み取り結果\n\n'+summary+'\n\nこの内容を反映しますか？\n（空欄の項目は変更しません）'))return;
+  currentMachinePhoto=dataUrl;
+  const prev=document.getElementById('machinePhotoPrev');if(prev)prev.innerHTML=machinePhotoPrevHTML();
+  found.forEach(([k])=>{const el=document.getElementById('mf_'+k);if(el)el.value=String(r[k]).trim();});
+  showSyncBar('✅ 銘板から反映しました','ok');
+}
+function fldCam(id2,label,val,type){
+  return '<label class="field-label">'+label+'</label>'
+    +'<div style="position:relative;margin-bottom:11px;">'
+    +'<input type="'+(type||'text')+'" id="mf_'+id2+'" class="field-input" value="'+esc(val||'')+'" style="margin-bottom:0;padding-right:44px;"'+(type==='number'?' min="0"':'')+'>'
+    +'<label style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:#16a085;border-radius:7px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;">📷'
+    +'<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="scanField(event,\''+id2+'\',\''+String(label).replace(/[\\\\\']/g,'')+'\')"></label>'
+    +'</div>';
+}
+function fieldPrompt(field){
+  if(field==='hourMeter')return 'これは農業機械のアワーメーター（稼働時間計／アワーメータ）の画像です。表示されている稼働時間の数値のみを返してください。小数点があればそのまま。JSONのみ。例:{"value":"320.5"}。読み取れなければ{"value":""}';
+  if(field==='category')return 'これは農業機械の画像です。機種（例: トラクタ, 田植機, コンバイン, 管理機, 草刈機, 動力噴霧機, ドローン 等）を1つだけ推定して返してください。JSONのみ。例:{"value":"トラクタ"}';
+  const labels={maker:'メーカー名',model:'型式',serialNo:'製造番号'};
+  return 'これは農業機械の銘板（ネームプレート）の画像です。'+(labels[field]||'指定項目')+'のみを正確に読み取って返してください。JSONのみ。例:{"value":"クボタ"}。読み取れなければ{"value":""}';
+}
+async function scanField(event,field,label){
+  const file=event.target.files[0];if(!file)return;event.target.value='';
+  showSyncBar('🔍 解析中...','sync',false);
+  let val='';
+  try{const b64=await fileToB64(file);const mt=file.type||'image/jpeg';const r=await callAI(fieldPrompt(field),b64,mt);val=(r&&(r.value!==undefined?r.value:r[field]))||'';}
+  catch(e){showSyncBar('⚠️ 読取失敗: '+e.message,'conflict');return;}
+  val=String(val).trim();
+  if(!val){showSyncBar('⚠️ 読み取れませんでした。もう一度お試しください','conflict');return;}
+  if(!confirm('【'+label+'】の読み取り結果\n\n　　'+val+'\n\nこの値を反映しますか？'))return;
+  const el=document.getElementById('mf_'+field);if(el)el.value=val;
+  showSyncBar('✅ 反映しました','ok');
+}
+function _machineSummary(r){
+  const parts=[];if(r.maker)parts.push(String(r.maker).trim());if(r.model)parts.push(String(r.model).trim());
+  let s=parts.join(' ');
+  if(r.serialNo)s+=(s?' ':'')+'製造番号:'+String(r.serialNo).trim();
+  if(r.hourMeter)s+=(s?' ':'')+'稼働時間:'+String(r.hourMeter).trim()+'h';
+  return s;
+}
+async function ocrNameplate(file){const b64=await fileToB64(file);const mt=file.type||'image/jpeg';return await callAI(NAMEPLATE_PROMPT,b64,mt);}
+async function ocrMeterVal(file){const b64=await fileToB64(file);const mt=file.type||'image/jpeg';const r=await callAI(fieldPrompt('hourMeter'),b64,mt);return String((r&&(r.value!==undefined?r.value:r.hourMeter))||'').trim();}
+// 修理「＋」フォームへ反映
+async function repairScanNameplate(event){
+  const file=event.target.files[0];if(!file)return;event.target.value='';
+  showSyncBar('🔍 銘板を解析中...','sync',false);
+  let r={};try{r=await ocrNameplate(file);}catch(e){showSyncBar('⚠️ 読取失敗: '+e.message,'conflict');return;}
+  const fields=[['maker','メーカー'],['model','型式'],['serialNo','製造番号'],['hourMeter','稼働時間']];
+  const found=fields.filter(([k])=>r[k]&&String(r[k]).trim());
+  if(!found.length){showSyncBar('⚠️ 銘板から読み取れませんでした','conflict');return;}
+  if(!confirm('銘板の読み取り結果\n\n'+found.map(([k,l])=>'　'+l+'：'+String(r[k]).trim()).join('\n')+'\n\nこの内容を反映しますか？\n（空欄の項目は変更しません）'))return;
+  found.forEach(([k])=>{const el=document.getElementById('f_'+k);if(el)el.value=String(r[k]).trim();});
+  showSyncBar('✅ 銘板から反映しました','ok');
+}
+async function repairScanMeter(event){
+  const file=event.target.files[0];if(!file)return;event.target.value='';
+  showSyncBar('🔍 稼働時間を解析中...','sync',false);
+  let val='';try{val=await ocrMeterVal(file);}catch(e){showSyncBar('⚠️ 読取失敗: '+e.message,'conflict');return;}
+  if(!val){showSyncBar('⚠️ 読み取れませんでした','conflict');return;}
+  if(!confirm('稼働時間の読み取り結果\n\n　　'+val+' h\n\nこの値を反映しますか？'))return;
+  const el=document.getElementById('f_hourMeter');if(el)el.value=val;
+  showSyncBar('✅ 反映しました','ok');
+}
+// 🎤スマート入力テキストへ追記
+function _appendSmart(line){const el=document.getElementById('smartText');if(!el)return;el.value=(el.value.trim()?el.value.trim()+'\n':'')+line;}
+async function smartScanNameplate(event){
+  const file=event.target.files[0];if(!file)return;event.target.value='';
+  showSyncBar('🔍 銘板を解析中...','sync',false);
+  let r={};try{r=await ocrNameplate(file);}catch(e){showSyncBar('⚠️ 読取失敗: '+e.message,'conflict');return;}
+  const sm=_machineSummary(r);
+  if(!sm){showSyncBar('⚠️ 銘板から読み取れませんでした','conflict');return;}
+  if(!confirm('銘板の読み取り結果\n\n　'+sm+'\n\nこの内容を入力欄に追加しますか？'))return;
+  _appendSmart(sm);showSyncBar('✅ 入力欄に追加しました','ok');
+}
+async function smartScanMeter(event){
+  const file=event.target.files[0];if(!file)return;event.target.value='';
+  showSyncBar('🔍 稼働時間を解析中...','sync',false);
+  let val='';try{val=await ocrMeterVal(file);}catch(e){showSyncBar('⚠️ 読取失敗: '+e.message,'conflict');return;}
+  if(!val){showSyncBar('⚠️ 読み取れませんでした','conflict');return;}
+  if(!confirm('稼働時間の読み取り結果\n\n　　'+val+' h\n\n入力欄に追加しますか？'))return;
+  _appendSmart('稼働時間:'+val+'h');showSyncBar('✅ 入力欄に追加しました','ok');
+}
+let recallTarget='repair',recallCache={};
+function _recallKey(c){return [_norm(c.customer),_norm(c.maker),_norm(c.model),_norm(c.serialNo),_norm(c.name)].join('|');}
+function buildRecallCandidates(q){
+  const raw=[];
+  (DB.machines||[]).forEach(m=>raw.push({machineId:m.id,customer:m.customerName||'',name:m.category||m.model||m.maker||'',maker:m.maker||'',model:m.model||'',serialNo:m.serialNo||'',hourMeter:m.hourMeter||'',src:'機械',pri:0}));
+  (DB.products||[]).forEach(p=>raw.push({customer:p.customer||'',name:p.productName||'',maker:p.maker||'',model:p.model||'',serialNo:p.serialNo||'',hourMeter:'',src:'製品',pri:1}));
+  (DB.repairs||[]).forEach(r=>raw.push({customer:r.customerName||'',name:r.machine||'',maker:r.maker||'',model:r.model||'',serialNo:r.serialNo||'',hourMeter:r.hourMeter||'',src:'修理',pri:2}));
+  const ql=String(q||'').toLowerCase();
+  let list=raw.filter(c=>(c.customer||c.name||c.maker||c.model||c.serialNo));
+  if(ql)list=list.filter(c=>[c.customer,c.name,c.maker,c.model,c.serialNo].some(x=>String(x||'').toLowerCase().includes(ql)));
+  const map=new Map();
+  list.forEach(c=>{const k=_recallKey(c);if(!map.has(k))map.set(k,Object.assign({},c));else{const e=map.get(k);['customer','name','maker','model','serialNo','hourMeter'].forEach(f=>{if(!e[f]&&c[f])e[f]=c[f];});if(c.machineId&&!e.machineId)e.machineId=c.machineId;if(c.pri<e.pri){e.src=c.src;e.pri=c.pri;}}});
+  let arr=Array.from(map.values());
+  // 製番空のエントリを、同一(顧客|メーカー|型式|名前)で製番ありのものに統合
+  const bySig=new Map();
+  arr.forEach(c=>{if(_norm(c.serialNo)){const sig=[_norm(c.customer),_norm(c.maker),_norm(c.model),_norm(c.name)].join('|');if(!bySig.has(sig))bySig.set(sig,c);}});
+  arr=arr.filter(c=>{
+    if(_norm(c.serialNo))return true;
+    const sig=[_norm(c.customer),_norm(c.maker),_norm(c.model),_norm(c.name)].join('|');
+    const host=bySig.get(sig);
+    if(host){if(!host.hourMeter&&c.hourMeter)host.hourMeter=c.hourMeter;if(c.machineId&&!host.machineId)host.machineId=c.machineId;if(c.pri<host.pri){host.src=c.src;host.pri=c.pri;}return false;}
+    return true;
+  });
+  return arr.sort((a,b)=>(a.pri-b.pri)||String(a.customer||'').localeCompare(String(b.customer||''),'ja'));
+}
+function openRecall(target){recallTarget=target;document.getElementById('recallModal').style.display='flex';const s=document.getElementById('recallSearch');if(s){s.value='';}renderRecallList('');setTimeout(()=>{if(s)s.focus();},120);}
+function closeRecall(){document.getElementById('recallModal').style.display='none';}
+function renderRecallList(q){
+  const list=buildRecallCandidates(q);recallCache={};
+  const area=document.getElementById('recallList');if(!area)return;
+  if(!list.length){area.innerHTML='<div style="text-align:center;color:var(--text-sub);padding:24px 0;">該当する履歴・機械がありません</div>';return;}
+  let h='';
+  list.slice(0,60).forEach((c,i)=>{
+    recallCache[i]=c;
+    const sub=[c.maker,c.model].filter(Boolean).join(' ')+(c.serialNo?' / No.'+c.serialNo:'')+(c.hourMeter?' / '+c.hourMeter+'h':'');
+    h+='<div class="card" onclick="applyRecall('+i+')" style="border-left:4px solid #2980b9;">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><span style="font-weight:bold;">'+esc(c.customer||'(顧客未設定)')+'</span><span style="font-size:10px;color:var(--text-sub);background:var(--input-bg);border-radius:6px;padding:2px 6px;flex-shrink:0;">'+c.src+'</span></div>';
+    if(c.name)h+='<div style="font-size:12px;color:var(--text-sub);margin-top:2px;">'+esc(c.name)+'</div>';
+    if(sub.trim())h+='<div style="font-size:12px;color:var(--text-sub);">'+esc(sub.trim())+'</div>';
+    h+='</div>';
+  });
+  area.innerHTML=h;
+}
+function applyRecall(i){
+  const c=recallCache[i];if(!c)return;
+  if(recallTarget==='smart'){
+    const bits=[];if(c.customer)bits.push(c.customer+'様');if(c.name)bits.push(c.name);
+    if(c.maker&&!(c.name||'').includes(c.maker))bits.push(c.maker);
+    if(c.model&&!(c.name||'').includes(c.model))bits.push(c.model);
+    if(c.serialNo)bits.push('製造番号:'+c.serialNo);if(c.hourMeter)bits.push('稼働時間:'+c.hourMeter+'h');
+    _appendSmart(bits.join(' '));closeRecall();showSyncBar('✅ 入力欄に追加しました','ok');
+  }else{
+    const set=(id,v)=>{const e=document.getElementById('f_'+id);if(e&&v)e.value=v;};
+    set('customerName',c.customer);set('machine',c.name);set('maker',c.maker);set('model',c.model);set('serialNo',c.serialNo);set('hourMeter',c.hourMeter);set('machineId',c.machineId);
+    closeRecall();showSyncBar('✅ 機械情報を呼び出しました','ok');
+  }
+}
+function openNameplateScan(){document.getElementById('nameplateScanInput').click();}
+async function runNameplateLookup(event){
+  const file=event.target.files[0];if(!file)return;event.target.value='';
+  showSyncBar('🔍 銘板を解析中...','sync',false);
+  let ocr={},photo='';
+  try{
+    const b64=await fileToB64(file);const mediaType=file.type||'image/jpeg';
+    photo='data:'+mediaType+';base64,'+b64;
+    ocr=await callAI(NAMEPLATE_PROMPT,b64,mediaType);
+  }catch(e){showSyncBar('⚠️ 読取失敗: '+e.message,'conflict');return;}
+  showSyncBar('✅ 読み取り完了','ok');
+  lastNameplate={ocr,photo};
+  showNameplateResult(ocr,photo);
+}
+function showNameplateResult(ocr,photo){
+  const model=_norm(ocr.model),serial=_norm(ocr.serialNo);
+  const machineMatches=(DB.machines||[]).filter(m=>{if(serial&&_norm(m.serialNo)&&_norm(m.serialNo)===serial)return true;if(model&&_norm(m.model)&&_norm(m.model)===model)return true;return false;});
+  const repMatches=(DB.repairs||[]).filter(r=>{if(serial&&_norm(r.serialNo)&&_norm(r.serialNo)===serial)return true;if(model&&_norm(r.model)&&_norm(r.model)===model)return true;return false;}).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+  let h='';
+  if(photo)h+='<img src="'+photo+'" style="width:100%;max-height:140px;object-fit:contain;background:#000;border-radius:10px;margin-bottom:10px;">';
+  h+='<div style="background:var(--input-bg);border-radius:10px;padding:10px;margin-bottom:14px;font-size:13px;"><div style="font-weight:800;margin-bottom:4px;">📋 読み取り結果</div>メーカー: '+esc(ocr.maker||'-')+'<br>型式: <b>'+esc(ocr.model||'-')+'</b><br>製造番号: '+esc(ocr.serialNo||'-')+(ocr.hourMeter?'<br>稼働時間: '+esc(ocr.hourMeter)+'h':'')+'</div>';
+  h+='<div style="font-weight:800;font-size:14px;margin:6px 0;">🚜 登録済みの機械（型式一致 '+machineMatches.length+'件）</div>';
+  if(!machineMatches.length)h+='<div style="color:var(--text-sub);font-size:12px;margin-bottom:8px;">一致する登録機械はありません</div>';
+  else machineMatches.forEach(m=>{h+='<div class="card" onclick="openMachineCard(\''+m.id+'\')" style="border-left:4px solid #16a085;"><div style="font-weight:bold;">'+esc(m.category||m.model||'機械')+'</div><div style="font-size:12px;color:var(--text-sub);">'+esc(m.maker||'')+' '+esc(m.model||'')+(m.serialNo?' / No.'+esc(m.serialNo):'')+'<br>👤 '+esc(m.customerName||'-')+'</div></div>';});
+  h+='<div style="font-weight:800;font-size:14px;margin:10px 0 6px;">🔧 型式一致の修理履歴 '+repMatches.length+'件</div>';
+  if(!repMatches.length)h+='<div style="color:var(--text-sub);font-size:12px;margin-bottom:8px;">履歴なし</div>';
+  else repMatches.slice(0,10).forEach(r=>{h+='<div style="border-left:3px solid #ccc;background:var(--input-bg);border-radius:8px;padding:7px 9px;margin-bottom:5px;font-size:12px;"><div style="display:flex;justify-content:space-between;"><span style="font-weight:700;">'+esc(r.customerName||'-')+'</span><span style="color:var(--text-sub);">'+esc(r.date||'')+'</span></div><div>'+esc(r.issue||r.machine||'')+'</div></div>';});
+  h+='<button onclick="registerFromNameplate()" class="save-btn" style="width:100%;margin-top:12px;background:#2c3e50;">＋ この銘板情報で新規機械を登録</button>';
+  document.getElementById('machineModalTitle').textContent='📋 銘板の照合結果';
+  document.getElementById('machineModalBody').innerHTML=h;
+  document.getElementById('machineModal').style.display='flex';
+}
+function registerFromNameplate(){
+  const o=(lastNameplate&&lastNameplate.ocr)||{};const ph=(lastNameplate&&lastNameplate.photo)||'';
+  openMachineEdit('');
+  currentMachinePhoto=ph;
+  const prev=document.getElementById('machinePhotoPrev');if(prev)prev.innerHTML=machinePhotoPrevHTML();
+  const set=(id,v)=>{const e=document.getElementById('mf_'+id);if(e&&v)e.value=v;};
+  set('maker',o.maker);set('model',o.model);set('serialNo',o.serialNo);set('hourMeter',o.hourMeter);
+}
 function buildMachineStr(n,m,mo){let s='';if(m)s+=m+' ';if(n)s+=n+' ';if(mo)s+=mo;return s.trim();}
 function renderHome(){
   if(searchQuery){
@@ -1189,7 +1528,7 @@ function openEdit(id,tab){const keys=['','customers','repairs','demos','parts','
 function showModal(){
   document.getElementById('modalTitle').innerText=TABS[modalState.tab]+' 詳細';let form='';const it=modalState.item;
   if(modalState.tab===1){form+=inp('name','顧客名',it.name)+inp('phone','電話番号',it.phone)+inp('address','住所',it.address);form+='<label class="field-label">メモ・備考</label><textarea id="f_memo" class="field-textarea" rows="2">'+esc(it.memo)+'</textarea>';form+=buildQuickRegBox(1,it);}
-  else if(modalState.tab===2){form+=inp('customerName','顧客名',it.customerName)+inp('machine','機械名 (品名)',it.machine)+'<div class="fl"><div class="fg">'+inp('maker','メーカー',it.maker)+'</div><div class="fg">'+inp('model','型式',it.model)+'</div></div>'+inp('serialNo','製造番号',it.serialNo)+'<div class="fl"><div class="fg">'+inp('attachment','アタッチメント',it.attachment)+'</div><div class="fg">'+inp('hourMeter','稼働時間(h)',it.hourMeter,'number')+'</div></div>';
+  else if(modalState.tab===2){form+='<button type="button" onclick="openRecall(\'repair\')" style="width:100%;background:#2980b9;color:#fff;border:none;border-radius:10px;padding:11px 0;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:10px;">📋 お客様・機械を呼び出して入力</button><div style="display:flex;gap:8px;margin-bottom:12px;"><label style="flex:1;text-align:center;background:#16a085;color:#fff;border-radius:10px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;">📷 銘板読取<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="repairScanNameplate(event)"></label><label style="flex:1;text-align:center;background:#16a085;color:#fff;border-radius:10px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;">📷 稼働時間<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="repairScanMeter(event)"></label></div><input type="hidden" id="f_machineId" value="'+esc(it.machineId||'')+'">'+machineBadgeHTML(it.machineId);form+=inp('customerName','顧客名',it.customerName)+inp('machine','機械名 (品名)',it.machine)+'<div class="fl"><div class="fg">'+inp('maker','メーカー',it.maker)+'</div><div class="fg">'+inp('model','型式',it.model)+'</div></div>'+inp('serialNo','製造番号',it.serialNo)+'<div class="fl"><div class="fg">'+inp('attachment','アタッチメント',it.attachment)+'</div><div class="fg">'+inp('hourMeter','稼働時間(h)',it.hourMeter,'number')+'</div></div>';
   form+='<label class="field-label">不具合内容・依頼事項</label><div style="position:relative;"><button type="button" onclick="fieldVoice(\'f_issue\',this)" style="position:absolute;right:6px;top:6px;background:#e67e22;border:none;border-radius:6px;width:26px;height:26px;font-size:12px;cursor:pointer;color:#fff;padding:0;line-height:1;z-index:1;">🎙</button><textarea id="f_issue" class="field-textarea" rows="2" style="padding-right:38px;">'+esc(it.issue)+'</textarea></div>';
   form+='<div class="fl"><div class="fg">'+sel('status','ステータス',['修理依頼','見積中','部品待ち','修理中','完了(未請求)','請求済'],it.status)+'</div><div class="fg">'+inp('dueDate','納期・予定日',it.dueDate,'date')+'</div></div>';
   form+=inp('amount','売上金額（税抜・任意）',it.amount,'number');
@@ -1430,7 +1769,7 @@ window.onload=async function(){
     if(gasUrl){lm.textContent='☁️ クラウドから最新データを確認中...';try{await syncToCloud(false);}catch(e){console.error('起動時同期エラー:',e);}}
     if(!hasAnyData()){
       const er=localStorage.getItem('agri_emergency_backup');
-      if(er){try{const eb=JSON.parse(er),ed=eb.data||eb;const eHas=['customers','repairs','demos','parts','products'].some(k=>Array.isArray(ed[k])&&ed[k].length>0);if(eHas){const sa=eb.savedAt?new Date(eb.savedAt).toLocaleString('ja-JP'):'不明',rc=ed.repairs?.length||0;if(confirm(`⚠️ データが見つかりません！\n\n緊急バックアップが見つかりました。\n保存日時: ${sa}\n修理 ${rc}件\n\n復元しますか？`)){['customers','repairs','demos','parts','products','settings','quotes','memos'].forEach(k=>{if(Array.isArray(ed[k]))DB[k]=ed[k];});if(ed.lastModified)DB.lastModified=ed.lastModified;try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}}};}catch(e){console.error('緊急バックアップ読込エラー:',e);}}
+      if(er){try{const eb=JSON.parse(er),ed=eb.data||eb;const eHas=['customers','repairs','demos','parts','products'].some(k=>Array.isArray(ed[k])&&ed[k].length>0);if(eHas){const sa=eb.savedAt?new Date(eb.savedAt).toLocaleString('ja-JP'):'不明',rc=ed.repairs?.length||0;if(confirm(`⚠️ データが見つかりません！\n\n緊急バックアップが見つかりました。\n保存日時: ${sa}\n修理 ${rc}件\n\n復元しますか？`)){['customers','repairs','demos','parts','products','settings','quotes','memos','machines'].forEach(k=>{if(Array.isArray(ed[k]))DB[k]=ed[k];});if(ed.lastModified)DB.lastModified=ed.lastModified;try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}}};}catch(e){console.error('緊急バックアップ読込エラー:',e);}}
     }
     const ls=document.getElementById('loading-screen');
     document.getElementById('app').style.display='block';
