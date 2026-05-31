@@ -1050,12 +1050,17 @@ function changeTab(i){if(i!==currentTab)tabHistory.push(currentTab);currentTab=i
 let tabHistory=[];
 let exitConfirmPending=false; // ホームで一度確認を出した状態
 let _exitTimer=null;
-let sentinelActive=false;     // 番兵がスタックに存在するか
-// 番兵を常に1つだけ維持する（既にあれば積まない）
+// 番兵を常に複数枚維持する方式（Android スワイプ戻る対策）
+const SENTINEL_DEPTH=20;      // 維持したい番兵の枚数
+let sentinelCount=0;          // 現在スタックに積んだ番兵の枚数
+// 番兵を目標枚数まで補充する
 function ensureSentinel(){
-  if(!sentinelActive){
-    try{ history.pushState({agriSentinel:1},''); sentinelActive=true; }catch(e){}
-  }
+  try{
+    while(sentinelCount<SENTINEL_DEPTH){
+      history.pushState({agriSentinel:1,n:sentinelCount},'');
+      sentinelCount++;
+    }
+  }catch(e){}
 }
 function armBack(){ensureSentinel();}
 // 開いているモーダルがあれば1つだけ閉じる。閉じたら true
@@ -1075,10 +1080,10 @@ function goPrevTab(){const prev=tabHistory.length?tabHistory.pop():0;currentTab=
 function clearExitConfirm(){ if(exitConfirmPending){ exitConfirmPending=false; const b=document.getElementById('syncBar'); if(b)b.className=''; } }
 let _lastPop=0; // 直近のpopstate発火時刻（連続発火ガード）
 window.addEventListener('popstate',function(e){
-  // 戻る操作で番兵は消費された。まず番兵フラグを下ろす
-  sentinelActive=false;
+  // 戻る操作で番兵が1枚消費された
+  if(sentinelCount>0)sentinelCount--;
 
-  // 1) モーダルが開いていれば1つ閉じる → 番兵を戻してアプリ内に留まる
+  // 1) モーダルが開いていれば1つ閉じる → 番兵を補充してアプリ内に留まる
   if(closeTopModal()){ clearExitConfirm(); ensureSentinel(); return; }
   // 2) 検索中なら検索解除
   if(searchQuery){ clearSearch(); clearExitConfirm(); ensureSentinel(); return; }
@@ -1089,20 +1094,21 @@ window.addEventListener('popstate',function(e){
 
   // --- ホーム・何も開いていない場合の終了確認 ---
   const now=Date.now();
-  // 5) 初回、または前回の戻りから時間が経っている（誤連打防止）→ 確認を出してアプリ継続
+  // 5) 初回、または前回の戻りから十分時間が経っている → 確認を出してアプリ継続（番兵を補充）
   if(!exitConfirmPending || (now-_lastPop)>600){
     _lastPop=now;
-    exitConfirmPending=true; ensureSentinel();
+    exitConfirmPending=true;
+    ensureSentinel();
     showSyncBar('もう一度「戻る」でアプリを終了します','conflict',false);
     if(_exitTimer)clearTimeout(_exitTimer);
     _exitTimer=setTimeout(clearExitConfirm,4000);
     return;
   }
-  // 6) 2回目（4秒以内かつ連打でない）：番兵を積み直さず離脱を許可
-  //    history.back()は呼ばない（番兵を消費済みのこのpopで自然に離脱する）
+  // 6) 2回目（4秒以内・連打でない）：番兵を補充せず、本当に離脱させる
   if(_exitTimer)clearTimeout(_exitTimer);
   exitConfirmPending=false;
-  // 番兵を積まないことで、この時点の履歴位置は離脱先。これ以上戻る操作は不要。
+  // 番兵を1枚だけ消費してこの位置に来ているので、もう1回戻して離脱
+  try{ history.back(); }catch(e2){}
 });
 // ===== 機械カルテ =====
 let editingMachineId='';let currentMachinePhoto='';let lastNameplate=null;
