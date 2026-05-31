@@ -1037,7 +1037,7 @@ async function runScanQuote(event){
   event.target.value='';
 }
 
-function updateSearch(v){searchQuery=v.trim().toLowerCase();const cb=document.getElementById('srchClearBtn');if(cb)cb.style.display=searchQuery?'block':'none';renderAll();}
+function updateSearch(v){const was=!!searchQuery;searchQuery=v.trim().toLowerCase();if(!was&&searchQuery)pushBack();const cb=document.getElementById('srchClearBtn');if(cb)cb.style.display=searchQuery?'block':'none';renderAll();}
 function clearSearch(){searchQuery='';const gi=document.getElementById('globalSearch');if(gi)gi.value='';const cb=document.getElementById('srchClearBtn');if(cb)cb.style.display='none';renderAll();}
 function renderAll(){
   let h='';for(let i=0;i<TABS.length;i++)h+='<button class="tab-btn '+(currentTab===i?'active':'')+'" onclick="changeTab('+i+')">'+TABS[i]+'</button>';
@@ -1045,24 +1045,25 @@ function renderAll(){
   const main=document.getElementById('content_main');const qe=document.getElementById('content_quote_editor');qe.style.display='none';main.style.display='block';
   if(currentTab===0)main.innerHTML=renderHome();else if(currentTab===1)main.innerHTML=renderCustomers();else if(currentTab===2)main.innerHTML=renderRepairs();else if(currentTab===3)main.innerHTML=renderDemos();else if(currentTab===4)main.innerHTML=renderPartsTab();else if(currentTab===5)main.innerHTML=renderProducts();else if(currentTab===6)main.innerHTML=renderQuotesList();else if(currentTab===7)main.innerHTML=renderMachines();
 }
-function changeTab(i){if(i!==currentTab)tabHistory.push(currentTab);currentTab=i;renderAll();ensureSentinel();}
-// ===== スワイプ/ハードウェア「戻る」対応（番兵1つ維持方式 / Android対応） =====
+function changeTab(i){
+  if(i!==currentTab){
+    tabHistory.push(currentTab);
+    pushBack(); // タブを進めるたびに「戻る余地」を1つ積む
+  }
+  currentTab=i;renderAll();
+}
+// ===== ハードウェア/スワイプ「戻る」対応（1操作=1段階 / Android標準と統一） =====
 let tabHistory=[];
 let exitConfirmPending=false; // ホームで一度確認を出した状態
 let _exitTimer=null;
-// 番兵を常に複数枚維持する方式（Android スワイプ戻る対策）
-const SENTINEL_DEPTH=20;      // 維持したい番兵の枚数
-let sentinelCount=0;          // 現在スタックに積んだ番兵の枚数
-// 番兵を目標枚数まで補充する
-function ensureSentinel(){
-  try{
-    while(sentinelCount<SENTINEL_DEPTH){
-      history.pushState({agriSentinel:1,n:sentinelCount},'');
-      sentinelCount++;
-    }
-  }catch(e){}
+let _lastPop=0;               // 連続発火ガード用
+// アプリ内で「進む操作」をしたとき、戻れる余地を1つ作る
+function pushBack(){
+  try{ history.pushState({agri:1},''); }catch(e){}
 }
-function armBack(){ensureSentinel();}
+// 起動時：最初の1段階を確保（ホームで1回戻ると終了確認に入れるように）
+function ensureSentinel(){ pushBack(); }
+function armBack(){ pushBack(); }
 // 開いているモーダルがあれば1つだけ閉じる。閉じたら true
 function closeTopModal(){
   const isOpen=id=>{const e=document.getElementById(id);return e&&e.style&&e.style.display&&e.style.display!=='none';};
@@ -1078,36 +1079,34 @@ function closeTopModal(){
 }
 function goPrevTab(){const prev=tabHistory.length?tabHistory.pop():0;currentTab=prev;renderAll();}
 function clearExitConfirm(){ if(exitConfirmPending){ exitConfirmPending=false; const b=document.getElementById('syncBar'); if(b)b.className=''; } }
-let _lastPop=0; // 直近のpopstate発火時刻（連続発火ガード）
 window.addEventListener('popstate',function(e){
-  // 戻る操作で番兵が1枚消費された
-  if(sentinelCount>0)sentinelCount--;
-
-  // 1) モーダルが開いていれば1つ閉じる → 番兵を補充してアプリ内に留まる
-  if(closeTopModal()){ clearExitConfirm(); ensureSentinel(); return; }
-  // 2) 検索中なら検索解除
-  if(searchQuery){ clearSearch(); clearExitConfirm(); ensureSentinel(); return; }
-  // 3) カレンダー表示中なら閉じる
-  if(calViewActive){ calViewActive=false; renderAll(); clearExitConfirm(); ensureSentinel(); return; }
-  // 4) ホーム以外のタブなら1つ前へ
-  if(currentTab!==0){ goPrevTab(); clearExitConfirm(); ensureSentinel(); return; }
-
-  // --- ホーム・何も開いていない場合の終了確認 ---
   const now=Date.now();
-  // 5) 初回、または前回の戻りから十分時間が経っている → 確認を出してアプリ継続（番兵を補充）
-  if(!exitConfirmPending || (now-_lastPop)>600){
-    _lastPop=now;
+  // 連続発火（同一ジェスチャーの二重発火）を無視
+  if(now-_lastPop<350){ _lastPop=now; pushBack(); return; }
+  _lastPop=now;
+
+  // 1) モーダルが開いていれば1つ閉じる（履歴は1段階消費済み＝それで釣り合う）
+  if(closeTopModal()){ clearExitConfirm(); return; }
+  // 2) 検索中なら検索解除
+  if(searchQuery){ clearSearch(); clearExitConfirm(); return; }
+  // 3) カレンダー表示中なら閉じる
+  if(calViewActive){ calViewActive=false; renderAll(); clearExitConfirm(); return; }
+  // 4) ホーム以外のタブなら1つ前のタブへ（進んだ回数ぶん、1回ずつ戻る）
+  if(currentTab!==0){ goPrevTab(); clearExitConfirm(); return; }
+
+  // 5) ホーム・何も開いていない：1回目は終了確認を出してアプリ継続
+  if(!exitConfirmPending){
     exitConfirmPending=true;
-    ensureSentinel();
+    pushBack(); // 次の「戻る」を受け止めるため1段階だけ積み直す
     showSyncBar('もう一度「戻る」でアプリを終了します','conflict',false);
     if(_exitTimer)clearTimeout(_exitTimer);
     _exitTimer=setTimeout(clearExitConfirm,4000);
     return;
   }
-  // 6) 2回目（4秒以内・連打でない）：番兵を補充せず、本当に離脱させる
+  // 6) 2回目：確認状態を解除し、本当に終了させる（積み直さない＝この戻りで離脱）
   if(_exitTimer)clearTimeout(_exitTimer);
   exitConfirmPending=false;
-  // 番兵を1枚だけ消費してこの位置に来ているので、もう1回戻して離脱
+  showSyncBar('アプリを終了します','conflict',false);
   try{ history.back(); }catch(e2){}
 });
 // ===== 機械カルテ =====
@@ -1551,7 +1550,7 @@ function renderHome(){
   html+='<span style="background:rgba(255,255,255,.18);border-radius:8px;padding:3px 8px;">⚙️ 部品 ¥'+sales.part.toLocaleString()+'</span>';
   html+='</div></div>';
   if(sales.unbilled>0){html+='<div style="background:#fff3cd;border:1.5px solid #ffe082;color:#7d6608;border-radius:12px;padding:10px 13px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:800;"><span>⚠️ 未請求</span><span>¥'+sales.unbilled.toLocaleString()+'</span></div>';}
-  html+='<button onclick="calViewActive=true;calYear=new Date().getFullYear();calMonth=new Date().getMonth();renderAll()" style="width:100%;background:var(--card-bg);border:1.5px solid var(--border);color:var(--text);border-radius:12px;padding:11px;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:6px;">📅 納期カレンダーを開く</button>';
+  html+='<button onclick="calViewActive=true;calYear=new Date().getFullYear();calMonth=new Date().getMonth();pushBack();renderAll()" style="width:100%;background:var(--card-bg);border:1.5px solid var(--border);color:var(--text);border-radius:12px;padding:11px;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:6px;">📅 納期カレンダーを開く</button>';
   const rA=DB.repairs.filter(r=>r.status==='修理依頼'||r.status==='部品待ち'||r.status==='修理中').sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999'));
   const pA=DB.products.filter(p=>p.status==='商談中'||p.status==='受注'||p.status==='発注済'||p.status==='入荷済').sort((a,b)=>(a.deliveryDate||'9999').localeCompare(b.deliveryDate||'9999'));
   const ptA=DB.parts.filter(p=>p.status==='発注前'||p.status==='発注済'||p.status==='入荷済').sort((a,b)=>(a.orderDate||'9999').localeCompare(b.orderDate||'9999'));
