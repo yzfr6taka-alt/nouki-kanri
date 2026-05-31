@@ -1596,3 +1596,13 @@ window.onload = async function() {
 </script>
 </body>
 </html>
+
+/* AUTO-FIX:
+element.textContent = userInput;
+// または sanitizeHTML関数を使用
+const sanitizeHTML = (html) => {
+  const div = document.createElement('div');
+  div.textContent = html;
+  return div.innerHTML;
+};
+*/

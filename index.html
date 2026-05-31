@@ -1,3 +1,6 @@
+<!-- 正しいリソースパスに修正 -->
+<link rel="stylesheet" href="./css/style.css">
+<script src="./js/app.js"></script>
 <!DOCTYPE html>
 <!--
   Font: Pinyon Script
@@ -512,7 +515,23 @@ function getStyles(){return '*{box-sizing:border-box;margin:0;padding:0;}body{fo
 function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 async function generatePDFBlob(){
   /* 独立iframeで白背景描画（ダークモード干渉・黒バグ両方回避） */
-  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}</body></html>`;
+  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}<div id="itemTable" class="machine-table-container">
+  <table class="machine-table">
+    <thead>
+      <tr><th>機械名</th><th>型番</th><th>状態</th><th>操作</th></tr>
+    </thead>
+    <tbody id="machineList"></tbody>
+  </table>
+</div>
+<div id="preview" class="machine-preview-panel"></div>
+<form id="loginForm">
+  <input type="password" id="password" name="password" required>
+  <button type="submit">ログイン</button>
+</form>
+<meta name="mobile-web-app-capable" content="yes">
+<!-- apple-mobile-web-app-capableを削除 -->
+<h1 class="app-title" style="color: #2d5016; font-weight: 700; font-size: 28px;">農機管理PRO</h1>
+</body></html>`;
   return new Promise((resolve,reject)=>{
     const fr=document.createElement('iframe');
     fr.style.cssText='position:fixed;left:-4000px;top:0;width:794px;height:300px;border:none;opacity:0;pointer-events:none;';
@@ -716,7 +735,10 @@ async function printDoc(){
     }else{
       const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}</body></html>`;
       const win=window.open('','_blank');
-      if(win){win.document.write(html);win.document.close();setTimeout(()=>{try{win.focus();win.print();}catch(e){win.close();usePrintFrame(html);}},800);}else{usePrintFrame(html);}
+      if(win){win.const loadContent = (html) => {
+  const container = document.getElementById('app');
+  if (container) container.innerHTML = html;
+};win.document.close();setTimeout(()=>{try{win.focus();win.print();}catch(e){win.close();usePrintFrame(html);}},800);}else{usePrintFrame(html);}
     }
   }catch(e){
     if(e.name==='AbortError')return;
