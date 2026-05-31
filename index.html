@@ -357,6 +357,14 @@ table.items td input{width:100%;border:none;background:transparent;padding:5px 4
 </div>
 </div>
 
+<!-- 顧客カルテモーダル -->
+<div class="modal-overlay" id="customerModal" style="display:none;" onclick="if(event.target.id==='customerModal')closeCustomerModal()">
+<div class="modal-box">
+<div class="modal-header"><h3 id="customerModalTitle" style="font-size:15px;font-weight:800;color:var(--text);">👤 顧客カルテ</h3><button onclick="closeCustomerModal()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button></div>
+<div style="padding:16px 18px 40px;" id="customerModalBody"></div>
+</div>
+</div>
+
 <!-- 機械カルテモーダル -->
 <div class="modal-overlay" id="machineModal" style="display:none;" onclick="if(event.target.id==='machineModal')closeMachineModal()">
 <div class="modal-box">
@@ -1037,7 +1045,29 @@ function renderAll(){
   const main=document.getElementById('content_main');const qe=document.getElementById('content_quote_editor');qe.style.display='none';main.style.display='block';
   if(currentTab===0)main.innerHTML=renderHome();else if(currentTab===1)main.innerHTML=renderCustomers();else if(currentTab===2)main.innerHTML=renderRepairs();else if(currentTab===3)main.innerHTML=renderDemos();else if(currentTab===4)main.innerHTML=renderPartsTab();else if(currentTab===5)main.innerHTML=renderProducts();else if(currentTab===6)main.innerHTML=renderQuotesList();else if(currentTab===7)main.innerHTML=renderMachines();
 }
-function changeTab(i){currentTab=i;renderAll();}
+function changeTab(i){if(i!==currentTab)tabHistory.push(currentTab);currentTab=i;renderAll();armBack();}
+// ===== スワイプ/ハードウェア「戻る」対応 =====
+let tabHistory=[],backArmed=false;
+function armBack(){if(!backArmed){try{history.pushState({agriTrap:1},'');backArmed=true;}catch(e){}}}
+function closeTopModal(){
+  const isOpen=id=>{const e=document.getElementById(id);return e&&e.style&&e.style.display&&e.style.display!=='none';};
+  const doClose=(id,fn)=>{try{if(fn){fn();return;}}catch(e){}const el=document.getElementById(id);if(el)el.style.display='none';};
+  const list=[
+    ['recallModal',closeRecall],['scanQuoteModal',closeScanQuoteModal],['ocrModal',closeOcrModal],
+    ['diagModal',closeDiagModal],['machineModal',closeMachineModal],['customerModal',closeCustomerModal],
+    ['apiKeyModal',closeApiKey],['backupModal',closeBackupModal],['memoModal',closeMemoModal],
+    ['smartModal',null],['preview-modal',closePreview],['content_quote_editor',closeQuoteEditor],['modalOverlay',closeModal]
+  ];
+  for(const it of list){if(isOpen(it[0])){doClose(it[0],it[1]);return true;}}
+  return false;
+}
+function goPrevTab(){const prev=tabHistory.length?tabHistory.pop():0;currentTab=prev;renderAll();}
+window.addEventListener('popstate',function(){
+  backArmed=false;
+  if(closeTopModal()){armBack();return;}
+  if(currentTab!==0){goPrevTab();armBack();return;}
+  if(confirm('農機業務管理を閉じますか？')){try{history.back();}catch(e){}}else{armBack();}
+});
 // ===== 機械カルテ =====
 let editingMachineId='';let currentMachinePhoto='';let lastNameplate=null;
 function _norm(s){return String(s||'').toLowerCase().replace(/[\s\-_./　]/g,'');}
@@ -1509,7 +1539,40 @@ function showDayEvents(dateStr){
   ov.addEventListener('click',(e)=>{if(e.target===ov)ov.remove();});
   document.body.appendChild(ov);
 }
-function renderCustomers(){let html='<button onclick="openNew(1)" class="save-btn" style="margin-bottom:15px;width:100%;">＋ 顧客を新規登録</button>';let custList=DB.customers.slice();if(searchQuery)custList=custList.filter(x=>[x.name,x.phone,x.address,x.memo].some(f=>(f||'').toLowerCase().includes(searchQuery)));if(searchQuery&&!custList.length)return html+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">検索結果なし</div>';custList.forEach(item=>{const n=item.name;const rc=DB.repairs.filter(x=>x.customerName===n).length,dc=DB.demos.filter(x=>x.customerName===n).length,pc=DB.products.filter(x=>x.customer===n).length,ptc=DB.parts.filter(x=>x.customerName===n).length;html+='<div class="card" onclick="openEdit(\''+item.id+'\',1)"><div style="font-weight:bold;font-size:15px;margin-bottom:4px;">'+n+'　様</div>'+(item.phone?'<div style="font-size:12px;color:var(--text-sub);margin-bottom:6px;">📞 '+item.phone+'</div>':'')+'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;"><span class="badge-count '+(rc?'bc-red':'bc-gray')+'">🔧 修理 '+rc+'</span><span class="badge-count '+(dc?'bc-orange':'bc-gray')+'">🌾 実演 '+dc+'</span><span class="badge-count '+(pc?'bc-green':'bc-gray')+'">🚜 製品 '+pc+'</span><span class="badge-count '+(ptc?'bc-blue':'bc-gray')+'">⚙️ 部品 '+ptc+'</span></div></div>';});return html;}
+function closeCustomerModal(){document.getElementById('customerModal').style.display='none';}
+function openCustomerCard(id){
+  const c=(DB.customers||[]).find(x=>x.id===id);if(!c){alert('顧客が見つかりません');return;}
+  const n=c.name;
+  const reps=(DB.repairs||[]).filter(x=>x.customerName===n).sort((a,b)=>String(b.date||b.dueDate||'').localeCompare(String(a.date||a.dueDate||'')));
+  const dems=(DB.demos||[]).filter(x=>x.customerName===n).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+  const prods=(DB.products||[]).filter(x=>x.customer===n).sort((a,b)=>String(b.deliveryDate||'').localeCompare(String(a.deliveryDate||'')));
+  const prts=(DB.parts||[]).filter(x=>x.customerName===n).sort((a,b)=>String(b.orderDate||'').localeCompare(String(a.orderDate||'')));
+  const ongoing=reps.filter(r=>['完了(未請求)','請求済'].indexOf(r.status)<0);
+  const badge=s=>'<span class="badge" style="background:'+(STATUS_COLORS[s]||'#95a5a6')+';display:inline-block;">'+esc(s||'')+'</span>';
+  const row=(tab,id2,title,sub,status,date)=>'<div class="card" onclick="closeCustomerModal();openEdit(\''+id2+'\','+tab+')" style="margin-bottom:6px;border-left:4px solid '+(STATUS_COLORS[status]||'#bbb')+';">'
+    +'<div style="font-weight:bold;font-size:13px;">'+esc(title||'(未入力)')+'</div>'
+    +(sub?'<div style="font-size:11px;color:var(--text-sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(sub)+'</div>':'')
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">'+(status?badge(status):'<span></span>')+(date?'<span style="font-size:10px;color:var(--text-sub);">'+esc(date)+'</span>':'')+'</div></div>';
+  let h='';
+  h+='<div style="font-size:20px;font-weight:900;">'+esc(n)+' 様</div>';
+  if(c.phone)h+='<div style="font-size:13px;color:var(--text-sub);margin-top:2px;">📞 '+esc(c.phone)+'</div>';
+  if(c.address)h+='<div style="font-size:13px;color:var(--text-sub);">🏠 '+esc(c.address)+'</div>';
+  if(c.memo)h+='<div style="background:var(--input-bg);border-radius:10px;padding:8px 10px;margin-top:8px;font-size:12px;white-space:pre-wrap;">📝 '+esc(c.memo)+'</div>';
+  h+='<button onclick="closeCustomerModal();openEdit(\''+c.id+'\',1)" class="save-btn" style="width:100%;margin:12px 0 4px;background:#2980b9;">✏️ 顧客情報を編集</button>';
+  if(ongoing.length){
+    h+='<div style="font-weight:800;font-size:14px;margin:14px 0 6px;color:#e67e22;">⏳ 進行中の修理 '+ongoing.length+'件</div>';
+    ongoing.forEach(r=>h+=row(2,r.id,buildMachineStr(r.machine,r.maker,r.model)||'機械未入力',r.issue||'',r.status,r.dueDate?('納期 '+r.dueDate):r.date));
+  }
+  const sec=(label,arr)=>{h+='<div style="font-weight:800;font-size:14px;margin:14px 0 6px;border-top:1px solid var(--border);padding-top:12px;">'+label+' '+arr.length+'件</div>';if(!arr.length)h+='<div style="color:var(--text-sub);font-size:12px;padding:2px 0 4px;">履歴なし</div>';};
+  sec('🔧 修理',reps);reps.forEach(r=>h+=row(2,r.id,buildMachineStr(r.machine,r.maker,r.model)||'機械未入力',r.issue||(r.serialNo?'製番 '+r.serialNo:''),r.status,r.date||r.dueDate));
+  sec('🌾 実演',dems);dems.forEach(d=>h+=row(3,d.id,buildMachineStr(d.targetMachine,d.maker,d.model)||d.targetMachine||'実演',null,d.status,d.date));
+  sec('🚜 製品',prods);prods.forEach(p=>h+=row(5,p.id,p.productName||'製品',buildMachineStr('',p.maker,p.model)||(p.serialNo?'製番 '+p.serialNo:''),p.status,p.deliveryDate));
+  sec('⚙️ 部品',prts);prts.forEach(p=>h+=row(4,p.id,p.name||'部品',(p.partNo?'品番 '+p.partNo:'')+(p.qty?' ×'+p.qty:''),p.status,p.orderDate));
+  document.getElementById('customerModalTitle').textContent='👤 顧客カルテ';
+  document.getElementById('customerModalBody').innerHTML=h;
+  document.getElementById('customerModal').style.display='flex';
+}
+function renderCustomers(){let html='<button onclick="openNew(1)" class="save-btn" style="margin-bottom:15px;width:100%;">＋ 顧客を新規登録</button>';let custList=DB.customers.slice();if(searchQuery)custList=custList.filter(x=>[x.name,x.phone,x.address,x.memo].some(f=>(f||'').toLowerCase().includes(searchQuery)));if(searchQuery&&!custList.length)return html+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">検索結果なし</div>';custList.forEach(item=>{const n=item.name;const rc=DB.repairs.filter(x=>x.customerName===n).length,dc=DB.demos.filter(x=>x.customerName===n).length,pc=DB.products.filter(x=>x.customer===n).length,ptc=DB.parts.filter(x=>x.customerName===n).length;html+='<div class="card" onclick="openCustomerCard(\''+item.id+'\')"><div style="font-weight:bold;font-size:15px;margin-bottom:4px;">'+n+'　様</div>'+(item.phone?'<div style="font-size:12px;color:var(--text-sub);margin-bottom:6px;">📞 '+item.phone+'</div>':'')+'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;"><span class="badge-count '+(rc?'bc-red':'bc-gray')+'">🔧 修理 '+rc+'</span><span class="badge-count '+(dc?'bc-orange':'bc-gray')+'">🌾 実演 '+dc+'</span><span class="badge-count '+(pc?'bc-green':'bc-gray')+'">🚜 製品 '+pc+'</span><span class="badge-count '+(ptc?'bc-blue':'bc-gray')+'">⚙️ 部品 '+ptc+'</span></div></div>';});return html;}
 function renderRepairs(){
   let html='<button onclick="openNew(2)" class="save-btn" style="margin-bottom:10px;width:100%;">＋ 修理依頼を新規登録</button>';
   let items=DB.repairs.slice().sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999'));
@@ -1863,6 +1926,7 @@ window.onload=async function(){
     // 署名アニメーション(約2.3秒)を見せてからフェードアウト
     setTimeout(()=>{ls.classList.add('hide');setTimeout(()=>{ls.style.display='none';},700);},900);
     renderAll();
+    armBack();
     if(!hasAnyData())showSyncBar('⚠️ データなし。🛡️ボタンからバックアップを復元できます。','conflict',false);
     if(gasUrl){setInterval(()=>{if(gasUrl)syncToCloud(false);},30000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&gasUrl)syncToCloud(false);});}
   }catch(e){alert('起動処理中にエラーが発生しました。\n詳細: '+e.message);console.error(e);}
