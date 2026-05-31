@@ -285,6 +285,11 @@ table.items td input{width:100%;border:none;background:transparent;padding:5px 4
 </div>
 <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:8px;">🕐 自動バックアップ（最新24時間分）</div>
 <div id="backupList"></div>
+<div style="margin-top:16px;padding:12px;background:#e8f4fd;border-radius:12px;">
+<div style="font-size:11px;font-weight:800;color:#2980b9;margin-bottom:6px;">🧹 重複データを整理</div>
+<div style="font-size:11px;color:#555;margin-bottom:8px;">同名の顧客を1件に統合し、完全に重複したレコードを削除します（履歴は名前で紐付くため消えません）。</div>
+<button onclick="dedupeData()" style="background:#2980b9;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;width:100%;">🧹 重複を整理する</button>
+</div>
 <div style="margin-top:16px;padding:12px;background:#fde8e8;border-radius:12px;">
 <div style="font-size:11px;font-weight:800;color:#e74c3c;margin-bottom:6px;">⚠️ 緊急時のみ：サンプルデータ読込</div>
 <div style="font-size:11px;color:#555;margin-bottom:8px;">現在のデータが消えます。</div>
@@ -463,6 +468,34 @@ function renderBackupList(){
 function restoreBackup(key){if(!confirm('このバックアップに復元しますか？\n現在のデータは上書きされます。'))return;try{const b=JSON.parse(localStorage.getItem(key));const d=b.data||b;['customers','repairs','demos','parts','products','settings','quotes','memos','machines'].forEach(k=>{if(Array.isArray(d[k]))DB[k]=d[k];});if(d.lastModified)DB.lastModified=d.lastModified;try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}saveEmergencyBackup();renderAll();closeBackupModal();showSyncBar('✅ バックアップから復元しました','ok');}catch(e){alert('復元エラー: '+e.message);}}
 function exportJSON(){const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`農機管理PRO_バックアップ_${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),2000);}
 function importJSON(){const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.onchange=(e)=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=(ev)=>{try{const d=JSON.parse(ev.target.result);if(!confirm(`JSONファイルを読み込みます。\n修理 ${d.repairs?.length||0}件 / 製品 ${d.products?.length||0}件\n現在のデータは上書きされます。よろしいですか？`))return;saveEmergencyBackup();['customers','repairs','demos','parts','products','settings','quotes','memos','machines'].forEach(k=>{if(Array.isArray(d[k]))DB[k]=d[k];});DB.lastModified=new Date().toISOString();saveDB();renderAll();closeBackupModal();showSyncBar('✅ JSONファイルから復元しました','ok');}catch(e){alert('読み込みエラー: '+e.message);}};r.readAsText(f);};inp.click();}
+function _nameKey(s){return String(s||'').replace(/[\s　]+/g,'');}
+function dedupeData(){
+  // 1) 顧客：同名を1件に統合（電話/住所/メモは保持）
+  const seen=new Map();const keptCustomers=[];let mergedC=0;
+  (DB.customers||[]).forEach(c=>{
+    const k=_nameKey(c.name);
+    if(k&&seen.has(k)){const host=seen.get(k);['phone','address','memo'].forEach(f=>{if(!host[f]&&c[f])host[f]=c[f];});mergedC++;}
+    else{if(k)seen.set(k,c);keptCustomers.push(c);}
+  });
+  // 2) 他コレクション：全項目一致の完全重複を削除
+  function dedupExact(arr){
+    if(!Array.isArray(arr))return{kept:arr||[],removed:0};
+    const sigs=new Set(),kept=[];let removed=0;
+    arr.forEach(o=>{
+      const sig=JSON.stringify(Object.keys(o).filter(k=>k!=='id').sort().reduce((a,k)=>{a[k]=o[k];return a;},{}));
+      if(sigs.has(sig))removed++;else{sigs.add(sig);kept.push(o);}
+    });
+    return{kept,removed};
+  }
+  const R=dedupExact(DB.repairs),D=dedupExact(DB.demos),P=dedupExact(DB.parts),PR=dedupExact(DB.products),M=dedupExact(DB.machines);
+  const other=R.removed+D.removed+P.removed+PR.removed+M.removed;
+  if(!mergedC&&!other){alert('重複は見つかりませんでした。');return;}
+  if(!confirm('重複データを整理します。\n\n・同名の顧客 '+mergedC+'件を統合（電話/住所/メモは保持）\n・完全に重複したレコード '+other+'件を削除\n　（修理'+R.removed+'/実演'+D.removed+'/部品'+P.removed+'/製品'+PR.removed+'/機械'+M.removed+'）\n\n※修理・製品等は顧客名で紐付くため、顧客の統合で履歴が消えることはありません。\n\n実行しますか？'))return;
+  saveEmergencyBackup();
+  DB.customers=keptCustomers;DB.repairs=R.kept;DB.demos=D.kept;DB.parts=P.kept;DB.products=PR.kept;DB.machines=M.kept;
+  DB.lastModified=new Date().toISOString();saveDB();renderAll();closeBackupModal();
+  showSyncBar('✅ 重複を整理しました（顧客'+mergedC+'件統合・他'+other+'件削除）','ok');
+}
 function loadSeedData(){if(!confirm('サンプルデータを読み込みます。\n現在のデータは上書きされます。\n本当によろしいですか？'))return;saveEmergencyBackup();DB.repairs=SCREENSHOT_REPAIRS;DB.demos=SCREENSHOT_DEMOS;DB.parts=SCREENSHOT_PARTS;DB.products=SCREENSHOT_PRODUCTS;DB.customers=SCREENSHOT_CUSTOMERS;DB.quotes=SCREENSHOT_QUOTES;DB.lastModified=new Date().toISOString();saveDB();renderAll();closeBackupModal();showSyncBar('✅ サンプルデータを読み込みました','ok');}
 
 /* ========== 出力関数 ========== */
@@ -794,7 +827,7 @@ async function runSmartAI(){
 ・全項目に顧客名を反映`;
   try{
     const r=await callAI(prompt);const msgs=[];
-    if(r.hasCustomer&&r.customer?.name){DB.customers.push({id:'ID_'+Date.now(),name:r.customer.name,phone:r.customer.phone||'',address:r.customer.address||''});msgs.push('👥 顧客登録');}
+    if(r.hasCustomer&&r.customer?.name){const _nk=_nameKey(r.customer.name);if(!(DB.customers||[]).some(c=>_nameKey(c.name)===_nk)){DB.customers.push({id:'ID_'+Date.now(),name:r.customer.name,phone:r.customer.phone||'',address:r.customer.address||''});msgs.push('👥 顧客登録');}else{msgs.push('👥 顧客は登録済み（重複回避）');}}
     if(r.hasRepair&&r.repair?.customerName){DB.repairs.push({id:'ID_'+(Date.now()+1),customerName:r.repair.customerName,machine:r.repair.machine||'',maker:r.repair.maker||'',model:r.repair.model||'',serialNo:r.repair.serialNo||'',attachment:r.repair.attachment||'',hourMeter:r.repair.hourMeter||'',issue:r.repair.issue||'',status:r.repair.status||'修理依頼',dueDate:r.repair.dueDate||'',price:r.repair.price||0,date:today,usedParts:[]});const cu=buildCalUrl('【修理納期】'+r.repair.customerName+' 様 '+(r.repair.machine||''),r.repair.dueDate,'内容: '+(r.repair.issue||''));msgs.push('🔧 修理依頼登録 <a href="'+cu+'" target="_blank" style="margin-left:8px;background:#4285f4;color:#fff;padding:4px 8px;border-radius:6px;text-decoration:none;font-size:11px;">📅 カレンダー</a>');}
     if(r.hasDemo&&r.demo?.customerName){DB.demos.push({id:'ID_'+(Date.now()+2),customerName:r.demo.customerName,targetMachine:r.demo.targetMachine||'',maker:r.demo.maker||'',model:r.demo.model||'',date:r.demo.date||'',status:r.demo.status||'実演予定'});msgs.push('🌾 実演登録');}
     if(r.hasParts&&Array.isArray(r.parts)){r.parts.forEach((pt,i)=>{if(pt?.name){DB.parts.push({id:'ID_'+(Date.now()+3+i*10),customerName:pt.customerName||'',name:pt.name,maker:pt.maker||'',partNo:pt.partNo||'',qty:Number(pt.qty)||0,price:Number(pt.price)||0,status:pt.status||'発注前',orderDate:pt.orderDate||''});msgs.push('⚙️ 部品登録「'+pt.name+'」');}});}
@@ -1559,6 +1592,7 @@ function saveItem(){
   document.querySelectorAll('#modalBody input,#modalBody select,#modalBody textarea').forEach(el=>{const key=el.id.replace('f_','');if(key&&el.type!=='file')item[key]=el.value;});
   // 修理写真を保存
   if(modalState.tab===2)item.photos=currentRepairPhotos;
+  if(modalState.tab===1&&modalState.mode==='new'){const _nk=_nameKey(item.name);if(_nk&&(DB.customers||[]).some(c=>_nameKey(c.name)===_nk)){if(!confirm('「'+(item.name||'')+'」は既に顧客に登録されています。\n重複して登録しますか？')){closeModal();return;}}}
   if(modalState.mode==='new')DB[dbKey].push(item);else DB[dbKey]=DB[dbKey].map(x=>String(x.id)===String(item.id)?item:x);
   if(modalState.tab===5&&modalState.mode==='new'){for(let i=2;i<=10;i++){const pN=document.getElementById('f_productName'+i)?.value?.trim();if(pN)DB.products.push({id:'ID_'+(Date.now()+Math.random()),productName:pN,maker:item.maker||'',model:document.getElementById('f_model'+i)?.value||'',serialNo:document.getElementById('f_serialNo'+i)?.value||'',customer:item.customer||'',status:item.status||'受注',deliveryDate:item.deliveryDate||'',price:0});}}
   if(modalState.tab===4&&modalState.mode==='new'){for(let i=2;i<=10;i++){const pN=document.getElementById('f_name'+i)?.value?.trim();if(pN)DB.parts.push({id:'ID_'+(Date.now()+Math.random()),customerName:item.customerName||'',name:pN,maker:item.maker||'',partNo:document.getElementById('f_partNo'+i)?.value||'',qty:Number(document.getElementById('f_qty'+i)?.value)||0,price:Number(document.getElementById('f_price'+i)?.value)||0,status:item.status||'発注前',orderDate:item.orderDate||''}); }}
