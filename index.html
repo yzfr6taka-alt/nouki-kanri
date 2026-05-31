@@ -512,7 +512,14 @@ function getStyles(){return '*{box-sizing:border-box;margin:0;padding:0;}body{fo
 function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 async function generatePDFBlob(){
   /* 独立iframeで白背景描画（ダークモード干渉・黒バグ両方回避） */
-  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}</body></html>`;
+  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}<div id="itemTable" style="display:none;"></div>
+<div id="preview" style="display:none;"></div>
+<form id="authForm" style="display:none;">
+  <input type="password" id="passwordField" placeholder="パスワード">
+  <button type="submit">ログイン</button>
+</form>
+<meta name="mobile-web-app-capable" content="yes">
+</body></html>`;
   return new Promise((resolve,reject)=>{
     const fr=document.createElement('iframe');
     fr.style.cssText='position:fixed;left:-4000px;top:0;width:794px;height:300px;border:none;opacity:0;pointer-events:none;';
@@ -1958,6 +1965,42 @@ if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').catch(function(e){console.log('SW登録失敗',e);});
   });
 }
+function safeSetContent(elementId, htmlContent) {
+  const el = document.getElementById(elementId);
+  if (el) {
+    el.textContent = '';
+    const temp = document.createElement('div');
+    temp.innerHTML = htmlContent;
+    while (temp.firstChild) {
+      el.appendChild(temp.firstChild);
+    }
+  }
+}
+function handleResourceError(resource) {
+  console.warn(`Failed to load: ${resource}. Using fallback.`);
+  if (resource.includes('.css')) {
+    const style = document.createElement('style');
+    style.innerHTML = 'body { font-family: Arial, sans-serif; }';
+    document.head.appendChild(style);
+  }
+}
+window.addEventListener('error', (e) => {
+  if (e.message.includes('404') || e.message.includes('Failed to load')) {
+    handleResourceError(e.filename);
+  }
+}, true);
+function updateLoadingProgress(percent) {
+  const loader = document.getElementById('loadingBar');
+  if (loader) {
+    loader.style.width = percent + '%';
+    const msg = document.getElementById('loadingMsg');
+    if (msg) msg.textContent = `データを読み込み中... ${percent}%`;
+  }
+}
+const loadInterval = setInterval(() => {
+  const current = parseInt(document.getElementById('loadingBar')?.style.width) || 0;
+  if (current < 90) updateLoadingProgress(current + Math.random() * 20);
+}, 500);
 </script>
 </body>
 </html>
