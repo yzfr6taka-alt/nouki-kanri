@@ -41,3 +41,14 @@ const logs={errors:[],domMissing:[],functionMissing:[],console:[]};
   save('summary.json',summary);console.log('\n✅ 完了:',JSON.stringify(summary,null,2));
 })().catch(err=>{console.error('Fatal:',err);process.exit(1);});
 function save(name,data){fs.writeFileSync(path.join(logDir,name),JSON.stringify(data,null,2));}
+
+/* AUTO-FIX:
+async function loadMachineData() {
+  try {
+    const data = await fetch('/api/machines').then(r => r.json());
+    return data;
+  } catch(e) {
+    console.error('Failed to load machines:', e);
+  }
+}
+*/
