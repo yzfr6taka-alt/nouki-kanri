@@ -1098,7 +1098,7 @@ window.addEventListener('popstate',function(e){
   if(!exitConfirmPending){
     exitConfirmPending=true;
     pushBack(); // 次の「戻る」を受け止めるため1段階だけ積み直す
-    showSyncBar('もう一度「戻る」でアプリを終了します','conflict',false);
+    showSyncBar('終了しますか？　もう一度スワイプで終了します','conflict',false);
     if(_exitTimer)clearTimeout(_exitTimer);
     _exitTimer=setTimeout(clearExitConfirm,4000);
     return;
