@@ -9,7 +9,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="農機管理PRO">
 <meta name="theme-color" content="#1a252f">
 <link rel="manifest" href="manifest.json">
@@ -512,7 +512,11 @@ function getStyles(){return '*{box-sizing:border-box;margin:0;padding:0;}body{fo
 function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 async function generatePDFBlob(){
   /* 独立iframeで白背景描画（ダークモード干渉・黒バグ両方回避） */
-  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}</body></html>`;
+  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}<div id="itemTable" class="item-table"></div>
+<div id="preview" class="preview-container"></div>
+<form id="authForm"><input type="password" id="pwField" placeholder="パスワード"></form>
+<div class="loading-screen"><div class="loader"></div><p class="loading-text" style="color: #ffffff; font-weight: bold; letter-spacing: 2px;">農機管理</p><div class="progress-bar" style="width: 100%; height: 4px; background: #4CAF50;"></div></div>
+</body></html>`;
   return new Promise((resolve,reject)=>{
     const fr=document.createElement('iframe');
     fr.style.cssText='position:fixed;left:-4000px;top:0;width:794px;height:300px;border:none;opacity:0;pointer-events:none;';
@@ -2180,6 +2184,7 @@ if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').catch(function(e){console.log('SW登録失敗',e);});
   });
 }
+function machineListText(db,limit){const list=getRegisteredMachines(db);if(!list.length)return 'なし';return list.slice(0,limit||60).map(m=>[m.maker,m.model].filter(Boolean).join(' ')).join('\n');}
 </script>
 </body>
 </html>
