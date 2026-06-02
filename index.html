@@ -1,3 +1,8 @@
+fetch('required_resource.js')
+  .catch(err => {
+    console.warn('Resource not found, using fallback:', err);
+    return Promise.resolve();
+  });
 <!DOCTYPE html>
 <!--
   Font: Pinyon Script
@@ -9,7 +14,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="農機管理PRO">
 <meta name="theme-color" content="#1a252f">
 <link rel="manifest" href="manifest.json">
@@ -512,7 +517,9 @@ function getStyles(){return '*{box-sizing:border-box;margin:0;padding:0;}body{fo
 function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 async function generatePDFBlob(){
   /* 独立iframeで白背景描画（ダークモード干渉・黒バグ両方回避） */
-  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}</body></html>`;
+  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}<div id="itemTable" class="item-table"></div>
+<div id="preview" class="preview-pane"></div>
+</body></html>`;
   return new Promise((resolve,reject)=>{
     const fr=document.createElement('iframe');
     fr.style.cssText='position:fixed;left:-4000px;top:0;width:794px;height:300px;border:none;opacity:0;pointer-events:none;';
@@ -1980,6 +1987,35 @@ if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').catch(function(e){console.log('SW登録失敗',e);});
   });
 }
+function wrapPasswordField() {
+  const pwd = document.querySelector('input[type="password"]');
+  if(pwd && !pwd.closest('form')) {
+    const form = document.createElement('form');
+    pwd.parentNode.insertBefore(form, pwd);
+    form.appendChild(pwd);
+  }
+}
+wrapPasswordField();
+function enhanceSplashScreen() {
+  const splash = document.getElementById('splash');
+  if(splash) {
+    splash.style.background = 'linear-gradient(135deg, #1a472a 0%, #2d5a3d 100%)';
+    const title = splash.querySelector('h1');
+    if(title) {
+      title.style.color = '#ffffff';
+      title.style.textShadow = '0 2px 4px rgba(0,0,0,0.5)';
+    }
+    const progress = document.createElement('div');
+    progress.className = 'progress-bar';
+    progress.style.cssText = 'width:40%;height:4px;background:#4CAF50;margin:20px auto;border-radius:2px;';
+    splash.appendChild(progress);
+    const percent = document.createElement('div');
+    percent.textContent = '読み込み中: 0%';
+    percent.style.cssText = 'color:#ffffff;text-align:center;font-size:14px;';
+    splash.appendChild(percent);
+  }
+}
+enhanceSplashScreen();
 </script>
 </body>
 </html>
