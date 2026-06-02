@@ -750,6 +750,130 @@ function fixVoice(t){
   return t;
 }
 
+// ===AGRI_SHARED_START=== 農機共通モジュール（顧客・機械・メーカー辞書）=====
+// AI自動振り分け・銘板OCR・音声入力の3機能が共通参照する。組織名は「そお鹿児島農業協同組合」固定。
+// 既存データ構造は変更しない（読み取り専用＋AI出力の正規化のみ）。
+const ORG_NAME='そお鹿児島農業協同組合';
+// メーカー正規化辞書：正式名 -> 表記ゆれ（ひらがな/ローマ字/略称/誤変換）。
+// 既存の音声辞書(AGRI_DICT)の正式名と整合させ、保存済みデータとの照合を壊さない。
+const AGRI_MAKER_DICT={
+  'ヤンマー':['やんまー','yanmar','ヤンマ','yanma','yamnar','yannmar'],
+  'クボタ':['くぼた','kubota','久保田','クボダ','kbota'],
+  '井関':['いせき','iseki','井関農機','イセキ','ヰセキ','ゐせき'],
+  '三菱マヒンドラ農機':['みつびし','mitsubishi','三菱','三菱農機','三菱マヒンドラ','マヒンドラ','mahindra'],
+  '丸山製作所':['まるやま','maruyama','丸山','丸山製作','maruyama-mfg'],
+  '筑水キャニコム':['ちくすい','chikusui','筑水','キャニコム','canycom','きゃにこむ'],
+  '共立':['きょうりつ','kioritz','kyoritsu','やまびこ','yamabiko','きようりつ','共立(やまびこ)'],
+  'ニプロ':['にぷろ','nipro','niplo','松山','まつやま','松山ニプロ'],
+  'IHIアグリテック':['あいえいち','ihi','アイエッチアイ','石川島','ihiアグリ','ihiagri'],
+  'スター農機':['すたー農機','star','スター','star-farm'],
+  'ササキ':['ささき','sasaki','ササキコーポレーション'],
+  'オーレック':['おーれっく','orec','オーレック'],
+  'ホンダ':['ほんだ','honda','本田'],
+  'シンダイワ':['しんだいわ','shindaiwa','新ダイワ'],
+};
+// 正規化用キー（空白・記号・大小無視）
+function _makerKey(s){return String(s||'').toLowerCase().replace(/[\s　・\-_.／/]/g,'');}
+// メーカー名の表記ゆれを正式名へ正規化。一致しなければ元の文字列を返す。
+function normalizeMaker(raw){
+  if(!raw)return raw||'';
+  const s=String(raw).trim();if(!s)return '';
+  const key=_makerKey(s);
+  // 1) 正式名/別名の完全一致
+  for(const canon in AGRI_MAKER_DICT){
+    if(_makerKey(canon)===key)return canon;
+    for(const a of AGRI_MAKER_DICT[canon]){if(_makerKey(a)===key)return canon;}
+  }
+  // 2) 正式名を含む
+  for(const canon in AGRI_MAKER_DICT){if(key.includes(_makerKey(canon)))return canon;}
+  // 3) 別名（3文字以上）を含む
+  for(const canon in AGRI_MAKER_DICT){
+    for(const a of AGRI_MAKER_DICT[canon]){const ak=_makerKey(a);if(ak.length>=3&&key.includes(ak))return canon;}
+  }
+  return s;
+}
+// 登録済み顧客名の一覧（重複除去）。読み取り専用。
+function getRegisteredCustomers(db){db=db||(typeof DB!=='undefined'?DB:{});return Array.from(new Set((db.customers||[]).map(c=>String((c&&c.name)||'').trim()).filter(Boolean)));}
+// 登録済み機械（メーカー/型式）の一覧。機械カルテ・修理・製品から収集し正規化・重複除去。読み取り専用。
+function getRegisteredMachines(db){
+  db=db||(typeof DB!=='undefined'?DB:{});
+  const map=new Map();
+  const add=(maker,model)=>{const mk=normalizeMaker(maker||''),md=String(model||'').trim();if(!mk&&!md)return;const k=mk+'|'+md;if(!map.has(k))map.set(k,{maker:mk,model:md});};
+  (db.machines||[]).forEach(m=>add(m.maker,m.model));
+  (db.repairs||[]).forEach(r=>add(r.maker,r.model));
+  (db.products||[]).forEach(p=>add(p.maker,p.model));
+  return Array.from(map.values());
+}
+// プロンプト用：登録機械を「メーカー 型式」行テキスト化（トークン抑制のため上限あり）
+function machineListText(db,limit){
+  const list=getRegisteredMachines(db);if(!list.length)return 'なし';
+  return list.slice(0,limit||60).map(m=>[m.maker,m.model].filter(Boolean).join(' ')).filter(Boolean).join('・')||'なし';
+}
+// confidence(0〜1 または high/medium/low)が低いか判定
+function isLowConfidence(c){
+  if(c===undefined||c===null||c==='')return false;
+  if(typeof c==='number')return c<0.6;
+  const s=String(c).toLowerCase();
+  if(s==='low'||s==='低'||s==='うすい')return true;
+  const n=parseFloat(s);if(!isNaN(n))return n<0.6;
+  return false;
+}
+// 銘板OCR結果を正規化：項目をmaker/model/serialNo/hourMeterに固定し、メーカー表記ゆれを正規化。
+// confidenceは {maker,model,serialNo,hourMeter} のマップに整形して返す。既存呼び出しと互換（フラット値は維持）。
+function normalizeNameplate(r){
+  r=r||{};
+  const out={maker:'',model:'',serialNo:'',hourMeter:'',confidence:{}};
+  const pick=(v)=>{
+    // {value,confidence} 形式・フラット値の両対応
+    if(v&&typeof v==='object'&&!Array.isArray(v)){return {value:v.value!==undefined?v.value:'',conf:v.confidence};}
+    return {value:v,conf:undefined};
+  };
+  ['maker','model','serialNo','hourMeter'].forEach(k=>{
+    const p=pick(r[k]);
+    let val=String(p.value==null?'':p.value).trim();
+    if(k==='maker')val=normalizeMaker(val);
+    if(k==='hourMeter')val=val.replace(/[^0-9.]/g,'');
+    out[k]=val;
+    // confidenceは別オブジェクト or フラット内のいずれか
+    let conf=p.conf;
+    if(conf===undefined&&r.confidence&&typeof r.confidence==='object')conf=r.confidence[k];
+    out.confidence[k]=conf;
+  });
+  return out;
+}
+
+// ===== 画像送信ヘルパー（圧縮を緩めて解像度を確保）=====
+// 銘板の小さな刻印を読むため、過度に縮小せず長辺2200px・JPEG品質0.92で送信。
+// 既定の縮小幅より大きい場合のみ縮小し、PDF・非画像は無加工で渡す。
+function imageToB64HiRes(file,maxDim,quality){
+  maxDim=maxDim||2200;quality=quality||0.92;
+  return new Promise((resolve,reject)=>{
+    if(!file){reject(new Error('ファイルなし'));return;}
+    const type=file.type||'';
+    if(type==='application/pdf'||!/^image\//.test(type)){
+      // 画像以外はそのまま（型を保持）
+      fileToB64(file).then(b64=>resolve({b64,mediaType:type||'image/jpeg'})).catch(reject);return;
+    }
+    const url=URL.createObjectURL(file);
+    const img=new Image();
+    img.onload=()=>{
+      try{
+        let w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;
+        const long=Math.max(w,h);
+        if(long>maxDim){const s=maxDim/long;w=Math.round(w*s);h=Math.round(h*s);}
+        const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+        const ctx=cv.getContext('2d');ctx.drawImage(img,0,0,w,h);
+        const dataUrl=cv.toDataURL('image/jpeg',quality);
+        URL.revokeObjectURL(url);
+        resolve({b64:dataUrl.split(',')[1],mediaType:'image/jpeg'});
+      }catch(e){URL.revokeObjectURL(url);reject(e);}
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('画像読込失敗'));};
+    img.src=url;
+  });
+}
+// ===AGRI_SHARED_END=====
+
 // ===== フィールド個別音声入力 =====
 let fvRec=null;
 function fieldVoice(targetId,btn){
@@ -814,27 +938,56 @@ async function runSmartAI(){
   const btn=document.getElementById('smartBtn'),sEl=document.getElementById('smartStatus');
   btn.textContent='⏳ AIが解析中...';btn.disabled=true;sEl.style.display='block';sEl.style.background='var(--input-bg)';sEl.style.color='var(--text-sub)';sEl.textContent='AIが内容を解析して振り分けています...';
   const today=new Date().toISOString().slice(0,10);
-  const custList=DB.customers.map(c=>c.name).join('・')||'なし';
-  const prompt=`農業機械販売修理会社（財部農機センター）の業務管理システムです。以下テキストを解析してJSONのみ返してください。前後の文章・\`\`\`不要。
+  const custList=getRegisteredCustomers(DB).join('・')||'なし';
+  const machList=machineListText(DB);
+  const makerList=Object.keys(AGRI_MAKER_DICT).join('・');
+  const prompt=`あなたは農業機械の販売・修理会社（${ORG_NAME} 財部農機センター）の業務管理AIです。以下テキストを解析してJSONのみ返してください。前後の文章・\`\`\`不要。
 
-今日: ${today}　登録顧客: ${custList}
+今日: ${today}
+登録顧客（既存）: ${custList}
+登録機械 メーカー型式（既存）: ${machList}
+農機メーカー辞書（正式表記）: ${makerList}
 
-テキスト:「${text}」
+# 照合方針（重要）
+・顧客名・メーカー・型式は、まず上記「既存」リストと読み仮名/部分一致/英数字の揺れで照合し、一致すれば正式名に補正して使う。
+・既存に無い場合のみ新規として記録する。勝手に既存へ寄せすぎない。
+・確信が持てない項目は推測で埋めず空欄にし、トップレベルに "needsConfirmation": true と、確認が必要な理由 "confirmNote" を日本語で返す（UIで人が確認する）。
 
-{"customer":{"name":"","phone":"","address":""},"repair":{"customerName":"","machine":"","maker":"","model":"","serialNo":"","attachment":"","hourMeter":"","issue":"","status":"修理依頼","dueDate":"","price":0},"demo":{"customerName":"","targetMachine":"","maker":"","model":"","date":"","status":"実演予定"},"parts":[{"customerName":"","name":"","maker":"","partNo":"","qty":1,"price":0,"status":"発注前","orderDate":""}],"products":[{"productName":"","maker":"","model":"","serialNo":"","customer":"","status":"受注","deliveryDate":"","price":0}],"quote":{"customerName":"","subject":"","items":[{"name":"","brand":"","model":"","serialNo":"","qty":1,"price":0,"note":""}]},"hasCustomer":false,"hasRepair":false,"hasDemo":false,"hasParts":false,"hasProducts":false,"hasQuote":false}
+# few-shot（農機業務の代表例）
+1) 修理: 「田中さんのクボタトラクタGL241 油圧効かない 来週金曜まで」→ hasRepair:true, repair.customerName="田中", repair.maker="クボタ", repair.model="GL241", repair.issue="油圧効かない", repair.dueDate=該当日付
+2) 部品: 「山田様 ヤンマーYT222のオイルエレメント2個 品番3C081-43480」→ hasParts:true, parts=[{customerName:"山田",name:"オイルエレメント",maker:"ヤンマー",partNo:"3C081-43480",qty:2}]
+3) 製品: 「佐藤さんへ井関の田植機PZ60を納品予定 来月10日」→ hasProducts:true, products=[{productName:"田植機",maker:"井関",model:"PZ60",customer:"佐藤",status:"受注",deliveryDate:該当日付}]
+4) 実演: 「鈴木さんに三菱のコンバイン実演 今週土曜」→ hasDemo:true, demo.customerName="鈴木", demo.maker="三菱マヒンドラ農機", demo.targetMachine="コンバイン", demo.date=該当日付
 
-重要ルール:
-・登録顧客リストと部分一致・読み仮名で照合して正式名に補正
+# 出力スキーマ
+{"customer":{"name":"","phone":"","address":""},"repair":{"customerName":"","machine":"","maker":"","model":"","serialNo":"","attachment":"","hourMeter":"","issue":"","status":"修理依頼","dueDate":"","price":0},"demo":{"customerName":"","targetMachine":"","maker":"","model":"","date":"","status":"実演予定"},"parts":[{"customerName":"","name":"","maker":"","partNo":"","qty":1,"price":0,"status":"発注前","orderDate":""}],"products":[{"productName":"","maker":"","model":"","serialNo":"","customer":"","status":"受注","deliveryDate":"","price":0}],"quote":{"customerName":"","subject":"","items":[{"name":"","brand":"","model":"","serialNo":"","qty":1,"price":0,"note":""}]},"hasCustomer":false,"hasRepair":false,"hasDemo":false,"hasParts":false,"hasProducts":false,"hasQuote":false,"needsConfirmation":false,"confirmNote":""}
+
+# 解析ルール
+・テキスト:「${text}」
 ・製造番号/シリアル→serialNo（英数混在そのまま）
 ・稼働時間/アワーメーター→hourMeter（数値のみ）
 ・金額は数値のみ（「8万5千円」→85000）
 ・見積/円含む→hasQuote:true+quote
-・農機メーカー表記正規化（ヤンマー/クボタ/井関/ニプロ/IHIアグリテック等）
+・メーカーは辞書の正式表記に正規化（ヤンマー/クボタ/井関/三菱マヒンドラ農機/丸山製作所/筑水キャニコム/共立/ニプロ/IHIアグリテック等）
 ・日付表現は${today}基準で変換（「来月末」等）
 ・型式の英数字は音声誤変換を考慮して補完（例：GZA651,YT222等）
 ・全項目に顧客名を反映`;
   try{
     const r=await callAI(prompt);const msgs=[];
+    // メーカー表記ゆれを共通辞書で正規化（保存前）
+    if(r.repair)r.repair.maker=normalizeMaker(r.repair.maker||'');
+    if(r.demo)r.demo.maker=normalizeMaker(r.demo.maker||'');
+    if(Array.isArray(r.parts))r.parts.forEach(p=>{if(p)p.maker=normalizeMaker(p.maker||'');});
+    if(Array.isArray(r.products))r.products.forEach(p=>{if(p)p.maker=normalizeMaker(p.maker||'');});
+    if(r.quote&&Array.isArray(r.quote.items))r.quote.items.forEach(it=>{if(it&&it.brand)it.brand=normalizeMaker(it.brand);});
+    // 確信が低い場合はユーザーに確認を促す（推測で登録しない）
+    if(r.needsConfirmation){
+      const note=r.confirmNote?('\n\n'+r.confirmNote):'';
+      if(!confirm('⚠️ AIが内容を確定できませんでした。'+note+'\n\nこのまま登録を続けますか？\n（キャンセルして文章を直すと精度が上がります）')){
+        sEl.style.background='#fff8e1';sEl.style.color='#f57f17';sEl.textContent='⚠️ 確認のため登録を中止しました。内容を修正して再実行してください。';
+        btn.textContent='🤖 AI自動振り分け・登録';btn.disabled=false;return;
+      }
+    }
     if(r.hasCustomer&&r.customer?.name){const _nk=_nameKey(r.customer.name);if(!(DB.customers||[]).some(c=>_nameKey(c.name)===_nk)){DB.customers.push({id:'ID_'+Date.now(),name:r.customer.name,phone:r.customer.phone||'',address:r.customer.address||''});msgs.push('👥 顧客登録');}else{msgs.push('👥 顧客は登録済み（重複回避）');}}
     if(r.hasRepair&&r.repair?.customerName){DB.repairs.push({id:'ID_'+(Date.now()+1),customerName:r.repair.customerName,machine:r.repair.machine||'',maker:r.repair.maker||'',model:r.repair.model||'',serialNo:r.repair.serialNo||'',attachment:r.repair.attachment||'',hourMeter:r.repair.hourMeter||'',issue:r.repair.issue||'',status:r.repair.status||'修理依頼',dueDate:r.repair.dueDate||'',price:r.repair.price||0,date:today,usedParts:[]});const cu=buildCalUrl('【修理納期】'+r.repair.customerName+' 様 '+(r.repair.machine||''),r.repair.dueDate,'内容: '+(r.repair.issue||''));msgs.push('🔧 修理依頼登録 <a href="'+cu+'" target="_blank" style="margin-left:8px;background:#4285f4;color:#fff;padding:4px 8px;border-radius:6px;text-decoration:none;font-size:11px;">📅 カレンダー</a>');}
     if(r.hasDemo&&r.demo?.customerName){DB.demos.push({id:'ID_'+(Date.now()+2),customerName:r.demo.customerName,targetMachine:r.demo.targetMachine||'',maker:r.demo.maker||'',model:r.demo.model||'',date:r.demo.date||'',status:r.demo.status||'実演予定'});msgs.push('🌾 実演登録');}
@@ -883,9 +1036,27 @@ function stopSmartVoice(){
   if(btn){btn.textContent='🎙 音声で話す';btn.style.background='#e67e22';}
   const vs=document.getElementById('smartVoiceStatus');
   if(vs)vs.style.display='none';
-  // 録音終了後に補正辞書を適用
+  // 録音終了後に補正辞書を適用（ローカル）→ さらにClaudeで用語照合補正
   const ta=document.getElementById('smartText');
-  if(ta)ta.value=fixVoice(ta.value);
+  if(ta){ta.value=fixVoice(ta.value);aiCorrectVoiceText();}
+}
+// 認識テキストをClaudeで用語辞書（メーカー辞書＋登録顧客＋登録機械）と照合し、
+// メーカー名・型式・顧客名の崩れを補正してから振り分けに渡す。失敗時はローカル補正のままにする。
+async function aiCorrectVoiceText(){
+  const ta=document.getElementById('smartText');if(!ta)return;
+  const text=ta.value.trim();if(!text||!apiKey.trim())return;
+  const vs=document.getElementById('smartVoiceStatus');
+  if(vs){vs.style.display='block';vs.textContent='🤖 用語を補正中...';}
+  const custList=getRegisteredCustomers(DB).join('・')||'なし';
+  const machList=machineListText(DB);
+  const makerList=Object.keys(AGRI_MAKER_DICT).join('・');
+  const prompt=`次は農業機械の業務メモを音声認識した日本語テキストです。音声誤認識で崩れた「メーカー名・型式・顧客名」を、下記の辞書・登録リストと照合して自然に補正してください。意味は変えず、補正後の本文のみを返す（説明・引用符・\`\`\`不要）。判断できない箇所は無理に変えない。\n\n農機メーカー辞書: ${makerList}\n登録顧客: ${custList}\n登録機械(メーカー型式): ${machList}\n\n本文:\n${text}`;
+  try{
+    const corrected=await callAIText(prompt);
+    const out=(corrected||'').trim();
+    if(out&&out.length<=text.length*3)ta.value=out;
+  }catch(e){/* 失敗時はローカル補正済みテキストのまま */}
+  if(vs){vs.style.display='none';}
 }
 
 // ===== 修理写真管理 =====
@@ -967,8 +1138,8 @@ async function runPartsOCR(event){
   if(!apiKey.trim()){alert('APIキーが未設定です');return;}
   const resDiv=document.getElementById('ocrResult');
   const prevDiv=document.getElementById('ocrPreview');
-  const b64=await fileToB64(file);
-  prevDiv.style.display='block';prevDiv.innerHTML=`<img src="data:${file.type};base64,${b64}" style="width:100%;border-radius:8px;max-height:160px;object-fit:contain;background:#eee;">`;
+  const o=await imageToB64HiRes(file);const b64=o.b64;
+  prevDiv.style.display='block';prevDiv.innerHTML=`<img src="data:${o.mediaType};base64,${b64}" style="width:100%;border-radius:8px;max-height:160px;object-fit:contain;background:#eee;">`;
   resDiv.style.display='block';resDiv.textContent='📷 読み取り中...';
   document.getElementById('ocrApplyBtn').style.display='none';
   try{
@@ -978,8 +1149,9 @@ async function runPartsOCR(event){
 - 読み取れない項目は空文字・0
 - 型番・品番は英数字そのまま（例:GZA651-A,3C081-43480等）
 - 数量・価格は数値のみ`;
-    const r=await callAI(prompt,b64,file.type);
+    const r=await callAI(prompt,b64,o.mediaType);
     lastOcrParts=Array.isArray(r)?r:[r];
+    lastOcrParts.forEach(p=>{if(p&&p.maker)p.maker=normalizeMaker(p.maker);});
     let html='<div style="font-weight:800;margin-bottom:6px;font-size:13px;">📦 読取結果</div>';
     lastOcrParts.forEach((p,i)=>{html+=`<div style="border-bottom:1px solid var(--border);padding:6px 0;font-size:12px;"><b>${i+1}. ${p.name||'不明'}</b><br>品番: ${p.partNo||'-'} / メーカー: ${p.maker||'-'} / 数量: ${p.qty||1} / 単価: ¥${Number(p.price||0).toLocaleString()}</div>`;});
     resDiv.innerHTML=html;
@@ -1008,8 +1180,8 @@ async function runScanQuote(event){
   const st=document.getElementById('scanStatus');
   st.style.display='block';st.style.background='var(--input-bg)';st.style.color='var(--text-sub)';st.textContent='📷 見積書を読み取り中...';
   try{
-    const b64=await fileToB64(file);
-    const isPdf=file.type==='application/pdf';
+    const o=await imageToB64HiRes(file);const b64=o.b64;
+    const isPdf=o.mediaType==='application/pdf';
     const prompt=`この見積書（${isPdf?'PDF':'写真'}）を読み取り、JSONのみ返してください。\`\`\`不要。
 {"customerName":"顧客名","subject":"件名・機械名","items":[{"name":"品名","brand":"メーカー・銘柄","model":"型式","qty":1,"price":0,"note":"備考"}]}
 - 品目は全て読み取る（最大20件）
@@ -1017,7 +1189,7 @@ async function runScanQuote(event){
 - 合計額・消費税行は除外
 - 読み取れない項目は空文字
 - 型式・品番は英数字そのまま`;
-    const r=await callAI(prompt,b64,file.type);
+    const r=await callAI(prompt,b64,o.mediaType);
     closeScanQuoteModal();
     // 見積書エディタに反映
     openQuoteEditor('');
@@ -1026,7 +1198,7 @@ async function runScanQuote(event){
     resetQItems();
     if(Array.isArray(r.items)){
       r.items.slice(0,ROWS).forEach((it,i)=>{
-        qItems[i]={name:it.name||'',brand:it.brand||'',model:it.model||'',qty:Number(it.qty)||1,price:Number(it.price)||0,note:it.note||''};
+        qItems[i]={name:it.name||'',brand:normalizeMaker(it.brand||'')||(it.brand||''),model:it.model||'',qty:Number(it.qty)||1,price:Number(it.price)||0,note:it.note||''};
       });
     }
     buildTable();
@@ -1284,24 +1456,52 @@ function machineBadgeHTML(mid){
     +'</div>';
 }
 function unlinkMachine(){const e=document.getElementById('f_machineId');if(e)e.value='';const b=document.getElementById('machineLinkBadge');if(b)b.style.display='none';showSyncBar('機械カルテ連携を解除しました（保存で確定）','sync');}
-const NAMEPLATE_PROMPT='この農業機械の銘板（ネームプレート）の画像です。メーカー名(maker)、型式(model)、製造番号(serialNo)、稼働時間(hourMeter、数値のみ)を読み取り、JSONのみで返してください。読み取れない項目は空文字。例:{"maker":"クボタ","model":"GL241","serialNo":"12345","hourMeter":"320"}';
+const NAMEPLATE_PROMPT='これは農業機械の銘板（ネームプレート）の画像です。抽出する項目は メーカー名(maker)・型式(model)・製造番号(serialNo)・稼働時間(hourMeter、数値のみ) の4つに固定です。各項目について読み取った値(value)と確信度(confidence、0〜1の数値)をJSONのみで返してください。読み取れない/自信が無い項目は value を空文字にし confidence を 0 に近い値にします。前後の文章・```不要。\n例:{"maker":{"value":"クボタ","confidence":0.95},"model":{"value":"GL241","confidence":0.8},"serialNo":{"value":"12345","confidence":0.4},"hourMeter":{"value":"320","confidence":0.6}}';
+// 銘板OCRの共通実行：高解像度で送信し、メーカー正規化・confidence整形まで行う。
+// 返り値: {maker,model,serialNo,hourMeter,confidence:{...},_dataUrl}
+async function runNameplateOCR(file){
+  const o=await imageToB64HiRes(file);
+  const raw=await callAI(NAMEPLATE_PROMPT,o.b64,o.mediaType);
+  const norm=normalizeNameplate(raw);
+  norm._dataUrl='data:'+o.mediaType+';base64,'+o.b64;
+  return norm;
+}
+// 低確信は赤字で表示する銘板確認モーダル。Promise<boolean>を返す。
+function nameplateConfirm(rows,title){
+  return new Promise(resolve=>{
+    const ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:3000;display:flex;align-items:center;justify-content:center;padding:20px;';
+    const body=rows.map(r=>`<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid #eee;font-size:14px;"><span style="color:#666;">${esc(r.label)}</span><span style="font-weight:700;color:${r.low?'#e74c3c':'#222'};word-break:break-all;text-align:right;">${esc(r.value||'-')}${r.low?' ⚠️':''}</span></div>`).join('');
+    const hasLow=rows.some(r=>r.low);
+    ov.innerHTML=`<div style="background:#fff;border-radius:14px;padding:18px;max-width:340px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.3);">`
+      +`<div style="font-weight:800;font-size:15px;margin-bottom:8px;color:#222;">${esc(title||'📋 銘板の読み取り結果')}</div>`
+      +body
+      +(hasLow?'<div style="color:#e74c3c;font-size:12px;margin-top:8px;line-height:1.6;">⚠️ 赤字は確信度が低い項目です。値が正しいかご確認ください。</div>':'')
+      +`<div style="display:flex;gap:8px;margin-top:14px;"><button id="npCancel" style="flex:1;background:#eee;border:none;border-radius:10px;padding:11px;font-weight:700;cursor:pointer;color:#333;">キャンセル</button><button id="npOk" style="flex:1;background:#16a085;color:#fff;border:none;border-radius:10px;padding:11px;font-weight:800;cursor:pointer;">反映する</button></div></div>`;
+    document.body.appendChild(ov);
+    const done=v=>{ov.remove();resolve(v);};
+    ov.querySelector('#npOk').onclick=()=>done(true);
+    ov.querySelector('#npCancel').onclick=()=>done(false);
+    ov.onclick=e=>{if(e.target===ov)done(false);};
+  });
+}
+function _npRows(r){
+  const fields=[['maker','メーカー'],['model','型式'],['serialNo','製造番号'],['hourMeter','稼働時間']];
+  return fields.filter(([k])=>r[k]&&String(r[k]).trim()).map(([k,l])=>({key:k,label:l,value:String(r[k]).trim()+(k==='hourMeter'?' h':''),low:isLowConfidence(r.confidence&&r.confidence[k])}));
+}
 async function runMachineNameplate(event){
   const file=event.target.files[0];if(!file)return;event.target.value='';
   showSyncBar('🔍 銘板を解析中...','sync',false);
   let r={},dataUrl='';
   try{
-    const b64=await fileToB64(file);const mediaType=file.type||'image/jpeg';
-    dataUrl='data:'+mediaType+';base64,'+b64;
-    r=await callAI(NAMEPLATE_PROMPT,b64,mediaType);
+    r=await runNameplateOCR(file);dataUrl=r._dataUrl;
   }catch(e){showSyncBar('⚠️ 読取失敗: '+e.message,'conflict');return;}
-  const fields=[['maker','メーカー'],['model','型式'],['serialNo','製造番号'],['hourMeter','稼働時間']];
-  const found=fields.filter(([k])=>r[k]&&String(r[k]).trim());
-  if(!found.length){showSyncBar('⚠️ 銘板から読み取れませんでした','conflict');return;}
-  const summary=found.map(([k,l])=>'　'+l+'：'+String(r[k]).trim()).join('\n');
-  if(!confirm('銘板の読み取り結果\n\n'+summary+'\n\nこの内容を反映しますか？\n（空欄の項目は変更しません）'))return;
+  const rows=_npRows(r);
+  if(!rows.length){showSyncBar('⚠️ 銘板から読み取れませんでした','conflict');return;}
+  if(!(await nameplateConfirm(rows)))return;
   currentMachinePhoto=dataUrl;
   const prev=document.getElementById('machinePhotoPrev');if(prev)prev.innerHTML=machinePhotoPrevHTML();
-  found.forEach(([k])=>{const el=document.getElementById('mf_'+k);if(el)el.value=String(r[k]).trim();});
+  rows.forEach(row=>{const el=document.getElementById('mf_'+row.key);if(el)el.value=String(r[row.key]).trim();});
   showSyncBar('✅ 銘板から反映しました','ok');
 }
 function fldCam(id2,label,val,type){
@@ -1322,7 +1522,7 @@ async function scanField(event,field,label){
   const file=event.target.files[0];if(!file)return;event.target.value='';
   showSyncBar('🔍 解析中...','sync',false);
   let val='';
-  try{const b64=await fileToB64(file);const mt=file.type||'image/jpeg';const r=await callAI(fieldPrompt(field),b64,mt);val=(r&&(r.value!==undefined?r.value:r[field]))||'';}
+  try{const o=await imageToB64HiRes(file);const r=await callAI(fieldPrompt(field),o.b64,o.mediaType);val=(r&&(r.value!==undefined?r.value:r[field]))||'';if(field==='maker')val=normalizeMaker(val);}
   catch(e){showSyncBar('⚠️ 読取失敗: '+e.message,'conflict');return;}
   val=String(val).trim();
   if(!val){showSyncBar('⚠️ 読み取れませんでした。もう一度お試しください','conflict');return;}
@@ -1337,18 +1537,18 @@ function _machineSummary(r){
   if(r.hourMeter)s+=(s?' ':'')+'稼働時間:'+String(r.hourMeter).trim()+'h';
   return s;
 }
-async function ocrNameplate(file){const b64=await fileToB64(file);const mt=file.type||'image/jpeg';return await callAI(NAMEPLATE_PROMPT,b64,mt);}
-async function ocrMeterVal(file){const b64=await fileToB64(file);const mt=file.type||'image/jpeg';const r=await callAI(fieldPrompt('hourMeter'),b64,mt);return String((r&&(r.value!==undefined?r.value:r.hourMeter))||'').trim();}
+// 銘板OCR（normalizeNameplateで正規化済みの {maker,model,serialNo,hourMeter,confidence} を返す）
+async function ocrNameplate(file){return await runNameplateOCR(file);}
+async function ocrMeterVal(file){const o=await imageToB64HiRes(file);const r=await callAI(fieldPrompt('hourMeter'),o.b64,o.mediaType);return String((r&&(r.value!==undefined?r.value:r.hourMeter))||'').replace(/[^0-9.]/g,'').trim();}
 // 修理「＋」フォームへ反映
 async function repairScanNameplate(event){
   const file=event.target.files[0];if(!file)return;event.target.value='';
   showSyncBar('🔍 銘板を解析中...','sync',false);
   let r={};try{r=await ocrNameplate(file);}catch(e){showSyncBar('⚠️ 読取失敗: '+e.message,'conflict');return;}
-  const fields=[['maker','メーカー'],['model','型式'],['serialNo','製造番号'],['hourMeter','稼働時間']];
-  const found=fields.filter(([k])=>r[k]&&String(r[k]).trim());
-  if(!found.length){showSyncBar('⚠️ 銘板から読み取れませんでした','conflict');return;}
-  if(!confirm('銘板の読み取り結果\n\n'+found.map(([k,l])=>'　'+l+'：'+String(r[k]).trim()).join('\n')+'\n\nこの内容を反映しますか？\n（空欄の項目は変更しません）'))return;
-  found.forEach(([k])=>{const el=document.getElementById('f_'+k);if(el)el.value=String(r[k]).trim();});
+  const rows=_npRows(r);
+  if(!rows.length){showSyncBar('⚠️ 銘板から読み取れませんでした','conflict');return;}
+  if(!(await nameplateConfirm(rows)))return;
+  rows.forEach(row=>{const el=document.getElementById('f_'+row.key);if(el)el.value=String(r[row.key]).trim();});
   showSyncBar('✅ 銘板から反映しました','ok');
 }
 async function repairScanMeter(event){
@@ -1366,9 +1566,9 @@ async function smartScanNameplate(event){
   const file=event.target.files[0];if(!file)return;event.target.value='';
   showSyncBar('🔍 銘板を解析中...','sync',false);
   let r={};try{r=await ocrNameplate(file);}catch(e){showSyncBar('⚠️ 読取失敗: '+e.message,'conflict');return;}
-  const sm=_machineSummary(r);
+  const rows=_npRows(r);const sm=_machineSummary(r);
   if(!sm){showSyncBar('⚠️ 銘板から読み取れませんでした','conflict');return;}
-  if(!confirm('銘板の読み取り結果\n\n　'+sm+'\n\nこの内容を入力欄に追加しますか？'))return;
+  if(!(await nameplateConfirm(rows,'📋 銘板の読み取り結果（入力欄へ追加）')))return;
   _appendSmart(sm);showSyncBar('✅ 入力欄に追加しました','ok');
 }
 async function smartScanMeter(event){
@@ -1442,9 +1642,7 @@ async function runNameplateLookup(event){
   showSyncBar('🔍 銘板を解析中...','sync',false);
   let ocr={},photo='';
   try{
-    const b64=await fileToB64(file);const mediaType=file.type||'image/jpeg';
-    photo='data:'+mediaType+';base64,'+b64;
-    ocr=await callAI(NAMEPLATE_PROMPT,b64,mediaType);
+    ocr=await runNameplateOCR(file);photo=ocr._dataUrl;
   }catch(e){showSyncBar('⚠️ 読取失敗: '+e.message,'conflict');return;}
   showSyncBar('✅ 読み取り完了','ok');
   lastNameplate={ocr,photo};
@@ -1456,7 +1654,9 @@ function showNameplateResult(ocr,photo){
   const repMatches=(DB.repairs||[]).filter(r=>{if(serial&&_norm(r.serialNo)&&_norm(r.serialNo)===serial)return true;if(model&&_norm(r.model)&&_norm(r.model)===model)return true;return false;}).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
   let h='';
   if(photo)h+='<img src="'+photo+'" style="width:100%;max-height:140px;object-fit:contain;background:#000;border-radius:10px;margin-bottom:10px;">';
-  h+='<div style="background:var(--input-bg);border-radius:10px;padding:10px;margin-bottom:14px;font-size:13px;"><div style="font-weight:800;margin-bottom:4px;">📋 読み取り結果</div>メーカー: '+esc(ocr.maker||'-')+'<br>型式: <b>'+esc(ocr.model||'-')+'</b><br>製造番号: '+esc(ocr.serialNo||'-')+(ocr.hourMeter?'<br>稼働時間: '+esc(ocr.hourMeter)+'h':'')+'</div>';
+  const _cf=ocr.confidence||{};const _v=(k,val)=>{const low=isLowConfidence(_cf[k]);return '<span style="'+(low?'color:#e74c3c;font-weight:700;':'')+'">'+esc(val||'-')+(low?' ⚠️':'')+'</span>';};
+  const _anyLow=['maker','model','serialNo','hourMeter'].some(k=>ocr[k]&&isLowConfidence(_cf[k]));
+  h+='<div style="background:var(--input-bg);border-radius:10px;padding:10px;margin-bottom:14px;font-size:13px;"><div style="font-weight:800;margin-bottom:4px;">📋 読み取り結果</div>メーカー: '+_v('maker',ocr.maker)+'<br>型式: '+_v('model',ocr.model)+'<br>製造番号: '+_v('serialNo',ocr.serialNo)+(ocr.hourMeter?'<br>稼働時間: '+_v('hourMeter',ocr.hourMeter)+'h':'')+(_anyLow?'<div style="color:#e74c3c;font-size:11px;margin-top:6px;">⚠️ 赤字は確信度が低い項目です。ご確認ください。</div>':'')+'</div>';
   h+='<div style="font-weight:800;font-size:14px;margin:6px 0;">🚜 登録済みの機械（型式一致 '+machineMatches.length+'件）</div>';
   if(!machineMatches.length)h+='<div style="color:var(--text-sub);font-size:12px;margin-bottom:8px;">一致する登録機械はありません</div>';
   else machineMatches.forEach(m=>{h+='<div class="card" onclick="openMachineCard(\''+m.id+'\')" style="border-left:4px solid #16a085;"><div style="font-weight:bold;">'+esc(m.category||m.model||'機械')+'</div><div style="font-size:12px;color:var(--text-sub);">'+esc(m.maker||'')+' '+esc(m.model||'')+(m.serialNo?' / No.'+esc(m.serialNo):'')+'<br>👤 '+esc(m.customerName||'-')+'</div></div>';});
