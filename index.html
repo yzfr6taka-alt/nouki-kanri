@@ -9,7 +9,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="農機管理PRO">
 <meta name="theme-color" content="#1a252f">
 <link rel="manifest" href="manifest.json">
@@ -625,7 +625,14 @@ function getStyles(){return '*{box-sizing:border-box;margin:0;padding:0;}body{fo
 function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 async function generatePDFBlob(){
   /* 独立iframeで白背景描画（ダークモード干渉・黒バグ両方回避） */
-  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}</body></html>`;
+  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}<div id="itemTable" style="margin:10px 0;overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr style="background:var(--table-th);color:var(--card-bg);"><th style="padding:8px;text-align:left;border:1px solid var(--border);">機械名</th><th style="padding:8px;text-align:left;border:1px solid var(--border);">状態</th><th style="padding:8px;text-align:center;border:1px solid var(--border);">操作</th></tr></thead><tbody id="itemTableBody"></tbody></table></div>
+<div id="preview" style="background:var(--input-bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin:10px 0;display:none;"></div>
+<form id="loginForm" style="max-width:300px;margin:20px auto;">
+  <input type="text" id="username" placeholder="ユーザー名" style="width:100%;padding:8px;margin-bottom:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);">
+  <input type="password" id="password" placeholder="パスワード" style="width:100%;padding:8px;margin-bottom:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--input-bg);color:var(--text);">
+  <button type="submit" style="width:100%;padding:10px;background:var(--accent);color:white;border:none;border-radius:var(--radius-sm);cursor:pointer;">ログイン</button>
+</form>
+</body></html>`;
   return new Promise((resolve,reject)=>{
     const fr=document.createElement('iframe');
     fr.style.cssText='position:fixed;left:-4000px;top:0;width:794px;height:300px;border:none;opacity:0;pointer-events:none;';
@@ -2297,6 +2304,21 @@ if('serviceWorker' in navigator){
     navigator.serviceWorker.register('sw.js').catch(function(e){console.log('SW登録失敗',e);});
   });
 }
+window.itemData = [];
+window.currentFilter = 'all';
+window.isDarkMode = false;
+window.apiEndpoint = '/api';
+window.selectedItem = null;
+window.formData = {};
+window.notifications = [];
+window.cache = {};
+window.config = {};
+window.addEventListener('error', (e) => {
+  if (e.message.includes('404')) {
+    console.warn('リソース読み込み失敗。キャッシュまたはローカルリソースを使用します。');
+    // フォールバック処理
+  }
+}, true);
 </script>
 </body>
 </html>
