@@ -300,7 +300,8 @@ body.dark .bc-blue{background:#1b2a44;color:#7eacff;}
 <textarea class="field-textarea" id="note" rows="3"></textarea>
 </div>
 <button class="save-btn" onclick="saveCurrentQuote()" style="width:100%;margin-bottom:10px;">💾 この見積書を保存</button>
-<button class="save-btn" onclick="showPreview()" style="width:100%;background:#e67e22;margin-bottom:15px;">📄 プレビュー・出力</button>
+<button class="save-btn" onclick="showPreview()" style="width:100%;background:#e67e22;margin-bottom:10px;">📄 プレビュー・出力</button>
+<button class="save-btn" onclick="quoteToProduct()" style="width:100%;background:#27ae60;margin-bottom:15px;">🚜 この見積から製品登録</button>
 <div style="text-align:center;"><button onclick="if(confirm('削除しますか？')){deleteCurrentQuote();}" style="background:none;border:none;color:#e74c3c;text-decoration:underline;cursor:pointer;font-size:12px;">この見積書を削除</button></div>
 <div style="height:20px;"></div>
 </div>
@@ -381,6 +382,7 @@ body.dark .bc-blue{background:#1b2a44;color:#7eacff;}
 <button onclick="testSync()" style="background:#2980b9;color:#fff;border:none;border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;width:100%;margin-bottom:8px;">🔗 接続テスト</button>
 <div id="testResult" style="font-size:12px;min-height:18px;"></div>
 </div>
+<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text);margin-bottom:14px;cursor:pointer;font-weight:700;"><input type="checkbox" id="calPromptToggle" style="width:18px;height:18px;flex-shrink:0;">📅 製品保存時にGoogleカレンダー登録を促す</label>
 <button onclick="saveApiKey()" class="save-btn" style="width:100%;">💾 保存する</button>
 </div>
 </div>
@@ -573,9 +575,9 @@ async function testSync(){
   try{const c=new AbortController();const t=setTimeout(()=>c.abort(),15000);const r=await fetch(url,{method:'GET',cache:'no-cache',credentials:'omit',signal:c.signal});clearTimeout(t);await r.json();document.getElementById('testResult').innerHTML='<span style="color:#27ae60;font-weight:bold;">✅ 接続成功！</span>';}
   catch(e){document.getElementById('testResult').innerHTML='<span style="color:#e74c3c;">❌ 接続失敗: '+(e.name==='AbortError'?'タイムアウト（15秒）':e.message)+'</span>';}
 }
-function openApiKey(){document.getElementById('apiKeyInput').value=apiKey;document.getElementById('gasUrlInput').value=gasUrl;document.getElementById('testResult').textContent='';document.getElementById('apiKeyModal').style.display='flex';}
+function openApiKey(){document.getElementById('apiKeyInput').value=apiKey;document.getElementById('gasUrlInput').value=gasUrl;document.getElementById('testResult').textContent='';const cp=document.getElementById('calPromptToggle');if(cp)cp.checked=calPromptOn();document.getElementById('apiKeyModal').style.display='flex';}
 function closeApiKey(){document.getElementById('apiKeyModal').style.display='none';}
-function saveApiKey(){apiKey=document.getElementById('apiKeyInput').value.trim();gasUrl=document.getElementById('gasUrlInput').value.trim();try{localStorage.setItem('agri_api_key',apiKey);}catch(e){}try{localStorage.setItem('agri_gas_url',gasUrl);}catch(e){}closeApiKey();alert('設定を保存しました');if(gasUrl)syncToCloud(true);}
+function saveApiKey(){apiKey=document.getElementById('apiKeyInput').value.trim();gasUrl=document.getElementById('gasUrlInput').value.trim();try{localStorage.setItem('agri_api_key',apiKey);}catch(e){}try{localStorage.setItem('agri_gas_url',gasUrl);}catch(e){}try{const cp=document.getElementById('calPromptToggle');if(cp)localStorage.setItem('agri_cal_prompt',cp.checked?'1':'0');}catch(e){}closeApiKey();alert('設定を保存しました');if(gasUrl)syncToCloud(true);}
 function openBackupModal(){const ov=document.getElementById('dataOverview');ov.innerHTML=`<div style="font-weight:800;margin-bottom:6px;">📊 現在のデータ</div><div>修理: <b>${DB.repairs?.length||0}件</b> / 製品: <b>${DB.products?.length||0}件</b> / 顧客: <b>${DB.customers?.length||0}件</b></div><div>部品: <b>${DB.parts?.length||0}件</b> / 実演: <b>${DB.demos?.length||0}件</b> / 見積: <b>${DB.quotes?.length||0}件</b></div><div style="margin-top:4px;color:var(--text-sub);">最終更新: ${DB.lastModified?new Date(DB.lastModified).toLocaleString('ja-JP'):'不明'}</div>`;renderBackupList();document.getElementById('backupModal').style.display='flex';}
 function closeBackupModal(){document.getElementById('backupModal').style.display='none';}
 function renderBackupList(){
@@ -2016,7 +2018,7 @@ function renderQuotesList(){
   html+='<button onclick="openQuoteEditor(\'\')" class="save-btn" style="flex:2;">＋ 新規作成</button>';
   html+='<button onclick="openScanQuoteModal()" class="save-btn" style="flex:1;background:#8e44ad;font-size:12px;padding:13px 4px;">📷 スキャン</button>';
   html+='</div>';
-  const sq=DB.quotes||[];if(!sq.length){html+='<div style="text-align:center;color:var(--text-sub);padding:40px 0;">保存された見積書はありません</div>';}else{sq.slice().reverse().forEach(q=>{html+='<div class="card" onclick="openQuoteEditor(\''+q.id+'\')" style="border-left:4px solid #8e44ad;"><div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-weight:bold;font-size:15px;margin-bottom:4px;">'+(q.toName?q.toName+' 様':'宛名なし')+'</div><div style="font-size:14px;font-weight:bold;color:#2c3e50;">¥'+Number(q.total||0).toLocaleString()+'</div></div><div style="font-size:12px;color:var(--text-sub);">'+(q.subject||'件名未入力')+'</div><div style="font-size:11px;color:var(--text-sub);margin-top:4px;">発行日: '+(q.estDate||'-')+'</div></div>';});}
+  const sq=DB.quotes||[];if(!sq.length){html+='<div style="text-align:center;color:var(--text-sub);padding:40px 0;">保存された見積書はありません</div>';}else{sq.slice().reverse().forEach(q=>{html+='<div class="card" onclick="openQuoteEditor(\''+q.id+'\')" style="border-left:4px solid #8e44ad;"><div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-weight:bold;font-size:15px;margin-bottom:4px;">'+(q.toName?q.toName+' 様':'宛名なし')+'</div><div style="font-size:14px;font-weight:bold;color:#2c3e50;">¥'+Number(q.total||0).toLocaleString()+'</div></div><div style="font-size:12px;color:var(--text-sub);">'+(q.subject||'件名未入力')+'</div><div style="font-size:11px;color:var(--text-sub);margin-top:4px;">発行日: '+(q.estDate||'-')+'</div><div style="margin-top:8px;text-align:right;"><button onclick="event.stopPropagation();quoteToProduct(\''+q.id+'\')" style="background:#27ae60;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:800;cursor:pointer;">🚜 製品登録</button></div></div>';});}
   return html;
 }
 
@@ -2072,10 +2074,43 @@ function saveItem(){
 function _finalizeSaveItem(item){
   const keys=['','customers','repairs','demos','parts','products'];const dbKey=keys[modalState.tab];
   if(modalState.tab===1&&modalState.mode==='new'){const _nk=_nameKey(item.name);if(_nk&&(DB.customers||[]).some(c=>_nameKey(c.name)===_nk)){if(!confirm('「'+(item.name||'')+'」は既に顧客に登録されています。\n重複して登録しますか？')){closeModal();return;}}}
+  // 製品：顧客名が未登録なら新規顧客として登録するか確認（重複作成は避ける）
+  if(modalState.tab===5){const cn=String(item.customer||'').trim();if(cn){const _ck=_nameKey(cn);if(!(DB.customers||[]).some(c=>_nameKey(c.name)===_ck)){if(confirm('「'+cn+'」は顧客に未登録です。\n顧客としても新規登録しますか？')){if(!DB.customers)DB.customers=[];DB.customers.push({id:'ID_'+(Date.now()+Math.random()),name:cn,phone:'',address:'',memo:''});}}}}
   if(modalState.mode==='new')DB[dbKey].push(item);else DB[dbKey]=DB[dbKey].map(x=>String(x.id)===String(item.id)?item:x);
   if(modalState.tab===5&&modalState.mode==='new'){for(let i=2;i<=10;i++){const pN=document.getElementById('f_productName'+i)?.value?.trim();if(pN)DB.products.push({id:'ID_'+(Date.now()+Math.random()),productName:pN,maker:item.maker||'',model:document.getElementById('f_model'+i)?.value||'',serialNo:document.getElementById('f_serialNo'+i)?.value||'',customer:item.customer||'',status:item.status||'受注',deliveryDate:item.deliveryDate||'',price:0});}}
   if(modalState.tab===4&&modalState.mode==='new'){for(let i=2;i<=10;i++){const pN=document.getElementById('f_name'+i)?.value?.trim();if(pN)DB.parts.push({id:'ID_'+(Date.now()+Math.random()),customerName:item.customerName||'',name:pN,maker:item.maker||'',partNo:document.getElementById('f_partNo'+i)?.value||'',qty:Number(document.getElementById('f_qty'+i)?.value)||0,price:Number(document.getElementById('f_price'+i)?.value)||0,status:item.status||'発注前',orderDate:item.orderDate||''}); }}
-  saveDB();closeModal();renderAll();
+  saveDB();
+  // 製品：納品予定日があればGoogleカレンダー登録も促す（アプリ内保存後・保存ボタン操作起点で開く）
+  if(modalState.tab===5&&String(item.deliveryDate||'').trim()&&calPromptOn()){
+    if(confirm('アプリ内の納期に保存しました。\nGoogleカレンダーにも納品予定を登録しますか？')){_openProductCal(item);}
+  }
+  closeModal();renderAll();
+}
+// 設定：保存時にGoogleカレンダー登録を促すか（既定ON）
+function calPromptOn(){try{return localStorage.getItem('agri_cal_prompt')!=='0';}catch(e){return true;}}
+// 製品情報からGoogleカレンダー登録URLを開く（regToCalendar('product')と同形式）。ブロック時はURL提示にフォールバック
+function _openProductCal(item){
+  const title='【製品納品】'+(item.customer||'')+' 様 '+(item.productName||'');
+  const details='メーカー: '+(item.maker||'')+'\n型式: '+(item.model||'');
+  const url=buildCalUrl(title,item.deliveryDate,details);
+  let w=null;try{w=window.open(url,'_blank');}catch(e){}
+  if(!w){try{prompt('ポップアップがブロックされました。下記URLをコピーしてGoogleカレンダーで開いてください。',url);}catch(e){}}
+}
+// 見積→製品 新規登録フォームへ初期流し込み（id指定時はDB.quotesから、未指定時は見積エディタの現在値から）
+function quoteToProduct(id){
+  let toName='',subject='',first={},total=0;
+  if(id){const q=(DB.quotes||[]).find(x=>x.id===id);if(!q){alert('見積が見つかりません');return;}
+    toName=String(q.toName||'').trim();subject=String(q.subject||'').trim();
+    first=(q.qItems||[]).find(it=>it&&(String(it.name||'').trim()||String(it.brand||'').trim()||String(it.model||'').trim()))||{};
+    total=Number(q.total)||0;
+  }else{
+    toName=String(document.getElementById('toName')?.value||'').trim();
+    subject=String(document.getElementById('subject')?.value||'').trim();
+    first=(qItems||[]).find(it=>it&&(String(it.name||'').trim()||String(it.brand||'').trim()||String(it.model||'').trim()))||{};
+    let sub=0;for(let i=0;i<ROWS;i++)sub+=(Number(qItems[i].qty)||0)*(Number(qItems[i].price)||0);total=sub+Math.floor(sub*.1);
+  }
+  document.getElementById('content_quote_editor').style.display='none';
+  quickReg(5,{customer:toName,productName:subject||first.name||'',maker:first.brand||'',model:first.model||'',price:total||'',status:'商談中'});
 }
 function delItem(){if(!confirm('削除しますか？'))return;const keys=['','customers','repairs','demos','parts','products'];DB[keys[modalState.tab]]=DB[keys[modalState.tab]].filter(x=>String(x.id)!==String(modalState.item.id));saveDB();closeModal();renderAll();}
 
