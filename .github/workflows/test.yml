@@ -1,17 +1,22 @@
 name: 見積書 自動診断テスト
 
+# ⚠️ 自動修正の暴走対策で無効化（手動実行のみ）。
+#   以前は push:main をトリガに patcher.js が index.html を機械的に書き換え、
+#   peter-evans/create-pull-request で auto-fix/patch-* PR を自動生成していた。
+#   そのパッチが本番(GitHub Pages)の index.html を破損させたため、
+#   ・トリガを push:main → workflow_dispatch（手動）に変更
+#   ・「自動修正PRを作成」ステップを削除（自動PR/自動マージを停止）
+#   再有効化する場合も、patcher.js の </body> 誤置換・/* AUTO-FIX */ 追記を
+#   修正してから / 本番ブランチ以外でのみ実施すること。
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
   test:
 
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
 
     steps:
 
@@ -45,26 +50,11 @@ jobs:
           npx http-server . -p 3000 --silent &
           sleep 3
 
-      - name: テスト実行
+      - name: テスト実行（診断のみ・自動コミット/PRなし）
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GIT_DIFF_FILE: /tmp/git_diff.txt
         run: npm test
-
-      - name: 自動修正PRを作成
-        if: always()
-        continue-on-error: true
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "🤖 自動修正: AI診断パッチ適用 (#${{ github.run_number }})"
-          title: "🤖 [自動修正] AI診断パッチ #${{ github.run_number }}"
-          body: |
-            ## 自動診断・修復レポート
-            このPRはGitHub Actionsの自動診断AIにより生成されました。
-            Artifactの `debug-logs` で詳細確認できます。
-          branch: auto-fix/patch-${{ github.run_number }}
-          delete-branch: true
 
       - name: ログ保存
         if: always()
