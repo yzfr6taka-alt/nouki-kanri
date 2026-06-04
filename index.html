@@ -512,7 +512,10 @@ function getStyles(){return '*{box-sizing:border-box;margin:0;padding:0;}body{fo
 function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
 async function generatePDFBlob(){
   /* 独立iframeで白背景描画（ダークモード干渉・黒バグ両方回避） */
-  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}</body></html>`;
+  const fullHTML=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}</style></head><body>${buildEstHTML()}
+#loadingText { color: #ffffff; font-weight: bold; font-size: 24px; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+<div style="width:200px; height:4px; background:#ddd; border-radius:2px; margin:20px auto;"><div id="progressBar" style="height:100%; width:0%; background:#4CAF50; border-radius:2px; transition:width 0.3s;"></div></div>
+</body></html>`;
   return new Promise((resolve,reject)=>{
     const fr=document.createElement('iframe');
     fr.style.cssText='position:fixed;left:-4000px;top:0;width:794px;height:300px;border:none;opacity:0;pointer-events:none;';
@@ -561,11 +564,7 @@ async function pdfDoc(){
 }
 function saveHTML(){
   const tN=(document.getElementById('toName')?.value||'').trim();const sv=(document.getElementById('subject')?.value||'').trim();const ed=(document.getElementById('estDate')?.value||'').replace(/-/g,'');
-  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><style>${getStyles()}</style></head><body>${buildEstHTML()}<div id="itemTable" class="table-container"><table><thead><tr><th>機械名</th><th>型式</th><th>状態</th><th>操作</th></tr></thead><tbody id="machineList"></tbody></table></div>
-<div id="preview" class="preview-panel" style="display:none;"><div class="preview-content"></div></div>
-<meta name="mobile-web-app-capable" content="yes">
-<form id="authForm" style="display:contents;"><input type="password" id="passwordField" placeholder="パスワード"></form>
-</body></html>`;
+  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="mobile-web-app-capable" content="yes"><style>${getStyles()}</style></head><body>${buildEstHTML()}<div id="itemTable" class="table-container"><table><thead><tr><th>機械名</th><th>型式</th><th>状態</th><th>操作</th></tr></thead><tbody id="machineList"></tbody></table></div><div id="preview" class="preview-panel" style="display:none;"><div class="preview-content"></div></div><form id="authForm"><input type="password" id="passwordField" placeholder="パスワード"></form></body></html>`;
   const blob=new Blob([html],{type:'text/html;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');
   a.download=`${docTypeLabel()}_${tN?tN+'_':''}${sv?sv+'_':''}${ed||new Date().toISOString().slice(0,10)}.html`;a.href=url;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),3000);
 }
@@ -2183,6 +2182,20 @@ if('serviceWorker' in navigator){
   window.addEventListener('load',function(){
     navigator.serviceWorker.register('sw.js').catch(function(e){console.log('SW登録失敗',e);});
   });
+}
+function safeSetContent(elementId, htmlContent){
+  const el = document.getElementById(elementId);
+  if(el){
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlContent, 'text/html');
+    while(el.firstChild) el.removeChild(el.firstChild);
+    el.appendChild(doc.body);
+  }
+}
+function safeWrite(text){
+  const span = document.createElement('span');
+  span.textContent = text;
+  document.body.appendChild(span);
 }
 </script>
 </body>

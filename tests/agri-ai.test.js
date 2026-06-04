@@ -1,3 +1,5 @@
+const vm = require('vm');
+const assert = require('assert');
 // 農機管理PRO AI共通モジュールの自前テスト（外部依存なし / node tests/agri-ai.test.js）
 // index.html 内の AGRI_SHARED ブロックを抽出し、純粋ロジックを検証する。
 const fs=require('fs');
