@@ -153,17 +153,19 @@ body.dark .bc-blue{background:#1b2a44;color:#7eacff;}
    （モノスペース＋筆記体署名 / CSSのみ）
    ───────────────────────────────────────────── */
 
-/* ▼▼▼ 筆記体フォント差し込み口（あとでbase64を貼るだけ） ▼▼▼
-   Pinyon Script (c) 2024 The Pinyon Project Authors
-   https://github.com/SorkinType/Pinyon  /  SIL Open Font License 1.1
-   使い方：下の url(REPLACE_ME) の REPLACE_ME を
-           data:font/woff2;base64,xxxx... に置き換えるだけ。
-   未設定の間は cursive（端末標準）で表示されます。 */
+/* ▼▼▼ 筆記体フォント Pinyon Script ▼▼▼
+   通常は <head> の Google Fonts から読み込みます（オンライン時）。
+   オフラインでも確実に表示したい場合は、下の @font-face のコメントを外し
+   REPLACE_ME を data:font/woff2;base64,xxxx... に置き換えてください。
+   Pinyon Script (c) 2024 The Pinyon Project Authors / SIL OFL 1.1
+   https://github.com/SorkinType/Pinyon */
+/*
 @font-face{
   font-family:'Pinyon Script';
   font-style:normal;font-weight:400;font-display:block;
   src:url(REPLACE_ME) format('woff2');
 }
+*/
 /* ▲▲▲ 差し込み口ここまで ▲▲▲ */
 
 #loading-screen{position:fixed;inset:0;background:
@@ -246,22 +248,24 @@ body.dark .bc-blue{background:#1b2a44;color:#7eacff;}
 </div>
 <div id="app" style="display:none;">
 <div style="background:linear-gradient(180deg,var(--main),#0c151d);padding-top:14px;position:sticky;top:0;z-index:100;box-shadow:0 6px 22px rgba(0,0,0,.32);border-bottom:1px solid rgba(31,157,85,.32);">
-<div style="display:flex;align-items:center;gap:5px;padding:0 8px 12px;">
-<span style="font-size:20px;flex-shrink:0;filter:drop-shadow(0 0 10px rgba(31,157,85,.5));">🚜</span>
-<div style="flex:1 1 auto;min-width:34px;overflow:hidden;">
-<div style="color:#fff;font-weight:900;font-size:13px;letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">農機業務管理</div>
-<div style="display:flex;align-items:center;gap:6px;margin-top:2px;">
-  <span style="color:#4f8cf7;font-size:12px;font-weight:900;letter-spacing:4px;font-family:'Arial Black','Impact',sans-serif;text-shadow:0 0 10px rgba(79,140,247,.7);">TAKA</span>
-  <span style="color:#7fa6c0;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="syncLabel"></span>
+<div style="display:flex;align-items:center;gap:9px;padding:0 13px 9px;">
+<span style="font-size:23px;flex-shrink:0;filter:drop-shadow(0 0 10px rgba(31,157,85,.5));">🚜</span>
+<div style="flex:1 1 auto;min-width:0;">
+<div style="display:flex;align-items:baseline;gap:10px;">
+  <span style="color:#eaf6ff;font-weight:800;font-size:16.5px;letter-spacing:1.5px;white-space:nowrap;font-family:'Hiragino Sans','Noto Sans JP',sans-serif;">農機業務管理</span>
+  <span style="color:#2ecc71;font-size:14.5px;font-weight:900;letter-spacing:4px;font-family:'SFMono-Regular','Menlo','Consolas','Roboto Mono',monospace;text-shadow:0 0 14px rgba(46,204,113,.5);flex-shrink:0;">TAKA</span>
+</div>
+<div style="color:#7fa6c0;font-size:9.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px;min-height:11px;" id="syncLabel"></div>
 </div>
 </div>
-<button onclick="toggleDark()" style="background:rgba(255,255,255,.08);border:none;color:#fff;font-size:15px;cursor:pointer;height:40px;min-width:34px;flex-shrink:0;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;">🌓</button>
-<button onclick="manualSync()" style="background:rgba(255,255,255,.14);border:none;color:#fff;border-radius:11px;height:40px;min-width:34px;flex-shrink:0;font-size:14px;margin-left:3px;display:inline-flex;align-items:center;justify-content:center;">☁️</button>
-<button onclick="forcePullFromCloud()" style="background:linear-gradient(180deg,#9b59b6,#8e44ad);border:none;color:#fff;border-radius:11px;height:40px;padding:0 6px;flex-shrink:0;font-size:10px;font-weight:800;margin-left:3px;display:inline-flex;align-items:center;justify-content:center;">⬇️雲</button>
-<button onclick="openBackupModal()" style="background:linear-gradient(180deg,#27c06a,#1f9d55);border:none;color:#fff;border-radius:11px;height:40px;min-width:34px;flex-shrink:0;font-size:14px;font-weight:800;margin-left:3px;display:inline-flex;align-items:center;justify-content:center;">🛡️</button>
-<button onclick="openSmartModal()" style="background:linear-gradient(180deg,#f39c12,#e67e22);border:none;color:#fff;border-radius:11px;height:40px;min-width:34px;flex-shrink:0;font-size:14px;font-weight:800;margin-left:3px;display:inline-flex;align-items:center;justify-content:center;">🎤</button>
-<button onclick="openMemoModal()" style="background:linear-gradient(180deg,#f7d046,#f1c40f);border:none;color:#16232e;border-radius:11px;height:40px;min-width:34px;flex-shrink:0;font-size:14px;font-weight:800;margin-left:3px;display:inline-flex;align-items:center;justify-content:center;">📝</button>
-<button onclick="openApiKey()" style="background:rgba(255,255,255,.14);border:none;color:#fff;border-radius:11px;height:40px;min-width:34px;flex-shrink:0;font-size:14px;margin-left:3px;display:inline-flex;align-items:center;justify-content:center;">🔑</button>
+<div style="display:flex;align-items:center;gap:5px;padding:0 11px 11px;">
+<button onclick="toggleDark()" style="flex:1 1 0;background:rgba(255,255,255,.08);border:none;color:#fff;font-size:16px;cursor:pointer;height:40px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;">🌓</button>
+<button onclick="manualSync()" style="flex:1 1 0;background:rgba(255,255,255,.14);border:none;color:#fff;border-radius:11px;height:40px;font-size:15px;display:inline-flex;align-items:center;justify-content:center;">☁️</button>
+<button onclick="forcePullFromCloud()" style="flex:1 1 0;background:linear-gradient(180deg,#9b59b6,#8e44ad);border:none;color:#fff;border-radius:11px;height:40px;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;">⬇️雲</button>
+<button onclick="openBackupModal()" style="flex:1 1 0;background:linear-gradient(180deg,#27c06a,#1f9d55);border:none;color:#fff;border-radius:11px;height:40px;font-size:15px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;">🛡️</button>
+<button onclick="openSmartModal()" style="flex:1 1 0;background:linear-gradient(180deg,#f39c12,#e67e22);border:none;color:#fff;border-radius:11px;height:40px;font-size:15px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;">🎤</button>
+<button onclick="openMemoModal()" style="flex:1 1 0;background:linear-gradient(180deg,#f7d046,#f1c40f);border:none;color:#16232e;border-radius:11px;height:40px;font-size:15px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;">📝</button>
+<button onclick="openApiKey()" style="flex:1 1 0;background:rgba(255,255,255,.14);border:none;color:#fff;border-radius:11px;height:40px;font-size:15px;display:inline-flex;align-items:center;justify-content:center;">🔑</button>
 </div>
 <div class="tab-wrap" id="tabBar"></div>
 <div id="searchWrap" style="background:transparent;padding:8px 12px 12px;">
