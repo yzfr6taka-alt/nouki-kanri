@@ -384,6 +384,7 @@ body.dark .bc-blue{background:#1b2a44;color:#7eacff;}
 </div>
 <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text);margin-bottom:14px;cursor:pointer;font-weight:700;"><input type="checkbox" id="calPromptToggle" style="width:18px;height:18px;flex-shrink:0;">📅 製品保存時にGoogleカレンダー登録を促す</label>
 <button onclick="saveApiKey()" class="save-btn" style="width:100%;">💾 保存する</button>
+<button onclick="resetMorningDigest()" style="width:100%;margin-top:10px;background:none;border:1.5px solid var(--border);color:var(--text-sub);border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;">🌅 ダイジェストをもう一度表示</button>
 </div>
 </div>
 </div>
@@ -1356,6 +1357,7 @@ function closeTopModal(){
   const isOpen=id=>{const e=document.getElementById(id);return e&&e.style&&e.style.display&&e.style.display!=='none';};
   const doClose=(id,fn)=>{try{if(fn){fn();return;}}catch(e){}const el=document.getElementById(id);if(el)el.style.display='none';};
   const list=[
+    ['morningDigestModal',closeMorningDigest],
     ['quotePriceModal',_qpClose],
     ['recallModal',closeRecall],['scanQuoteModal',closeScanQuoteModal],['ocrModal',closeOcrModal],
     ['diagModal',closeDiagModal],['machineModal',closeMachineModal],['customerModal',closeCustomerModal],
@@ -2376,6 +2378,60 @@ const SCREENSHOT_PRODUCTS=[{id:'PROD_N1',productName:'畦畔草刈機',maker:'',
 const SCREENSHOT_CUSTOMERS=[{id:'CUST_1',name:'山下 林作',phone:'',address:'',memo:''},{id:'CUST_2',name:'渡邊 誠',phone:'',address:'',memo:''},{id:'CUST_3',name:'上丸 勝芳',phone:'',address:'',memo:''},{id:'CUST_4',name:'徳丸 秋雄',phone:'',address:'',memo:''},{id:'CUST_5',name:'吉満 忠吉',phone:'',address:'',memo:''},{id:'CUST_6',name:'徳丸 勉',phone:'',address:'',memo:''},{id:'CUST_7',name:'東丸 和久',phone:'',address:'',memo:''},{id:'CUST_8',name:'森山 光治',phone:'',address:'',memo:''},{id:'CUST_9',name:'立和田',phone:'',address:'',memo:''},{id:'CUST_10',name:'満行 翼',phone:'',address:'',memo:''},{id:'CUST_11',name:'松元 崇',phone:'',address:'',memo:''},{id:'CUST_12',name:'上丸 文友',phone:'',address:'',memo:''},{id:'CUST_13',name:'野村 治雄',phone:'',address:'',memo:''},{id:'CUST_14',name:'園田 正志',phone:'',address:'',memo:''},{id:'CUST_15',name:'山田',phone:'',address:'',memo:''},{id:'CUST_16',name:'今村 三男',phone:'',address:'',memo:''},{id:'CUST_17',name:'延時 暁寿',phone:'',address:'',memo:''},{id:'CUST_18',name:'グッドカンパニー',phone:'',address:'',memo:''},{id:'CUST_19',name:'社会福祉法人エンゼル会',phone:'',address:'',memo:''},{id:'CUST_20',name:'川崎 ちえ子',phone:'',address:'',memo:''},{id:'CUST_21',name:'岩井 一昭',phone:'',address:'',memo:''},{id:'CUST_22',name:'飯野 孝仁',phone:'',address:'',memo:''},{id:'CUST_23',name:'西 聡一郎',phone:'',address:'',memo:''},{id:'CUST_24',name:'アールエスユニット',phone:'',address:'',memo:''},{id:'CUST_25',name:'柳田 忠良',phone:'',address:'',memo:''}];
 const SCREENSHOT_QUOTES=[{id:'Q_REC_1',estNo:'',estDate:'2026-04-30',expDate:'2026-08-31',delivDate:'2026-07-31',delivPlace:'貴指定場所',payMethod:'口座振替',toName:'延時 暁寿',subject:'マルチデガー',qItems:[{name:'マルチデガー',brand:'東洋農機',model:'TMD1V24',qty:1,price:4358000,note:''},{name:'揺さぶり前側',brand:'同上',model:'TMD1V24-B',qty:1,price:105600,note:''},{name:'揺さぶり後ろ側',brand:'同上',model:'TMD1V24-C',qty:1,price:105600,note:''}],total:5026120,note:''}];
 
+// ===== モーニングダイジェスト（朝の予定確認・1日1回） =====
+function _digestToday(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function _digestAddDays(base,n){const d=new Date(base+'T00:00:00');d.setDate(d.getDate()+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function _digestDow(ds){try{return '日月火水木金土'[new Date(ds+'T00:00:00').getDay()];}catch(e){return '';}}
+function _digestDiff(ds,today){try{return Math.round((new Date(ds+'T00:00:00')-new Date(today+'T00:00:00'))/86400000);}catch(e){return 0;}}
+function _digestMachine(m,mk,md){return (typeof buildMachineStr==='function')?buildMachineStr(m,mk,md):[m,mk,md].filter(Boolean).join(' ');}
+// 本日〜7日先の修理/実演/製品/部品の締切・予定を収集。完了系ステータスは除外。
+function collectDigest(){
+  const today=_digestToday(),end=_digestAddDays(today,7);
+  const done={repair:['請求済','完了(未請求)','完了','請求済み'],demo:['実施済','成約'],product:['完了','請求済','請求済み','納品(納車)済'],part:['納品済','完了','請求済','請求済み']};
+  const items=[];
+  const add=(type,color,icon,tab,date,title,sub,status)=>{const d=String(date||'').slice(0,10);if(!d)return;items.push({type,color,icon,tab,date:d,title:String(title||'').trim()||'（無題）',sub:sub||'',status:status||''});};
+  (DB.repairs||[]).forEach(r=>{if(done.repair.includes(r.status))return;add('repair','#e74c3c','🔧',2,r.dueDate,(r.customerName||'')+' '+_digestMachine(r.machine,r.maker,r.model),r.issue||'',r.status);});
+  (DB.demos||[]).forEach(d=>{if(done.demo.includes(d.status))return;add('demo','#9b59b6','🌾',3,d.date,(d.customerName||'')+' '+(d.targetMachine||''),'',d.status);});
+  (DB.products||[]).forEach(p=>{if(done.product.includes(p.status))return;add('product','#27ae60','🚜',5,p.deliveryDate,(p.customer||'')+' '+(p.productName||''),(p.model?'型式: '+p.model:''),p.status);});
+  (DB.parts||[]).forEach(p=>{if(done.part.includes(p.status))return;add('part','#f39c12','⚙️',4,p.orderDate,((p.customerName?p.customerName+' ':'')+(p.maker?p.maker+' ':'')+(p.name||'')),(p.partNo?'品番: '+p.partNo:''),p.status);});
+  const overdue=items.filter(x=>x.date<today).sort((a,b)=>a.date.localeCompare(b.date));
+  const upcoming=items.filter(x=>x.date>=today&&x.date<=end).sort((a,b)=>a.date.localeCompare(b.date));
+  return {today,end,overdue,upcoming};
+}
+function _digestRow(x,today){
+  const diff=_digestDiff(x.date,today);
+  let rel;if(diff<0)rel=(-diff)+'日遅れ';else if(diff===0)rel='今日';else if(diff===1)rel='明日';else rel=diff+'日後';
+  const warn=diff<0?'#e74c3c':'var(--text-sub)';
+  const dlabel=x.date.slice(5).replace('-','/')+'('+_digestDow(x.date)+')';
+  const typeName={repair:'修理',demo:'実演',product:'製品',part:'部品'}[x.type]||'';
+  return '<div class="card" style="border-left:4px solid '+x.color+';margin-bottom:7px;cursor:default;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;"><span style="font-weight:bold;font-size:13px;">'+x.icon+' '+esc(x.title)+'</span><span style="flex-shrink:0;font-size:11px;font-weight:800;color:'+warn+';">'+dlabel+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;"><span class="badge" style="background:'+(STATUS_COLORS[x.status]||x.color)+';display:inline-block;">'+esc(x.status||typeName)+'</span><span style="font-size:11px;font-weight:800;color:'+warn+';">'+rel+'</span></div>'
+    +(x.sub?'<div style="font-size:11px;color:var(--text-sub);margin-top:4px;">'+esc(x.sub)+'</div>':'')+'</div>';
+}
+function buildDigestHTML(){
+  const d=collectDigest();
+  let h='<div style="font-size:12px;color:var(--text-sub);margin-bottom:12px;">📅 '+d.today.replace(/-/g,'/')+'（'+_digestDow(d.today)+'）時点 ／ 本日〜7日先の予定</div>';
+  if(!d.overdue.length&&!d.upcoming.length)return h+'<div style="text-align:center;color:var(--text-sub);padding:34px 10px;font-size:15px;font-weight:700;">☀️ 本日の予定はありません</div>';
+  if(d.overdue.length){h+='<div style="background:#fdecea;border:1.5px solid #f5b7b1;border-radius:12px;padding:9px 11px;margin-bottom:12px;"><div style="font-size:13px;font-weight:900;color:#c0392b;margin-bottom:8px;">⚠️ 期限超過 '+d.overdue.length+'件</div>';d.overdue.forEach(x=>h+=_digestRow(x,d.today));h+='</div>';}
+  if(d.upcoming.length){h+='<div style="font-size:13px;font-weight:900;color:var(--text);margin:6px 0 8px;">🗓 直近7日 '+d.upcoming.length+'件</div>';d.upcoming.forEach(x=>h+=_digestRow(x,d.today));}
+  return h;
+}
+function showMorningDigest(){
+  const body=document.getElementById('morningDigestBody'),ov=document.getElementById('morningDigestModal');
+  if(!body||!ov)return;
+  body.innerHTML=buildDigestHTML();ov.style.display='flex';pushBack();
+}
+function closeMorningDigest(){const ov=document.getElementById('morningDigestModal');if(ov)ov.style.display='none';currentTab=0;renderAll();}
+// 当日初回起動のみ表示（最終表示日をlocalStorageに保存。agri_dbには触れない）
+function maybeShowMorningDigest(){
+  try{if(localStorage.getItem('agri_digest_lastshown')===_digestToday())return;}catch(e){}
+  try{localStorage.setItem('agri_digest_lastshown',_digestToday());}catch(e){}
+  showMorningDigest();
+}
+// テスト用：最終表示日をリセット（次回起動で再表示）＋今すぐ表示
+function resetMorningDigest(){try{localStorage.removeItem('agri_digest_lastshown');}catch(e){}try{closeApiKey();}catch(e){}showMorningDigest();}
+
 window.onload=async function(){
   try{
     loadDB();const lm=document.getElementById('loadingMsg');
@@ -2387,7 +2443,7 @@ window.onload=async function(){
     const ls=document.getElementById('loading-screen');
     document.getElementById('app').style.display='block';
     // 署名アニメーション(約2.3秒)を見せてからフェードアウト
-    setTimeout(()=>{ls.classList.add('hide');setTimeout(()=>{ls.style.display='none';},700);},900);
+    setTimeout(()=>{ls.classList.add('hide');setTimeout(()=>{ls.style.display='none';maybeShowMorningDigest();},700);},900);
     renderAll();
     armBack();
     if(!hasAnyData())showSyncBar('⚠️ データなし。🛡️ボタンからバックアップを復元できます。','conflict',false);
@@ -2402,5 +2458,13 @@ if('serviceWorker' in navigator){
   });
 }
 </script>
+<!-- モーニングダイジェスト（朝の予定確認） -->
+<div class="modal-overlay" id="morningDigestModal" style="display:none;z-index:1700;" onclick="if(event.target.id==='morningDigestModal')closeMorningDigest()">
+<div class="modal-box">
+<div class="modal-header"><h3 style="font-size:15px;font-weight:800;color:var(--text);">🌅 今日のダイジェスト</h3><button onclick="closeMorningDigest()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button></div>
+<div style="padding:16px 18px 10px;" id="morningDigestBody"></div>
+<div style="padding:0 18px 22px;"><button onclick="closeMorningDigest()" class="save-btn" style="width:100%;">確認</button></div>
+</div>
+</div>
 </body>
 </html>
