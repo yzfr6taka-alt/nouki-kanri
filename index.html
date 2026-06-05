@@ -1336,6 +1336,7 @@ function renderAll(){
   document.getElementById('tabBar').innerHTML=h;
   const main=document.getElementById('content_main');const qe=document.getElementById('content_quote_editor');qe.style.display='none';main.style.display='block';
   if(currentTab===0)main.innerHTML=renderHome();else if(currentTab===1)main.innerHTML=renderCustomers();else if(currentTab===2)main.innerHTML=renderRepairs();else if(currentTab===3)main.innerHTML=renderDemos();else if(currentTab===4)main.innerHTML=renderPartsTab();else if(currentTab===5)main.innerHTML=renderProducts();else if(currentTab===6)main.innerHTML=renderQuotesList();else if(currentTab===7)main.innerHTML=renderMachines();
+  try{_updateFab();}catch(e){}
 }
 function changeTab(i){
   if(i!==currentTab){
@@ -1358,6 +1359,7 @@ function ensureSentinel(){ pushBack(); }
 function armBack(){ pushBack(); }
 // 開いているモーダルがあれば1つだけ閉じる。閉じたら true
 function closeTopModal(){
+  if(selectMode){exitSelectMode(true);return true;}
   const isOpen=id=>{const e=document.getElementById(id);return e&&e.style&&e.style.display&&e.style.display!=='none';};
   const doClose=(id,fn)=>{try{if(fn){fn();return;}}catch(e){}const el=document.getElementById(id);if(el)el.style.display='none';};
   const list=[
@@ -1921,6 +1923,12 @@ function openCustomerCard(id){
   if(c.phone)h+='<div style="font-size:13px;color:var(--text-sub);margin-top:2px;">📞 '+esc(c.phone)+'</div>';
   if(c.address)h+='<div style="font-size:13px;color:var(--text-sub);">🏠 '+esc(c.address)+'</div>';
   if(c.memo)h+='<div style="background:var(--input-bg);border-radius:10px;padding:8px 10px;margin-top:8px;font-size:12px;white-space:pre-wrap;">📝 '+esc(c.memo)+'</div>';
+  // ⑤ ワンタップ連絡（電話は数字と+のみ／地図はGoogleマップ検索）
+  const _tel=String(c.phone||'').replace(/[^0-9+]/g,''),_addr=String(c.address||'').trim();
+  if(_tel||_addr){h+='<div style="display:flex;gap:8px;margin-top:10px;">'
+    +(_tel?'<a href="tel:'+_tel+'" onclick="vibe(\'step\')" style="flex:1;text-align:center;background:#27c06a;color:#fff;border-radius:10px;padding:12px 0;font-size:14px;font-weight:800;text-decoration:none;">📞 電話</a>':'')
+    +(_addr?'<a href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(_addr)+'" target="_blank" rel="noopener" onclick="vibe(\'step\')" style="flex:1;text-align:center;background:#2980b9;color:#fff;border-radius:10px;padding:12px 0;font-size:14px;font-weight:800;text-decoration:none;">🗺 地図</a>':'')
+    +'</div>';}
   h+='<button onclick="closeCustomerModal();openEdit(\''+c.id+'\',1)" class="save-btn" style="width:100%;margin:12px 0 4px;background:#2980b9;">✏️ 顧客情報を編集</button>';
   if(ongoing.length){
     h+='<div style="font-weight:800;font-size:14px;margin:14px 0 6px;color:#e67e22;">⏳ 進行中の修理 '+ongoing.length+'件</div>';
@@ -1947,7 +1955,7 @@ function renderRepairs(){
     html+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:var(--text-sub);padding-left:2px;display:flex;align-items:center;gap:6px;">👤 '+cName+' 様<span style="font-size:10px;font-weight:400;color:var(--text-sub);">'+grp[cName].length+'件</span></div>';
     grp[cName].forEach(item=>{
       const mStr=buildMachineStr(item.machine,item.maker,item.model);
-      html+='<div class="card" onclick="openEdit(\''+item.id+'\',2)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-left:8px;margin-bottom:7px;">'
+      html+='<div class="card" data-swid="'+item.id+'" data-swtab="2" onclick="openEdit(\''+item.id+'\',2)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-left:8px;margin-bottom:7px;">'
         +'<div style="font-weight:bold;font-size:14px;margin-bottom:4px;">'+(mStr||'機械未入力')+'</div>'
         +(item.serialNo?'<div style="font-size:11px;color:var(--text-sub);">製造番号: '+item.serialNo+'</div>':'')
         +(item.hourMeter?'<div style="font-size:11px;color:var(--text-sub);">稼働: '+item.hourMeter+'h</div>':'')
@@ -1970,7 +1978,7 @@ function renderDemos(){
     grp[cName].forEach(item=>{
       const m1=buildMachineStr(item.targetMachine,item.maker,item.model),m2=buildMachineStr(item.targetMachine2,item.maker2,item.model2),m3=buildMachineStr(item.targetMachine3,item.maker3,item.model3);
       let ms=m1?'🚜 '+m1:'🚜 未定';if(m2)ms+='<br>🚜 '+m2;if(m3)ms+='<br>🚜 '+m3;
-      html+='<div class="card" onclick="openEdit(\''+item.id+'\',3)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-left:8px;margin-bottom:7px;">'
+      html+='<div class="card" data-swid="'+item.id+'" data-swtab="3" onclick="openEdit(\''+item.id+'\',3)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-left:8px;margin-bottom:7px;">'
         +'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;line-height:1.4;">'+ms+'</div>'
         +'<div style="display:flex;justify-content:space-between;align-items:center;"><span class="badge" style="background:'+(STATUS_COLORS[item.status]||'#95a5a6')+';display:inline-block;">'+item.status+'</span>'
         +(item.date?'<span style="font-size:10px;color:var(--text-sub);">予定日: '+item.date+'</span>':'')+'</div></div>';
@@ -1989,7 +1997,7 @@ function renderPartsTab(){
   ord.forEach(cName=>{
     html+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:var(--text-sub);padding-left:2px;display:flex;align-items:center;gap:6px;">👤 '+cName+' 様<span style="font-size:10px;font-weight:400;color:var(--text-sub);">'+grp[cName].length+'件</span></div>';
     grp[cName].forEach(item=>{
-      html+='<div class="card" onclick="openEdit(\''+item.id+'\',4)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-left:8px;margin-bottom:7px;">'
+      html+='<div class="card" data-swid="'+item.id+'" data-swtab="4" onclick="openEdit(\''+item.id+'\',4)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-left:8px;margin-bottom:7px;">'
         +'<div style="font-weight:bold;font-size:14px;margin-bottom:4px;">'+(item.maker?item.maker+' ':'')+item.name+'</div>'
         +'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;">品番: '+(item.partNo||'-')+' / 数量: '+(item.qty||0)+'個</div>'
         +'<div style="display:flex;justify-content:space-between;align-items:center;"><span class="badge" style="background:'+(STATUS_COLORS[item.status]||'#95a5a6')+';display:inline-block;">'+(item.status||'発注前')+'</span>'
@@ -2009,7 +2017,7 @@ function renderProducts(){
   ord.forEach(cName=>{
     html+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:var(--text-sub);padding-left:2px;display:flex;align-items:center;gap:6px;">👤 '+cName+' 様<span style="font-size:10px;font-weight:400;color:var(--text-sub);">'+grp[cName].length+'件</span></div>';
     grp[cName].forEach(item=>{
-      html+='<div class="card" onclick="openEdit(\''+item.id+'\',5)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-left:8px;margin-bottom:7px;">'
+      html+='<div class="card" data-swid="'+item.id+'" data-swtab="5" onclick="openEdit(\''+item.id+'\',5)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-left:8px;margin-bottom:7px;">'
         +'<div style="font-weight:bold;font-size:14px;margin-bottom:4px;">'+item.productName+'</div>'
         +(item.serialNo?'<div style="font-size:11px;color:var(--text-sub);">製造番号: '+item.serialNo+'</div>':'')
         +'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;">メーカー: '+(item.maker||'-')+' / 型式: '+(item.model||'-')+' / 販売額: ¥'+Number(item.price||0).toLocaleString()+'</div>'
@@ -2436,8 +2444,137 @@ function maybeShowMorningDigest(){
 // テスト用：最終表示日をリセット（次回起動で再表示）＋今すぐ表示
 function resetMorningDigest(){try{localStorage.removeItem('agri_digest_lastshown');}catch(e){}try{closeApiKey();}catch(e){}showMorningDigest();}
 
+/* ===== Android UX 強化（触覚 / トースト / スワイプ / FAB / 一括 / ショートカット） ===== */
+// 各レコードのステータス遷移配列（showModalのsel('status')と一致）とタブ→DBキー
+const STATUS_FLOW={2:['修理依頼','見積中','部品待ち','修理中','完了(未請求)','請求済'],3:['実演予定','実施済','見積提示中','成約'],4:['発注前','発注済','入荷済','納品済','完了','請求済'],5:['商談中','受注','発注済','入荷済','納品(納車)済','完了','請求済']};
+const TAB_DBKEY={2:'repairs',3:'demos',4:'parts',5:'products'};
+function _recName(rec,tab){if(!rec)return '';if(tab===2)return buildMachineStr(rec.machine,rec.maker,rec.model)||rec.customerName||'修理';if(tab===3)return rec.targetMachine||rec.customerName||'実演';if(tab===4)return ((rec.maker?rec.maker+' ':'')+(rec.name||''))||'部品';if(tab===5)return rec.productName||'製品';return '';}
+
+// ① 触覚フィードバック
+function vibe(type){try{if(!navigator.vibrate)return;const p={step:15,ok:15,done:[20,40,20],warn:[40,30,40],err:[60,40,60]}[type];if(p!==undefined)navigator.vibrate(p);}catch(e){}}
+
+// ② 「元に戻す」トースト（id=app-toast を使い回し・常に1つ）
+let _toastTimer=null;
+function _hideToast(){const t=document.getElementById('app-toast');if(!t)return;t.style.opacity='0';t.style.transform='translateX(-50%) translateY(8px)';setTimeout(()=>{const e=document.getElementById('app-toast');if(e&&e.style.opacity==='0')e.style.display='none';},220);}
+function showToast(msg,undoFn){
+  let t=document.getElementById('app-toast');
+  if(!t){t=document.createElement('div');t.id='app-toast';t.style.cssText='position:fixed;left:50%;bottom:82px;transform:translateX(-50%) translateY(8px);z-index:1400;max-width:92%;background:#1f2a33;color:#fff;border-radius:12px;padding:11px 14px;font-size:13px;font-weight:700;box-shadow:0 8px 26px rgba(0,0,0,.4);display:none;align-items:center;gap:12px;opacity:0;transition:opacity .2s,transform .2s;';document.body.appendChild(t);}
+  clearTimeout(_toastTimer);
+  t.innerHTML='<span style="flex:1;">'+esc(msg)+'</span>';
+  if(undoFn){const b=document.createElement('button');b.textContent='元に戻す';b.style.cssText='flex-shrink:0;background:#27c06a;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:800;cursor:pointer;';b.onclick=function(){clearTimeout(_toastTimer);_hideToast();try{undoFn();}catch(e){}};t.appendChild(b);}
+  t.style.display='flex';requestAnimationFrame(()=>{t.style.opacity='1';t.style.transform='translateX(-50%) translateY(0)';});
+  _toastTimer=setTimeout(_hideToast,undoFn?4500:2500);
+}
+
+// ステータスを delta(±1) 進める（端でクランプ）。保存→同期→触覚→Undoトースト
+function _applyStatusDelta(tab,id,delta){
+  const flow=STATUS_FLOW[tab],key=TAB_DBKEY[tab];if(!flow||!key)return;
+  const rec=(DB[key]||[]).find(x=>String(x.id)===String(id));if(!rec)return;
+  const cur=flow.indexOf(rec.status);let idx=(cur<0)?0:cur+delta;idx=Math.max(0,Math.min(flow.length-1,idx));
+  if(idx===cur){vibe('warn');showToast(delta>0?'これ以上進められません':'これ以上戻せません');return;}
+  const prev=rec.status;rec.status=flow[idx];saveDB();renderAll();vibe('step');
+  showToast(_recName(rec,tab)+' → '+rec.status,function(){const r2=(DB[key]||[]).find(x=>String(x.id)===String(id));if(r2){r2.status=prev;saveDB();renderAll();vibe('ok');}});
+}
+
+// ③ スワイプ＋⑥長押し選択：単一ジェスチャコントローラ（軸ロックで縦スクロールを妨げない）
+let _swEl=null,_swId=null,_swTab=0,_swX0=0,_swY0=0,_swAxis=0,_lpTimer=null,_suppressClick=false;
+let selectMode=false;const selected=new Set();
+function _swStart(e){
+  if(selectMode)return;
+  if(!e.touches||e.touches.length!==1)return;
+  const t=e.touches[0],W=window.innerWidth;
+  if(t.clientX<24||t.clientX>W-24)return; // 画面端はシステム戻しに譲る
+  const card=e.target.closest&&e.target.closest('.card[data-swid]');if(!card)return;
+  _swEl=card;_swId=card.getAttribute('data-swid');_swTab=Number(card.getAttribute('data-swtab'));
+  _swX0=t.clientX;_swY0=t.clientY;_swAxis=0;
+  clearTimeout(_lpTimer);_lpTimer=setTimeout(_enterSelectFromLongPress,500);
+}
+function _swMove(e){
+  if(!_swEl||!e.touches||e.touches.length!==1)return;
+  const t=e.touches[0],dx=t.clientX-_swX0,dy=t.clientY-_swY0;
+  if(_swAxis===0){
+    if(Math.abs(dx)<8&&Math.abs(dy)<8)return;
+    clearTimeout(_lpTimer);
+    if(Math.abs(dy)>Math.abs(dx)){_swAxis=2;_swEl=null;return;} // 縦：通常スクロール
+    _swAxis=1; // 横ロック
+  }
+  if(_swAxis===1){
+    e.preventDefault();
+    const c=Math.max(-140,Math.min(140,dx));
+    _swEl.style.transition='none';_swEl.style.transform='translateX('+c+'px)';
+    _swEl.style.background=dx>20?'linear-gradient(90deg,rgba(39,192,106,.20),transparent)':(dx<-20?'linear-gradient(270deg,rgba(231,76,60,.20),transparent)':'');
+  }
+}
+function _swEnd(e){
+  clearTimeout(_lpTimer);
+  const el=_swEl,axis=_swAxis,id=_swId,tab=_swTab,x0=_swX0;_swEl=null;_swAxis=0;
+  if(!el)return;
+  el.style.transition='transform .18s ease';el.style.transform='translateX(0)';el.style.background='';
+  if(axis===1){
+    const x=(e.changedTouches&&e.changedTouches[0])?e.changedTouches[0].clientX:x0,dx=x-x0;
+    if(Math.abs(dx)>=80){_suppressClick=true;setTimeout(()=>{_suppressClick=false;},450);_applyStatusDelta(tab,id,dx>0?1:-1);}
+  }
+}
+function _clickGuard(e){
+  if(_suppressClick){_suppressClick=false;e.stopPropagation();e.preventDefault();return;}
+  if(selectMode){const card=e.target.closest&&e.target.closest('.card[data-swid]');if(card){e.stopPropagation();e.preventDefault();_toggleSelect(card);}}
+}
+
+// ⑥ 長押しで複数選択 → 一括ステータス変更
+function _enterSelectFromLongPress(){
+  if(!_swEl||_swAxis===1)return;
+  const card=_swEl;_swEl=null;_swAxis=0;
+  selectMode=true;pushBack(); // モーダル同様に履歴を1段確保（戻る＝選択解除。closeTopModalで処理）
+  _suppressClick=true;setTimeout(()=>{_suppressClick=false;},450);
+  vibe('ok');_toggleSelect(card);
+}
+function _toggleSelect(card){
+  const id=card.getAttribute('data-swid'),tab=card.getAttribute('data-swtab'),k=tab+':'+id;
+  if(selected.has(k)){selected.delete(k);card.style.outline='';card.style.outlineOffset='';}
+  else{selected.add(k);card.style.outline='2.5px solid #27c06a';card.style.outlineOffset='-2px';}
+  _updateBulkBar();
+}
+function _updateBulkBar(){
+  const bar=document.getElementById('bulkBar');if(!bar)return;
+  if(selectMode){bar.style.display='flex';const c=document.getElementById('bulkCount');if(c)c.textContent=selected.size+'件選択';}
+  else bar.style.display='none';
+  _updateFab();
+}
+function bulkDelta(delta){
+  let n=0;
+  selected.forEach(k=>{const i=k.indexOf(':'),tab=Number(k.slice(0,i)),id=k.slice(i+1);const flow=STATUS_FLOW[tab],dk=TAB_DBKEY[tab];if(!flow||!dk)return;const rec=(DB[dk]||[]).find(x=>String(x.id)===String(id));if(!rec)return;const cur=flow.indexOf(rec.status);let idx=(cur<0)?0:cur+delta;idx=Math.max(0,Math.min(flow.length-1,idx));if(idx!==cur){rec.status=flow[idx];n++;}});
+  if(n>0){saveDB();vibe('done');showToast(n+'件のステータスを更新しました');}else{vibe('warn');showToast('変更できる項目がありませんでした');}
+  exitSelectMode(true);
+}
+function exitSelectMode(render){selectMode=false;selected.clear();const bar=document.getElementById('bulkBar');if(bar)bar.style.display='none';if(render)renderAll();_updateFab();}
+
+// ④ 親指リーチFAB
+function _updateFab(){
+  const fab=document.getElementById('fab');if(!fab)return;
+  const qe=document.getElementById('content_quote_editor');const qeOpen=qe&&qe.style.display==='block';
+  const show=!searchQuery&&!selectMode&&!qeOpen&&[1,2,3,4,5].indexOf(currentTab)>=0;
+  fab.style.display=show?'flex':'none';
+}
+function fabTap(){if([1,2,3,4,5].indexOf(currentTab)<0)return;vibe('step');openNew(currentTab);}
+
+// ⑦ PWAショートカット ?go= の処理（pushStateは使わない）
+function handleGo(go){
+  try{
+    if(go==='repair-new'){changeTab(2);openNew(2);}
+    else if(go==='search'){changeTab(0);const s=document.getElementById('globalSearch');if(s)s.focus();}
+    else if(go==='today'){changeTab(0);}
+  }catch(e){}
+}
+document.addEventListener('touchstart',_swStart,{passive:true});
+document.addEventListener('touchmove',_swMove,{passive:false});
+document.addEventListener('touchend',_swEnd,{passive:true});
+document.addEventListener('touchcancel',_swEnd,{passive:true});
+document.addEventListener('click',_clickGuard,true);
+
 window.onload=async function(){
   try{
+    // ⑦ 起動時 ?go= を読み、戻るスタックを汚さずURLから除去（pushStateは使わない）
+    let _goParam='';try{_goParam=new URL(location.href).searchParams.get('go')||'';if(_goParam)history.replaceState(history.state,'',location.pathname+location.hash);}catch(e){}
     loadDB();const lm=document.getElementById('loadingMsg');
     if(gasUrl){lm.textContent='☁️ クラウドから最新データを確認中...';try{await syncToCloud(false);}catch(e){console.error('起動時同期エラー:',e);}}
     if(!hasAnyData()){
@@ -2447,7 +2584,7 @@ window.onload=async function(){
     const ls=document.getElementById('loading-screen');
     document.getElementById('app').style.display='block';
     // 署名アニメーション(約2.3秒)を見せてからフェードアウト
-    setTimeout(()=>{ls.classList.add('hide');setTimeout(()=>{ls.style.display='none';maybeShowMorningDigest();},700);},900);
+    setTimeout(()=>{ls.classList.add('hide');setTimeout(()=>{ls.style.display='none';if(_goParam)handleGo(_goParam);else maybeShowMorningDigest();},700);},900);
     renderAll();
     armBack();
     if(!hasAnyData())showSyncBar('⚠️ データなし。🛡️ボタンからバックアップを復元できます。','conflict',false);
@@ -2469,6 +2606,14 @@ if('serviceWorker' in navigator){
 <div style="padding:16px 18px 10px;" id="morningDigestBody"></div>
 <div style="padding:0 18px 22px;"><button onclick="closeMorningDigest()" class="save-btn" style="width:100%;">確認</button></div>
 </div>
+</div>
+<!-- ④ 親指リーチFAB / ⑥ 一括操作バー -->
+<button id="fab" onclick="fabTap()" aria-label="新規登録" style="display:none;position:fixed;right:18px;bottom:80px;z-index:450;width:58px;height:58px;border-radius:50%;border:none;background:linear-gradient(180deg,#27c06a,#1f9d55);color:#fff;font-size:30px;line-height:1;box-shadow:0 8px 22px rgba(31,157,85,.45);align-items:center;justify-content:center;cursor:pointer;">＋</button>
+<div id="bulkBar" style="display:none;position:fixed;left:50%;bottom:0;transform:translateX(-50%);width:100%;max-width:520px;z-index:1450;background:var(--card-bg);border-top:1px solid var(--border);box-shadow:0 -6px 18px rgba(0,0,0,.22);padding:10px 12px;align-items:center;gap:8px;">
+<span id="bulkCount" style="flex:1;font-size:13px;font-weight:800;color:var(--text);">0件選択</span>
+<button onclick="bulkDelta(-1)" style="background:var(--input-bg);border:1.5px solid var(--border);color:var(--text);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:800;cursor:pointer;">◀ 戻す</button>
+<button onclick="bulkDelta(1)" style="background:#27c06a;border:none;color:#fff;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:800;cursor:pointer;">進める ▶</button>
+<button onclick="exitSelectMode(true)" aria-label="選択解除" style="background:none;border:none;color:var(--text-sub);font-size:20px;cursor:pointer;padding:0 6px;">✕</button>
 </div>
 </body>
 </html>
