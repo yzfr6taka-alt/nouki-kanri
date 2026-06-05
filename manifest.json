@@ -8,6 +8,11 @@
   "orientation": "portrait",
   "background_color": "#1a252f",
   "theme_color": "#1a252f",
+  "shortcuts": [
+    { "name": "新規修理", "short_name": "修理", "description": "修理依頼をすぐ登録", "url": "./index.html?go=repair-new" },
+    { "name": "横断検索", "short_name": "検索", "description": "顧客・機械を横断検索", "url": "./index.html?go=search" },
+    { "name": "今日のタスク", "short_name": "今日", "description": "ホームで本日の予定を確認", "url": "./index.html?go=today" }
+  ],
   "icons": [
     {
       "src": "icon-192.png",
