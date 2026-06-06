@@ -514,7 +514,7 @@ body.dark .bc-blue{background:#1b2a44;color:#7eacff;}
 </div>
 <script>
 
-const TABS=['ホーム','顧客','修理','実演','部品','製品','見積書','機械'];
+const TABS=['ホーム','顧客','修理','実演','部品','製品','見積書','機械','メモ'];
 let currentTab=0;
 const STATUS_COLORS={'修理依頼':'#e74c3c','見積中':'#9b59b6','部品待ち':'#f39c12','修理中':'#e67e22','完了(未請求)':'#3498db','請求済':'#95a5a6','実演予定':'#f39c12','実施済':'#3498db','見積提示中':'#9b59b6','成約':'#27ae60','発注前':'#e74c3c','発注済':'#e67e22','入荷済':'#f39c12','納品済':'#3498db','完了':'#27ae60','請求済み':'#95a5a6','商談中':'#9b59b6','受注':'#e67e22','納品(納車)済':'#3498db'};
 let DB={settings:[{id:1,targetSales:10000000,currentSales:0}],customers:[],repairs:[],demos:[],parts:[],products:[],quotes:[],memos:[],machines:[],lastModified:new Date().toISOString()};
@@ -822,6 +822,51 @@ function renderMemoBody(){
 function addMemo(){const el=document.getElementById('newMemoText');const t=(el?.value||'').trim();if(!t){return;}if(!DB.memos)DB.memos=[];DB.memos.push({id:'MEMO_'+Date.now(),text:t,updatedAt:new Date().toISOString()});saveDB();renderMemoBody();showSyncBar('✅ メモを追加しました','ok');}
 function updateMemo(id){const el=document.getElementById('memo_'+id);if(!el)return;const m=(DB.memos||[]).find(x=>x.id===id);if(!m)return;m.text=el.value;m.updatedAt=new Date().toISOString();saveDB();renderMemoBody();showSyncBar('✅ メモを更新しました','ok');}
 function deleteMemo(id){if(!confirm('このメモを削除しますか？'))return;DB.memos=(DB.memos||[]).filter(x=>x.id!==id);saveDB();renderMemoBody();}
+// ===== メモ タブ（DB.memos を共用。本文は既存の text フィールドに保存し title を追加） =====
+function _memoTitle(m){const t=(m&&m.title||'').trim();if(t)return t;const b=String((m&&(m.text||m.body))||'').split('\n')[0].trim();return b||'(無題)';}
+function _memoBodyText(m){return String((m&&(m.text!==undefined?m.text:m.body))||'');}
+function renderMemosTab(){
+  let html='<button onclick="openMemoEdit(\'\')" class="save-btn" style="margin-bottom:12px;width:100%;">＋ 新規メモ</button>';
+  let list=(DB.memos||[]).slice();
+  if(searchQuery)list=list.filter(m=>[_memoTitle(m),_memoBodyText(m)].some(f=>(f||'').toLowerCase().includes(searchQuery)));
+  list.sort((a,b)=>String(b.updatedAt||b.createdAt||'').localeCompare(String(a.updatedAt||a.createdAt||''))); // 更新日時の新しい順
+  if(!list.length)return html+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">'+(searchQuery?'検索結果なし':'メモはまだありません')+'</div>';
+  list.forEach(m=>{
+    const prev=_memoBodyText(m).replace(/\n/g,' ').slice(0,60);
+    const d=(m.updatedAt||m.createdAt)?new Date(m.updatedAt||m.createdAt).toLocaleString('ja-JP',{year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+    html+='<div class="card" onclick="openMemoEdit(\''+m.id+'\')" style="border-left:4px solid #f1c40f;">'
+      +'<div style="font-weight:bold;font-size:14px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(_memoTitle(m))+'</div>'
+      +(prev?'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(prev)+'</div>':'')
+      +'<div style="font-size:10px;color:var(--text-sub);text-align:right;">'+esc(d)+'</div></div>';
+  });
+  return html;
+}
+let _memoEditId='';
+function openMemoEdit(id){
+  _memoEditId=id||'';
+  const m=id?(DB.memos||[]).find(x=>x.id===id):null;
+  const title=m?(m.title||''):'',body=m?_memoBodyText(m):'';
+  let h='<label class="field-label">タイトル（任意）</label>';
+  h+='<input type="text" id="memoEditTitle" class="field-input" value="'+esc(title)+'" placeholder="例: 在庫メモ・連絡事項" style="margin-bottom:11px;">';
+  h+='<label class="field-label">本文</label>';
+  h+='<textarea id="memoEditBodyText" class="field-textarea" rows="8" placeholder="覚え書き・連絡事項など">'+esc(body)+'</textarea>';
+  h+='<button class="save-btn" style="width:100%;margin-top:12px;" onclick="saveMemoEdit()">💾 保存する</button>';
+  if(m)h+='<div style="text-align:center;margin-top:10px;"><button onclick="deleteMemoEdit()" style="background:none;border:none;color:#e74c3c;text-decoration:underline;cursor:pointer;font-size:12px;">このメモを削除</button></div>';
+  document.getElementById('memoEditBody').innerHTML=h;
+  document.getElementById('memoEditModal').style.display='flex';
+  pushBack();
+}
+function closeMemoEdit(){const e=document.getElementById('memoEditModal');if(e)e.style.display='none';}
+function saveMemoEdit(){
+  const title=(document.getElementById('memoEditTitle')?.value||'').trim();
+  const body=(document.getElementById('memoEditBodyText')?.value||'').trim();
+  if(!title&&!body){closeMemoEdit();return;}
+  const now=new Date().toISOString();if(!DB.memos)DB.memos=[];
+  if(_memoEditId){const m=DB.memos.find(x=>x.id===_memoEditId);if(m){m.title=title;m.text=body;if(!m.createdAt)m.createdAt=m.updatedAt||now;m.updatedAt=now;}}
+  else{DB.memos.push({id:'MEMO_'+Date.now(),title:title,text:body,createdAt:now,updatedAt:now});}
+  saveDB();closeMemoEdit();renderAll();showSyncBar('✅ メモを保存しました','ok');
+}
+function deleteMemoEdit(){if(!_memoEditId)return;if(!confirm('このメモを削除しますか？'))return;DB.memos=(DB.memos||[]).filter(x=>x.id!==_memoEditId);saveDB();closeMemoEdit();renderAll();showSyncBar('🗑 メモを削除しました','ok');}
 async function printDoc(){
   const tN=(document.getElementById('toName')?.value||'').trim();
   const subj=(document.getElementById('subject')?.value||'').trim();
@@ -1332,10 +1377,12 @@ async function runScanQuote(event){
 function updateSearch(v){const was=!!searchQuery;searchQuery=v.trim().toLowerCase();if(!was&&searchQuery)pushBack();const cb=document.getElementById('srchClearBtn');if(cb)cb.style.display=searchQuery?'block':'none';renderAll();}
 function clearSearch(){searchQuery='';const gi=document.getElementById('globalSearch');if(gi)gi.value='';const cb=document.getElementById('srchClearBtn');if(cb)cb.style.display='none';renderAll();}
 function renderAll(){
-  let h='';for(let i=0;i<TABS.length;i++)h+='<button class="tab-btn '+(currentTab===i?'active':'')+'" onclick="changeTab('+i+')">'+TABS[i]+'</button>';
+  // メモ(末尾index)を視覚的に左から2番目へ。内部のタブindexは変えない（既存の数値結合を壊さない）
+  const order=[0,TABS.length-1];for(let i=1;i<TABS.length-1;i++)order.push(i);
+  let h='';order.forEach(i=>{h+='<button class="tab-btn '+(currentTab===i?'active':'')+'" onclick="changeTab('+i+')">'+TABS[i]+'</button>';});
   document.getElementById('tabBar').innerHTML=h;
   const main=document.getElementById('content_main');const qe=document.getElementById('content_quote_editor');qe.style.display='none';main.style.display='block';
-  if(currentTab===0)main.innerHTML=renderHome();else if(currentTab===1)main.innerHTML=renderCustomers();else if(currentTab===2)main.innerHTML=renderRepairs();else if(currentTab===3)main.innerHTML=renderDemos();else if(currentTab===4)main.innerHTML=renderPartsTab();else if(currentTab===5)main.innerHTML=renderProducts();else if(currentTab===6)main.innerHTML=renderQuotesList();else if(currentTab===7)main.innerHTML=renderMachines();
+  if(currentTab===0)main.innerHTML=renderHome();else if(currentTab===1)main.innerHTML=renderCustomers();else if(currentTab===2)main.innerHTML=renderRepairs();else if(currentTab===3)main.innerHTML=renderDemos();else if(currentTab===4)main.innerHTML=renderPartsTab();else if(currentTab===5)main.innerHTML=renderProducts();else if(currentTab===6)main.innerHTML=renderQuotesList();else if(currentTab===7)main.innerHTML=renderMachines();else if(currentTab===8)main.innerHTML=renderMemosTab();
   try{_updateFab();}catch(e){}
 }
 function changeTab(i){
@@ -1364,6 +1411,7 @@ function closeTopModal(){
   const doClose=(id,fn)=>{try{if(fn){fn();return;}}catch(e){}const el=document.getElementById(id);if(el)el.style.display='none';};
   const list=[
     ['morningDigestModal',closeMorningDigest],
+    ['memoEditModal',closeMemoEdit],
     ['quotePriceModal',_qpClose],
     ['recallModal',closeRecall],['scanQuoteModal',closeScanQuoteModal],['ocrModal',closeOcrModal],
     ['diagModal',closeDiagModal],['machineModal',closeMachineModal],['customerModal',closeCustomerModal],
@@ -1809,7 +1857,8 @@ function renderHome(){
     const rPt=hit(DB.parts,['customerName','name','maker','partNo']);
     const rD=hit(DB.demos,['customerName','targetMachine','maker','model','targetMachine2','targetMachine3']);
     const rC=hit(DB.customers,['name','phone','address','memo']);
-    const tot=rR.length+rP.length+rPt.length+rD.length+rC.length;
+    const rM=(DB.memos||[]).filter(m=>[_memoTitle(m),_memoBodyText(m)].some(f=>(f||'').toLowerCase().includes(q)));
+    const tot=rR.length+rP.length+rPt.length+rD.length+rC.length+rM.length;
     let h='<div style="margin-bottom:12px;font-size:13px;font-weight:900;color:var(--text);">🔍 「'+searchQuery+'」の検索結果 '+tot+'件</div>';
     if(!tot)return h+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">該当する項目がありません</div>';
     const sec=(title,color,items,renderFn)=>{if(!items.length)return '';let s='<div style="margin-top:12px;margin-bottom:6px;font-size:12px;font-weight:900;color:'+color+';">'+title+' '+items.length+'件</div>';items.forEach(renderFn.bind(null,(x)=>{s+=x;}));return s;};
@@ -1819,6 +1868,7 @@ function renderHome(){
     if(rPt.length){h+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:#f39c12;">⚙️ 部品 '+rPt.length+'件</div>';rPt.forEach(x=>{h+=card('#f39c12',x.id,4,(x.customerName?x.customerName+' - ':'')+(x.maker?x.maker+' ':'')+x.name,'品番: '+(x.partNo||'-'),x.status,'発注日: ',x.orderDate);});}
     if(rD.length){h+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:#9b59b6;">🌾 実演 '+rD.length+'件</div>';rD.forEach(x=>{h+=card('#9b59b6',x.id,3,(x.customerName||'')+' - '+(buildMachineStr(x.targetMachine,x.maker,x.model)||'未定'),'',x.status,'予定日: ',x.date);});}
     if(rC.length){h+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:#2980b9;">👤 顧客 '+rC.length+'件</div>';rC.forEach(x=>{h+=card('#2980b9',x.id,1,x.name+' 様',x.phone?'📞 '+x.phone:'','','','');});}
+    if(rM.length){h+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:#f1c40f;">📝 メモ '+rM.length+'件</div>';rM.forEach(x=>{h+='<div class="card" onclick="openMemoEdit(\''+x.id+'\')" style="border-left:4px solid #f1c40f;margin-bottom:7px;"><div style="font-weight:bold;font-size:14px;margin-bottom:3px;">'+esc(_memoTitle(x))+'</div>'+'<div style="font-size:11px;color:var(--text-sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(_memoBodyText(x).replace(/\n/g,' ').slice(0,50))+'</div></div>';});}
     return h;
   }
   if(calViewActive){
@@ -1943,7 +1993,7 @@ function openCustomerCard(id){
   document.getElementById('customerModalBody').innerHTML=h;
   document.getElementById('customerModal').style.display='flex';
 }
-function renderCustomers(){let html='<button onclick="openNew(1)" class="save-btn" style="margin-bottom:15px;width:100%;">＋ 顧客を新規登録</button>';let custList=DB.customers.slice();if(searchQuery)custList=custList.filter(x=>[x.name,x.phone,x.address,x.memo].some(f=>(f||'').toLowerCase().includes(searchQuery)));if(searchQuery&&!custList.length)return html+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">検索結果なし</div>';custList.forEach(item=>{const n=item.name;const rc=DB.repairs.filter(x=>x.customerName===n).length,dc=DB.demos.filter(x=>x.customerName===n).length,pc=DB.products.filter(x=>x.customer===n).length,ptc=DB.parts.filter(x=>x.customerName===n).length;html+='<div class="card" onclick="openCustomerCard(\''+item.id+'\')"><div style="font-weight:bold;font-size:15px;margin-bottom:4px;">'+n+'　様</div>'+(item.phone?'<div style="font-size:12px;color:var(--text-sub);margin-bottom:6px;">📞 '+item.phone+'</div>':'')+'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;"><span class="badge-count '+(rc?'bc-red':'bc-gray')+'">🔧 修理 '+rc+'</span><span class="badge-count '+(dc?'bc-orange':'bc-gray')+'">🌾 実演 '+dc+'</span><span class="badge-count '+(pc?'bc-green':'bc-gray')+'">🚜 製品 '+pc+'</span><span class="badge-count '+(ptc?'bc-blue':'bc-gray')+'">⚙️ 部品 '+ptc+'</span></div></div>';});return html;}
+function renderCustomers(){let html='<button onclick="openNew(1)" class="save-btn" style="margin-bottom:15px;width:100%;">＋ 顧客を新規登録</button>';let custList=DB.customers.slice();if(searchQuery)custList=custList.filter(x=>[x.name,x.phone,x.address,x.memo].some(f=>(f||'').toLowerCase().includes(searchQuery)));if(searchQuery&&!custList.length)return html+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">検索結果なし</div>';custList.sort((a,b)=>String(a.kana||a.furigana||a.name||'').localeCompare(String(b.kana||b.furigana||b.name||''),'ja'));custList.forEach(item=>{const n=item.name;const rc=DB.repairs.filter(x=>x.customerName===n).length,dc=DB.demos.filter(x=>x.customerName===n).length,pc=DB.products.filter(x=>x.customer===n).length,ptc=DB.parts.filter(x=>x.customerName===n).length;html+='<div class="card" onclick="openCustomerCard(\''+item.id+'\')"><div style="font-weight:bold;font-size:15px;margin-bottom:4px;">'+n+'　様</div>'+(item.phone?'<div style="font-size:12px;color:var(--text-sub);margin-bottom:6px;">📞 '+item.phone+'</div>':'')+'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;"><span class="badge-count '+(rc?'bc-red':'bc-gray')+'">🔧 修理 '+rc+'</span><span class="badge-count '+(dc?'bc-orange':'bc-gray')+'">🌾 実演 '+dc+'</span><span class="badge-count '+(pc?'bc-green':'bc-gray')+'">🚜 製品 '+pc+'</span><span class="badge-count '+(ptc?'bc-blue':'bc-gray')+'">⚙️ 部品 '+ptc+'</span></div></div>';});return html;}
 function renderRepairs(){
   let html='<button onclick="openNew(2)" class="save-btn" style="margin-bottom:10px;width:100%;">＋ 修理依頼を新規登録</button>';
   let items=DB.repairs.slice().sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999'));
@@ -2009,21 +2059,18 @@ function renderPartsTab(){
 function renderProducts(){
   let html='<button onclick="openNew(5)" class="save-btn" style="margin-bottom:10px;width:100%;">＋ 製品を新規登録</button>';
   html+='<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--text-sub);">ステータス: <b style="color:#9b59b6;">商談中</b>→<b style="color:#e67e22;">受注</b>→<b style="color:#f39c12;">発注済</b>→<b style="color:#e67e22;">入荷済</b>→<b style="color:#3498db;">納品(納車)済</b>→<b style="color:#27ae60;">完了</b>→請求済</div>';
+  // 納品日の昇順（予定が近い順）。未設定は'9999'で末尾にまとめる。並び替えは表示時のみ
   let items=DB.products.slice().sort((a,b)=>(a.deliveryDate||'9999').localeCompare(b.deliveryDate||'9999'));
   if(searchQuery)items=items.filter(x=>[x.customer,x.productName,x.maker,x.model,x.serialNo].some(f=>(f||'').toLowerCase().includes(searchQuery)));
   if(!items.length)return html+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">'+(searchQuery?'検索結果なし':'製品はありません')+'</div>';
-  const grp={};const ord=[];
-  items.forEach(item=>{const k=item.customer||'顧客未設定';if(!grp[k]){grp[k]=[];ord.push(k);}grp[k].push(item);});
-  ord.forEach(cName=>{
-    html+='<div style="margin-top:14px;margin-bottom:6px;font-size:12px;font-weight:900;color:var(--text-sub);padding-left:2px;display:flex;align-items:center;gap:6px;">👤 '+cName+' 様<span style="font-size:10px;font-weight:400;color:var(--text-sub);">'+grp[cName].length+'件</span></div>';
-    grp[cName].forEach(item=>{
-      html+='<div class="card" data-swid="'+item.id+'" data-swtab="5" onclick="openEdit(\''+item.id+'\',5)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-left:8px;margin-bottom:7px;">'
-        +'<div style="font-weight:bold;font-size:14px;margin-bottom:4px;">'+item.productName+'</div>'
-        +(item.serialNo?'<div style="font-size:11px;color:var(--text-sub);">製造番号: '+item.serialNo+'</div>':'')
-        +'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;">メーカー: '+(item.maker||'-')+' / 型式: '+(item.model||'-')+' / 販売額: ¥'+Number(item.price||0).toLocaleString()+'</div>'
-        +'<div style="display:flex;justify-content:space-between;align-items:center;"><span class="badge" style="background:'+(STATUS_COLORS[item.status]||'#95a5a6')+';display:inline-block;">'+(item.status||'受注')+'</span>'
-        +(item.deliveryDate?'<span style="font-size:10px;color:var(--text-sub);">納品予定: '+item.deliveryDate+'</span>':'')+'</div></div>';
-    });
+  items.forEach(item=>{
+    html+='<div class="card" data-swid="'+item.id+'" data-swtab="5" onclick="openEdit(\''+item.id+'\',5)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-bottom:7px;">'
+      +'<div style="font-weight:bold;font-size:14px;margin-bottom:3px;">'+item.productName+'</div>'
+      +'<div style="font-size:11px;color:var(--text-sub);">👤 '+(item.customer||'顧客未設定')+' 様</div>'
+      +(item.serialNo?'<div style="font-size:11px;color:var(--text-sub);">製造番号: '+item.serialNo+'</div>':'')
+      +'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;">メーカー: '+(item.maker||'-')+' / 型式: '+(item.model||'-')+' / 販売額: ¥'+Number(item.price||0).toLocaleString()+'</div>'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;"><span class="badge" style="background:'+(STATUS_COLORS[item.status]||'#95a5a6')+';display:inline-block;">'+(item.status||'受注')+'</span>'
+      +'<span style="font-size:10px;color:var(--text-sub);">納品予定: '+(item.deliveryDate||'未定')+'</span></div></div>';
   });
   return html;
 }
@@ -2614,6 +2661,13 @@ if('serviceWorker' in navigator){
 <button onclick="bulkDelta(-1)" style="background:var(--input-bg);border:1.5px solid var(--border);color:var(--text);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:800;cursor:pointer;">◀ 戻す</button>
 <button onclick="bulkDelta(1)" style="background:#27c06a;border:none;color:#fff;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:800;cursor:pointer;">進める ▶</button>
 <button onclick="exitSelectMode(true)" aria-label="選択解除" style="background:none;border:none;color:var(--text-sub);font-size:20px;cursor:pointer;padding:0 6px;">✕</button>
+</div>
+<!-- ① メモ編集モーダル -->
+<div class="modal-overlay" id="memoEditModal" style="display:none;" onclick="if(event.target.id==='memoEditModal')closeMemoEdit()">
+<div class="modal-box">
+<div class="modal-header"><h3 style="font-size:15px;font-weight:800;color:var(--text);">📝 メモ</h3><button onclick="closeMemoEdit()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button></div>
+<div style="padding:16px 18px 40px;" id="memoEditBody"></div>
+</div>
 </div>
 </body>
 </html>
