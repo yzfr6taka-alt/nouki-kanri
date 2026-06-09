@@ -148,11 +148,6 @@ body.dark .bc-blue{background:#1b2a44;color:#7eacff;}
 
 @keyframes ovFade{from{opacity:0}to{opacity:1}}
 
-/* ─────────────────────────────────────────────
-   スプラッシュ：シネマティック起動ムービー
-   （モノスペース＋筆記体署名 / CSSのみ）
-   ───────────────────────────────────────────── */
-
 /* ▼▼▼ 筆記体フォント Pinyon Script ▼▼▼
    通常は <head> の Google Fonts から読み込みます（オンライン時）。
    オフラインでも確実に表示したい場合は、下の @font-face のコメントを外し
@@ -168,84 +163,170 @@ body.dark .bc-blue{background:#1b2a44;color:#7eacff;}
 */
 /* ▲▲▲ 差し込み口ここまで ▲▲▲ */
 
-#loading-screen{position:fixed;inset:0;background:
-  radial-gradient(ellipse at 50% 32%,#1d3041 0%,#0e1a25 48%,#070d13 100%);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;overflow:hidden;transition:opacity .7s ease;}
-#loading-screen.hide{opacity:0;pointer-events:none;}
-
-/* グリッドの大地 */
-.sp-grid{position:absolute;inset:0;background-image:
-  linear-gradient(rgba(46,204,113,.06) 1px,transparent 1px),
-  linear-gradient(90deg,rgba(46,204,113,.06) 1px,transparent 1px);
-  background-size:30px 30px;-webkit-mask-image:radial-gradient(ellipse at 50% 42%,#000 0%,transparent 76%);mask-image:radial-gradient(ellipse at 50% 42%,#000 0%,transparent 76%);opacity:0;transform:perspective(600px) rotateX(2deg);animation:spGridIn 1.6s ease .15s forwards;}
-
-/* 中央のグロー鼓動 */
-.sp-glow{position:absolute;left:50%;top:38%;width:520px;height:520px;transform:translate(-50%,-50%);background:radial-gradient(circle,rgba(31,157,85,.22),transparent 62%);filter:blur(8px);opacity:0;animation:spGlow 3.4s ease-in-out .5s infinite;pointer-events:none;}
-
-/* スキャンライン */
-.sp-scan{position:absolute;left:0;right:0;height:2px;top:0;background:linear-gradient(90deg,transparent,rgba(46,204,113,.65),transparent);box-shadow:0 0 18px rgba(46,204,113,.55);opacity:0;animation:spScan 2.8s cubic-bezier(.5,0,.5,1) .6s infinite;}
-
-/* 浮遊パーティクル */
-.sp-particles{position:absolute;inset:0;overflow:hidden;pointer-events:none;}
-.sp-particles span{position:absolute;bottom:-8px;width:3px;height:3px;border-radius:50%;background:rgba(120,230,170,.8);box-shadow:0 0 8px rgba(46,204,113,.8);opacity:0;animation:spFloat linear infinite;}
-.sp-particles span:nth-child(1){left:12%;animation-duration:5.5s;animation-delay:.2s;}
-.sp-particles span:nth-child(2){left:24%;animation-duration:7s;animation-delay:1.1s;}
-.sp-particles span:nth-child(3){left:38%;animation-duration:6s;animation-delay:.6s;width:2px;height:2px;}
-.sp-particles span:nth-child(4){left:52%;animation-duration:8s;animation-delay:1.8s;}
-.sp-particles span:nth-child(5){left:63%;animation-duration:5s;animation-delay:.9s;width:2px;height:2px;}
-.sp-particles span:nth-child(6){left:74%;animation-duration:7.5s;animation-delay:.3s;}
-.sp-particles span:nth-child(7){left:84%;animation-duration:6.4s;animation-delay:1.4s;}
-.sp-particles span:nth-child(8){left:91%;animation-duration:5.8s;animation-delay:2.1s;width:2px;height:2px;}
-
-.sp-content{position:relative;z-index:10;text-align:center;width:100%;padding:0 24px;}
-.sp-tractor{font-size:56px;filter:drop-shadow(0 0 22px rgba(46,204,113,.55));opacity:0;animation:spPop .7s cubic-bezier(.34,1.56,.64,1) .35s both;}
-.sp-title{font-family:'SFMono-Regular','Menlo','Consolas','monospace';font-size:25px;letter-spacing:5px;margin-top:16px;opacity:0;animation:spRise .8s ease .62s both;}
-.sp-title .a{color:#eaf6ff;font-weight:900;}
-.sp-title .b{color:#2ecc71;font-weight:900;text-shadow:0 0 18px rgba(46,204,113,.55);}
-.sp-jp{color:#6aa6c2;font-size:11px;letter-spacing:6px;margin-top:11px;opacity:0;animation:spRise .8s ease .82s both;}
-.sp-rule{width:0;height:2px;background:linear-gradient(90deg,transparent,#2ecc71,transparent);border-radius:2px;margin:22px auto 0;box-shadow:0 0 12px rgba(46,204,113,.6);animation:spRule .9s ease 1s both;}
-.sp-bar-track{width:200px;height:3px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;margin:22px auto 0;}
-.sp-bar-fill{height:100%;width:0;background:linear-gradient(90deg,#27ae60,#2ecc71);border-radius:2px;box-shadow:0 0 10px rgba(46,204,113,.7);animation:barLoad 2s cubic-bezier(.65,0,.35,1) 1.1s both;}
-.sp-msg{color:#5891a8;font-family:'SFMono-Regular','Menlo','Consolas','monospace';font-size:10px;letter-spacing:3px;margin-top:15px;opacity:0;animation:spBlink 1.6s ease .95s both;}
-.sp-sign{position:absolute;bottom:40px;left:0;right:0;text-align:center;z-index:10;opacity:0;animation:spRise 1s ease 1.3s both;}
-.sp-sign .by{display:block;font-family:'SFMono-Regular','Menlo','Consolas','monospace';font-size:9px;letter-spacing:4px;color:#5d7689;margin-bottom:3px;}
-.sp-sign .name{font-family:'Pinyon Script','Snell Roundhand','Savoye LET',cursive;font-size:33px;color:#cfe3f0;font-style:italic;text-shadow:0 0 16px rgba(46,204,113,.3);}
-
-@keyframes spFadeIn{to{opacity:1}}
-@keyframes spRise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
-@keyframes spPop{0%{opacity:0;transform:scale(.3) translateY(8px)}70%{transform:scale(1.14)}100%{opacity:1;transform:scale(1) translateY(0)}}
-@keyframes spRule{to{width:120px}}
-@keyframes barLoad{0%{width:0}100%{width:100%}}
 @keyframes slideUp{0%{transform:translateY(28px);opacity:0}100%{transform:translateY(0);opacity:1}}
-@keyframes spGridIn{0%{opacity:0;transform:perspective(600px) rotateX(8deg) scale(1.08)}100%{opacity:1;transform:perspective(600px) rotateX(2deg) scale(1)}}
-@keyframes spGlow{0%,100%{opacity:.35;transform:translate(-50%,-50%) scale(.92)}50%{opacity:.7;transform:translate(-50%,-50%) scale(1.06)}}
-@keyframes spScan{0%{top:-2%;opacity:0}12%{opacity:1}88%{opacity:1}100%{top:102%;opacity:0}}
-@keyframes spFloat{0%{transform:translateY(0);opacity:0}10%{opacity:1}90%{opacity:1}100%{transform:translateY(-104vh);opacity:0}}
-@keyframes spBlink{0%{opacity:0}40%{opacity:1}70%{opacity:.5}100%{opacity:.85}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
-
-<div id="loading-screen">
-  <div class="sp-grid"></div>
-  <div class="sp-glow"></div>
-  <div class="sp-scan"></div>
-  <div class="sp-particles"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-  <div class="sp-content">
-    <div class="sp-tractor">🚜</div>
-    <div class="sp-title"><span class="a">AGRI</span> <span class="b">MANAGER</span></div>
-    <div class="sp-jp">農機業務管理システム</div>
-    <div class="sp-rule"></div>
-    <div class="sp-bar-track"><div class="sp-bar-fill"></div></div>
-    <div class="sp-msg" id="loadingMsg">データを読み込んでいます</div>
+<!-- ===== OPENING SPLASH : FULL IGNITION (taka.r6.agri) ===== -->
+<div id="splashE">
+  <div id="splashInner"><canvas id="splashCv"></canvas></div>
+  <div id="splashLogo">
+    <div class="se-jp" id="seJp">農機業務管理</div>
+    <div class="se-sig">taka.r6.agri</div>
+    <div class="se-rule" id="seRule"></div>
+    <div class="se-ready" id="seReady"><span class="se-dot"></span>SYSTEM READY</div>
   </div>
-  <div class="sp-sign">
-    <span class="by">PRODUCED BY</span>
-    <span class="name">taka.r6.agri</span>
-  </div>
+  <div id="splashCrt"></div>
 </div>
+<style>
+  #splashE{position:fixed;inset:0;z-index:99999;background:#000;overflow:hidden;
+    font-family:ui-monospace,"Roboto Mono","DejaVu Sans Mono",Consolas,monospace;
+    opacity:1;transition:opacity .6s ease;}
+  #splashE.gone{opacity:0;pointer-events:none;}
+  #splashInner{position:absolute;inset:0;will-change:transform;}
+  #splashCv{position:absolute;inset:0;width:100%;height:100%;display:block;}
+  #splashLogo{position:absolute;inset:0;display:grid;place-content:center;text-align:center;
+    padding:24px;opacity:0;transition:opacity .8s ease;pointer-events:none;}
+  #splashLogo .se-jp{font-size:clamp(30px,10vw,50px);font-weight:800;letter-spacing:.18em;color:#fff;
+    text-shadow:0 0 26px #2ecc7188,0 0 6px #2ecc71;}
+  #splashLogo .se-sig{margin-top:16px;font-size:13px;letter-spacing:.36em;color:#2ecc71;}
+  #splashLogo .se-rule{width:0;height:1px;background:linear-gradient(90deg,#0000,#2ecc71,#0000);margin:18px auto 0;transition:width .9s ease;}
+  #splashLogo .se-ready{margin-top:20px;font-size:11px;letter-spacing:.3em;color:#5dffa0;opacity:0;transition:opacity .4s;}
+  #splashLogo .se-ready .se-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#5dffa0;vertical-align:1px;margin-right:8px;animation:seBlink 1.1s steps(1) infinite;}
+  @keyframes seBlink{50%{opacity:.2}}
+  @keyframes seGlow{0%,100%{text-shadow:0 0 18px #2ecc7166,0 0 5px #2ecc71}50%{text-shadow:0 0 38px #2ecc71dd,0 0 10px #5dffa0}}
+  #splashCrt{position:absolute;inset:0;pointer-events:none;z-index:4;}
+  #splashCrt::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,#0000 0,#0000 2px,#00ff8809 3px,#0000 4px);}
+  #splashCrt::after{content:"";position:absolute;inset:0;background:radial-gradient(120% 100% at 50% 50%,#0000 55%,#000a 100%);}
+  @media (prefers-reduced-motion: reduce){#splashE *{animation-duration:.001s!important;transition-duration:.001s!important;}}
+</style>
+<script>
+(function(){
+  "use strict";
+  var sp=document.getElementById('splashE'); if(!sp) return;
+  var inner=document.getElementById('splashInner');
+  var cv=document.getElementById('splashCv'); var ctx=cv.getContext('2d');
+  var logo=document.getElementById('splashLogo');
+  var jp=document.getElementById('seJp'), rule=document.getElementById('seRule'), ready=document.getElementById('seReady');
+  var W=0,H=0,DPR=1,raf=0,running=false,timers=[],done_=false;
+  function later(fn,ms){var id=setTimeout(fn,ms);timers.push(id);return id;}
+  function clearTimers(){timers.forEach(clearTimeout);timers=[];}
+  function size(){DPR=Math.min(window.devicePixelRatio||1,2);W=sp.clientWidth;H=sp.clientHeight;
+    cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);ctx.setTransform(DPR,0,0,DPR,0,0);}
+  function fontFam(){return 'ui-monospace,"Roboto Mono","DejaVu Sans Mono",Consolas,monospace';}
+  function ez(t){return 1-Math.pow(1-t,3);}
+  function clamp01(v){return v<0?0:v>1?1:v;}
+  var T={seed:[0,500],ring:[350,1500],needle:[1450,2350],redline:2350,converge:[2350,4150],logo:4150,end:5200};
+  var cx,cy,R,shock=[],redFired=false,startAt=0;
+  var bootText='> cloud sync .. ok\n> repair_db .. 28\n> system ..... go';
+  function shake(strength,ms){var s0=performance.now();(function step(now){
+    if(!running){inner.style.transform='';return;}var k=(now-s0)/ms;if(k>=1){inner.style.transform='';return;}
+    var d=(1-k)*strength;inner.style.transform='translate('+((Math.random()*2-1)*d).toFixed(1)+'px,'+((Math.random()*2-1)*d).toFixed(1)+'px)';
+    requestAnimationFrame(step);})(s0);}
+  function start(){clearTimers();if(raf)cancelAnimationFrame(raf);
+    running=true;shock=[];redFired=false;done_=false;
+    logo.style.opacity='0';rule.style.width='0';ready.style.opacity='0';jp.style.animation='';
+    inner.style.transform='';size();cx=W/2;cy=H*0.44;R=Math.min(W,H)*0.27;
+    ctx.clearRect(0,0,W,H);startAt=performance.now();raf=requestAnimationFrame(frame);}
+  function frame(now){
+    if(!running)return;var t=now-startAt;
+    ctx.fillStyle='rgba(0,0,0,0.30)';ctx.fillRect(0,0,W,H);
+    // 種火
+    if(t<T.redline){var sk=clamp01((t-T.seed[0])/(T.seed[1]-T.seed[0]));
+      var glowR=4+sk*10+Math.sin(now/120)*2;
+      var g=ctx.createRadialGradient(cx,cy,0,cx,cy,glowR*4);
+      g.addColorStop(0,'#9fffc9');g.addColorStop(.4,'#2ecc71aa');g.addColorStop(1,'#2ecc7100');
+      ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,glowR*4,0,6.283);ctx.fill();}
+    var a0=Math.PI*0.78,a1=Math.PI*2.22;
+    // リング
+    if(t>=T.ring[0]&&t<T.redline){var rk=clamp01((t-T.ring[0])/(T.ring[1]-T.ring[0]));
+      var ringEnd=a0+(a1-a0)*ez(rk);
+      for(var i=0;i<=10;i++){var frac=i/10,ta=a0+(a1-a0)*frac;if(ta>ringEnd)break;var red=frac>0.8;
+        ctx.strokeStyle=red?'#ff5a4d':'#2ecc71';ctx.globalAlpha=red?0.85:0.5;ctx.lineWidth=red?3:2;
+        ctx.beginPath();ctx.moveTo(cx+Math.cos(ta)*(R-2),cy+Math.sin(ta)*(R-2));
+        ctx.lineTo(cx+Math.cos(ta)*(R-14),cy+Math.sin(ta)*(R-14));ctx.stroke();}
+      ctx.globalAlpha=1;ctx.strokeStyle='#1c3a26';ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,R,a0,ringEnd);ctx.stroke();}
+    // 針
+    var sweep=0;
+    if(t>=T.needle[0]&&t<T.redline){var nk=clamp01((t-T.needle[0])/(T.needle[1]-T.needle[0]));sweep=ez(nk);
+      var ang=a0+(a1-a0)*sweep;
+      ctx.strokeStyle=sweep>0.8?'#ff5a4d':'#2ecc71';ctx.lineWidth=4;ctx.lineCap='round';
+      ctx.beginPath();ctx.arc(cx,cy,R,a0,ang);ctx.stroke();
+      ctx.strokeStyle='#5dffa0';ctx.lineWidth=3;ctx.shadowColor='#2ecc71';ctx.shadowBlur=14;
+      ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(ang)*(R-18),cy+Math.sin(ang)*(R-18));ctx.stroke();
+      ctx.shadowBlur=0;ctx.fillStyle='#5dffa0';ctx.beginPath();ctx.arc(cx,cy,5,0,6.283);ctx.fill();
+      ctx.fillStyle='#9fffc9';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.font='700 '+Math.round(R*0.24)+'px '+fontFam();ctx.fillText(Math.round(sweep*3200),cx,cy+R*0.30);
+      ctx.fillStyle='#2ecc71';ctx.font='600 '+Math.round(R*0.09)+'px '+fontFam();ctx.fillText('RPM',cx,cy+R*0.50);
+      var amp=Math.min(34,H*0.05)*sweep,wy=H*0.80,freqK=0.04+sweep*0.06;
+      ctx.strokeStyle='#2ecc71';ctx.globalAlpha=0.6;ctx.lineWidth=2;ctx.beginPath();
+      for(var x=0;x<W;x+=4){var ph=(now/110)+(x*freqK),jit=Math.sin(ph*3.1)+0.5*Math.sin(ph*7.3),yy=wy+jit*amp;
+        if(x===0)ctx.moveTo(x,yy);else ctx.lineTo(x,yy);}ctx.stroke();ctx.globalAlpha=1;}
+    // 起動ログ(控えめ)
+    if(t<T.redline){var bk=clamp01((t-T.ring[0])/1300),show=Math.floor(bk*bootText.length);
+      ctx.fillStyle='#2ecc71';ctx.globalAlpha=0.55;ctx.textAlign='left';ctx.textBaseline='top';
+      ctx.font='600 '+Math.max(10,Math.round(W*0.03))+'px '+fontFam();
+      var lines=bootText.slice(0,show).split('\n');
+      for(var li=0;li<lines.length;li++)ctx.fillText(lines[li],W*0.07,H*0.82+li*(W*0.045));
+      ctx.globalAlpha=1;ctx.textAlign='center';ctx.textBaseline='middle';}
+    // 点火
+    if(t>=T.redline&&!redFired){redFired=true;
+      shock.push({t0:now,col:'#ffffff'});
+      later(function(){if(running)shock.push({t0:performance.now(),col:'#ff5a4d'});},60);
+      later(function(){if(running)shock.push({t0:performance.now(),col:'#5dffa0'});},130);
+      shake(13,500);}
+    // 白飽和
+    if(redFired){var fk=(t-T.redline)/260;if(fk<1){ctx.fillStyle='rgba(255,255,255,'+(0.9*(1-fk))+')';ctx.fillRect(0,0,W,H);}}
+    // 衝撃波
+    for(var s=shock.length-1;s>=0;s--){var sw=shock[s],age=(now-sw.t0)/620;
+      if(age>=1){shock.splice(s,1);continue;}var aa=age<0?0:age;var rr=aa*Math.max(W,H)*0.7;
+      ctx.strokeStyle=sw.col;ctx.globalAlpha=(1-aa)*0.8;ctx.lineWidth=3*(1-aa)+1;
+      ctx.beginPath();ctx.arc(cx,cy,rr,0,6.283);ctx.stroke();ctx.globalAlpha=1;}
+    // 筆記体ライティング
+    if(redFired){var ct=t-T.converge[0];var word='Machine';
+      var fs=Math.min(W*0.22,H*0.15);
+      var scriptFont=function(px){return 'italic 800 '+px+'px "Snell Roundhand","Segoe Script","Bradley Hand","Brush Script MT",cursive';};
+      ctx.textAlign='left';ctx.textBaseline='middle';ctx.font=scriptFont(fs);
+      var advW=ctx.measureText(word).width;var over=fs*0.42;var maxW=W*0.86;
+      if(advW+over>maxW){fs*=maxW/(advW+over);ctx.font=scriptFont(fs);advW=ctx.measureText(word).width;over=fs*0.42;}
+      var iW=advW+over;var leftX=(W-iW)/2;var baseX=leftX;var wp=clamp01(ct/1150);
+      var grad=ctx.createLinearGradient(leftX,0,leftX+iW,0);
+      grad.addColorStop(0,'#5dffa0');grad.addColorStop(1,'#9fffc9');
+      ctx.save();ctx.beginPath();ctx.rect(leftX-fs*0.14,cy-fs,iW*wp+fs*0.14,fs*2);ctx.clip();
+      ctx.shadowColor='#2ecc71';ctx.shadowBlur=18;ctx.fillStyle=grad;ctx.fillText(word,baseX,cy);
+      ctx.restore();ctx.shadowBlur=0;
+      if(wp<1){var penX=leftX+iW*wp;
+        var pg=ctx.createRadialGradient(penX,cy,0,penX,cy,16);
+        pg.addColorStop(0,'#ffffff');pg.addColorStop(.5,'#9fffc9aa');pg.addColorStop(1,'#2ecc7100');
+        ctx.fillStyle=pg;ctx.beginPath();ctx.arc(penX,cy,16,0,6.283);ctx.fill();}
+      if(ct>1050){var up=clamp01((ct-1050)/520);
+        ctx.strokeStyle='#2ecc71';ctx.lineWidth=3;ctx.lineCap='round';ctx.shadowColor='#2ecc71';ctx.shadowBlur=10;
+        var ux0=leftX-fs*0.06,ux1=leftX+iW,uy=cy+fs*0.66,steps=26,started=false;ctx.beginPath();
+        for(var sI=0;sI<=steps;sI++){var pr=sI/steps;if(pr>up)break;var ux=ux0+(ux1-ux0)*pr;
+          var dip=Math.sin(pr*Math.PI)*(-fs*0.08);var tail=pr>0.82?(pr-0.82)*(pr-0.82)*fs*6:0;var uy2=uy+dip-tail;
+          if(!started){ctx.moveTo(ux,uy2);started=true;}else ctx.lineTo(ux,uy2);}
+        ctx.stroke();ctx.shadowBlur=0;}}
+    // ロゴ確定
+    if(t>=T.logo&&logo.style.opacity!=='1'){logo.style.opacity='1';
+      later(function(){if(running)rule.style.width='64%';},300);
+      later(function(){if(running){ready.style.opacity='1';jp.style.animation='seGlow 2.4s ease-in-out infinite';}},800);}
+    if(t>=T.logo){ctx.fillStyle='rgba(0,0,0,0.10)';ctx.fillRect(0,0,W,H);}
+    if(t>=T.end){ctx.clearRect(0,0,W,H);finishSplash();return;}
+    raf=requestAnimationFrame(frame);}
+  function finishSplash(){if(done_)return;done_=true;running=false;if(raf)cancelAnimationFrame(raf);clearTimers();
+    ctx.clearRect(0,0,W,H);sp.classList.add('gone');
+    var rm=function(){if(sp&&sp.parentNode)sp.parentNode.removeChild(sp);};
+    sp.addEventListener('transitionend',rm,{once:true});setTimeout(rm,900);}
+  function skip(){if(done_)return;running=false;if(raf)cancelAnimationFrame(raf);clearTimers();finishSplash();}
+  sp.addEventListener('click',skip);
+  window.addEventListener('resize',function(){if(!running&&!done_)size();});
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){later(start,200);});}
+  else{later(start,200);}
+})();
+</script>
+<!-- ===== /OPENING SPLASH ===== -->
 <div id="app" style="display:none;">
 <div style="background:linear-gradient(180deg,var(--main),#0c151d);padding-top:14px;position:sticky;top:0;z-index:100;box-shadow:0 6px 22px rgba(0,0,0,.32);border-bottom:1px solid rgba(31,157,85,.32);">
 <div style="display:flex;align-items:center;gap:9px;padding:0 13px 9px;">
@@ -2702,15 +2783,14 @@ window.onload=async function(){
     // ⑦ 起動時 ?go= を読み、戻るスタックを汚さずURLから除去（pushStateは使わない）
     let _goParam='';try{_goParam=new URL(location.href).searchParams.get('go')||'';if(_goParam)history.replaceState(history.state,'',location.pathname+location.hash);}catch(e){}
     loadDB();const lm=document.getElementById('loadingMsg');
-    if(gasUrl){lm.textContent='☁️ クラウドから最新データを確認中...';try{await syncToCloud(false);}catch(e){console.error('起動時同期エラー:',e);}}
+    if(gasUrl){if(lm)lm.textContent='☁️ クラウドから最新データを確認中...';try{await syncToCloud(false);}catch(e){console.error('起動時同期エラー:',e);}}
     if(!hasAnyData()){
       const er=localStorage.getItem('agri_emergency_backup');
       if(er){try{const eb=JSON.parse(er),ed=eb.data||eb;const eHas=['customers','repairs','demos','parts','products'].some(k=>Array.isArray(ed[k])&&ed[k].length>0);if(eHas){const sa=eb.savedAt?new Date(eb.savedAt).toLocaleString('ja-JP'):'不明',rc=ed.repairs?.length||0;if(confirm(`⚠️ データが見つかりません！\n\n緊急バックアップが見つかりました。\n保存日時: ${sa}\n修理 ${rc}件\n\n復元しますか？`)){['customers','repairs','demos','parts','products','settings','quotes','memos','machines'].forEach(k=>{if(Array.isArray(ed[k]))DB[k]=ed[k];});if(ed.lastModified)DB.lastModified=ed.lastModified;try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}}};}catch(e){console.error('緊急バックアップ読込エラー:',e);}}
     }
-    const ls=document.getElementById('loading-screen');
     document.getElementById('app').style.display='block';
-    // 署名アニメーション(約2.3秒)を見せてからフェードアウト
-    setTimeout(()=>{ls.classList.add('hide');setTimeout(()=>{ls.style.display='none';if(_goParam)handleGo(_goParam);else maybeShowMorningDigest();},700);},900);
+    // 新スプラッシュ(FULL IGNITION)は独立オーバーレイで自動再生・自動消滅。本体処理はブロックしない
+    setTimeout(()=>{if(_goParam)handleGo(_goParam);else maybeShowMorningDigest();},900);
     renderAll();
     armBack();
     if(!hasAnyData())showSyncBar('⚠️ データなし。🛡️ボタンからバックアップを復元できます。','conflict',false);
