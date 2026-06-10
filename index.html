@@ -1419,7 +1419,7 @@ function buildIgCaption(record, type){
 }
 function closeIgShare(){var e=document.getElementById('igShareModal');if(e)e.remove();}
 function copyIgCaption(){var t=document.getElementById('igCapText');if(!t)return;t.focus();t.select();var ok=false;try{navigator.clipboard.writeText(t.value);ok=true;}catch(e){}if(!ok){try{ok=document.execCommand('copy');}catch(_){}}if(typeof showSyncBar==='function')showSyncBar(ok?'✅ キャプションをコピーしました':'テキストを選択して手動でコピーしてください',ok?'ok':'conflict');}
-function _igOpenInstagram(){try{window.open('instagram://camera');}catch(e){}setTimeout(function(){try{window.open('https://www.instagram.com/','_blank');}catch(e){}},700);}
+function _igOpenInstagram(){location.href='intent://instagram.com/#Intent;package=com.instagram.android;scheme=https;S.browser_fallback_url=https%3A%2F%2Fwww.instagram.com;end';}
 function openIgShareModal(cap,withOpenBtn){
   closeIgShare();
   var ov=document.createElement('div');ov.className='modal-overlay';ov.id='igShareModal';ov.style.zIndex='1650';ov.style.display='flex';
