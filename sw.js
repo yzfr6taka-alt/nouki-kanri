@@ -1,5 +1,5 @@
 // 農機業務管理 PWA Service Worker
-const CACHE_NAME = 'nouki-pwa-v2-fullignition';
+const CACHE_NAME = 'nouki-pwa-v3-photodrive';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();

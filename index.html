@@ -861,11 +861,11 @@ async function notifyComplete(type){
     name=(document.getElementById('f_customerName')?.value||'').trim();
     item=(document.getElementById('f_machine')?.value||'').trim();
     msg=`${name?name+'様':'お客様'}\n\nいつもお世話になっております。\n\n${item?'【'+item+'】':'機械'}の修理が完了いたしました。\nご確認のほど、よろしくお願いいたします。\n\nご不明な点等ございましたら、お気軽にご連絡ください。\nどうぞよろしくお願いいたします。`;
-    const photos=(typeof currentRepairPhotos!=='undefined'&&Array.isArray(currentRepairPhotos))?currentRepairPhotos.filter(p=>typeof p==='string'&&p.indexOf('data:')===0):[];
+    const photos=(typeof currentRepairPhotos!=='undefined'&&Array.isArray(currentRepairPhotos))?currentRepairPhotos:[];
     if(photos.length){
       try{
         const base=((item||'修理写真').replace(/[\\\/:*?"<>|\s]/g,'_')).slice(0,30)||'修理写真';
-        const photoFiles=photos.map((d,i)=>dataUrlToFile(d,base+'_'+(i+1)));
+        const photoFiles=await photosToFiles(photos,base,10);
         const msgImg=await buildMessageImage(msg,'🔧 修理完了のお知らせ');
         const files=[msgImg,...photoFiles];
         if(navigator.share&&navigator.canShare&&navigator.canShare({files})){
@@ -1307,31 +1307,174 @@ async function aiCorrectVoiceText(){
 }
 
 // ===== 修理写真管理 =====
-let currentRepairPhotos=[];
+// ===== 修理写真：Driveクラウド保存（写真本体はlocalStorage/同期/バックアップに残さない）=====
+const PHOTO_GAS_URL="https://script.google.com/macros/s/AKfycbw1nnVdfEKhuh1K3lGZHBqV_EIMb2HOgpPyVKGVrEJTTX6IG4t4jz94QAtH9VAiXQ9o/exec";
+let currentRepairPhotos=[];let _repairPhotoUploading=false;
+function compressImage(file,maxEdge=1080,quality=0.72){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=()=>{const img=new Image();
+      img.onload=()=>{let w=img.width,h=img.height;
+        if(Math.max(w,h)>maxEdge){const s=maxEdge/Math.max(w,h);w=Math.round(w*s);h=Math.round(h*s);}
+        const c=document.createElement('canvas');c.width=w;c.height=h;
+        c.getContext('2d').drawImage(img,0,0,w,h);
+        c.toBlob(b=>b?resolve(b):reject(new Error('toBlob失敗')),'image/jpeg',quality);
+      };
+      img.onerror=reject;img.src=r.result;
+    };
+    r.onerror=reject;r.readAsDataURL(file);
+  });
+}
+function _blobToB64(blob){return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(',')[1]);fr.onerror=rej;fr.readAsDataURL(blob);});}
+async function uploadPhotoToDrive(blob){
+  try{
+    const dataBase64=await _blobToB64(blob);
+    const resp=await fetch(PHOTO_GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'uploadPhoto',filename:'repair_'+Date.now()+'.jpg',mimeType:'image/jpeg',dataBase64})});
+    const j=await resp.json();
+    return (j&&j.ok)?{fileId:j.fileId,thumbUrl:j.thumbUrl,viewUrl:j.viewUrl}:null;
+  }catch(e){console.error('写真アップロード失敗',e);return null;}
+}
+async function deletePhotoFromDrive(fileId){
+  if(!fileId)return false;
+  try{const resp=await fetch(PHOTO_GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify({action:'deletePhoto',fileId})});const j=await resp.json();return !!(j&&j.ok);}
+  catch(e){console.error('写真削除失敗',e);return false;}
+}
+// レガシーbase64文字列 と Driveメタ {fileId,thumbUrl,viewUrl} の両対応ヘルパ
+function _isPhotoMeta(p){return !!(p&&typeof p==='object'&&(p.fileId||p.thumbUrl||p.viewUrl));}
+function _photoThumbSrc(p){return _isPhotoMeta(p)?(p.thumbUrl||p.viewUrl||''):String(p||'');}
+function _photoViewSrc(p){return _isPhotoMeta(p)?(p.viewUrl||p.thumbUrl||''):String(p||'');}
+// 写真配列(混在可)→File[]（base64はそのまま、DriveメタはfetchしてBlob化、最大limit枚）
+async function photosToFiles(photos,baseName,limit){
+  const out=[];const arr=(photos||[]).slice(0,limit||10);
+  for(let i=0;i<arr.length;i++){const p=arr[i];const nm=(baseName||'photo')+'_'+(i+1);
+    try{
+      if(_isPhotoMeta(p)){const url=_photoViewSrc(p)||_photoThumbSrc(p);if(!url)continue;
+        const r=await fetch(url);const b=await r.blob();out.push(new File([b],nm+'.jpg',{type:b.type||'image/jpeg'}));}
+      else if(typeof p==='string'&&p.indexOf('data:')===0){out.push(dataUrlToFile(p,nm));}
+    }catch(e){console.warn('写真File化失敗',e);}
+  }
+  return out;
+}
 function buildRepairPhotoHTML(){
-  let h=currentRepairPhotos.map((p,i)=>`<div style="position:relative;flex-shrink:0;"><img src="${p}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;border:1.5px solid var(--border);cursor:pointer;" onclick="viewPhoto('${p}')"><button type="button" onclick="removeRepairPhoto(${i})" style="position:absolute;top:-5px;right:-5px;background:#e74c3c;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer;color:#fff;padding:0;line-height:1;">×</button></div>`).join('');
-  h+=`<label style="width:70px;height:70px;background:var(--input-bg);border:2px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:24px;flex-shrink:0;">＋<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleRepairPhotoAdd(event)"></label>`;
+  let h='';
+  for(let i=0;i<currentRepairPhotos.length;i++){
+    const p=currentRepairPhotos[i],thumb=_photoThumbSrc(p),view=_photoViewSrc(p);
+    const onerr=_isPhotoMeta(p)?(" onerror=\"this.onerror=null;this.src='"+view+"'\""):'';
+    h+='<div style="position:relative;flex-shrink:0;"><img src="'+thumb+'"'+onerr+' style="width:70px;height:70px;object-fit:cover;border-radius:8px;border:1.5px solid var(--border);cursor:pointer;background:var(--input-bg);" onclick="viewPhoto('+i+')"><button type="button" onclick="removeRepairPhoto('+i+')" style="position:absolute;top:-5px;right:-5px;background:#e74c3c;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer;color:#fff;padding:0;line-height:1;">×</button></div>';
+  }
+  if(_repairPhotoUploading)h+='<div style="width:70px;height:70px;background:var(--input-bg);border:2px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--text-sub);text-align:center;flex-shrink:0;line-height:1.3;">アップ<br>ロード中…</div>';
+  h+='<label style="width:70px;height:70px;background:var(--input-bg);border:2px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:24px;flex-shrink:0;">＋<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleRepairPhotoAdd(event)"></label>';
   return h;
 }
+function _persistRepairPhotos(){
+  if(modalState&&modalState.tab===2&&modalState.mode==='edit'&&modalState.item&&modalState.item.id){
+    const rec=(DB.repairs||[]).find(x=>String(x.id)===String(modalState.item.id));
+    if(rec){rec.photos=JSON.parse(JSON.stringify(currentRepairPhotos));saveDB();}
+  }
+}
 async function handleRepairPhotoAdd(event){
-  const file=event.target.files[0];if(!file)return;
-  const b64=await fileToB64(file);
-  currentRepairPhotos.push('data:'+file.type+';base64,'+b64);
-  const area=document.getElementById('repairPhotoArea');
-  if(area)area.innerHTML=buildRepairPhotoHTML();
-  event.target.value='';
+  const file=event.target.files[0];if(!file){return;}event.target.value='';
+  _repairPhotoUploading=true;const area=document.getElementById('repairPhotoArea');if(area)area.innerHTML=buildRepairPhotoHTML();
+  try{
+    const blob=await compressImage(file,1080,0.72);
+    const meta=await uploadPhotoToDrive(blob);
+    if(meta){currentRepairPhotos.push(meta);_persistRepairPhotos();if(typeof showSyncBar==='function')showSyncBar('✅ 写真をクラウド保存しました','ok');}
+    else{if(typeof showSyncBar==='function')showSyncBar('❌ 写真のアップロードに失敗しました（通信環境をご確認ください）','error');else alert('写真のアップロードに失敗しました');}
+  }catch(e){console.error(e);if(typeof showSyncBar==='function')showSyncBar('❌ 写真処理に失敗: '+(e&&e.message||e),'error');}
+  _repairPhotoUploading=false;
+  const a2=document.getElementById('repairPhotoArea');if(a2)a2.innerHTML=buildRepairPhotoHTML();
 }
-function removeRepairPhoto(idx){
+async function removeRepairPhoto(idx){
+  const p=currentRepairPhotos[idx];if(p===undefined)return;
+  if(!confirm('この写真を削除しますか？'))return;
   currentRepairPhotos.splice(idx,1);
-  const area=document.getElementById('repairPhotoArea');
-  if(area)area.innerHTML=buildRepairPhotoHTML();
+  const area=document.getElementById('repairPhotoArea');if(area)area.innerHTML=buildRepairPhotoHTML();
+  _persistRepairPhotos();
+  if(_isPhotoMeta(p)&&p.fileId){deletePhotoFromDrive(p.fileId);}
 }
-function viewPhoto(src){
+function viewPhoto(arg){
+  let src=arg;
+  if(typeof arg==='number'){const p=currentRepairPhotos[arg];src=_photoViewSrc(p)||_photoThumbSrc(p);}
+  src=String(src||'');
   const ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:2000;display:flex;align-items:center;justify-content:center;';
-  ov.innerHTML=`<img src="${src}" style="max-width:95vw;max-height:90vh;border-radius:8px;"><button onclick="this.parentNode.remove()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:36px;height:36px;font-size:20px;cursor:pointer;">×</button>`;
-  ov.onclick=(e)=>{if(e.target===ov)ov.remove();};
+  const img=document.createElement('img');img.src=src;img.style.cssText='max-width:95vw;max-height:90vh;border-radius:8px;';
+  if(typeof arg==='number'){const pp=currentRepairPhotos[arg];if(_isPhotoMeta(pp)){const vv=_photoViewSrc(pp);if(vv&&vv!==src)img.onerror=function(){img.onerror=null;img.src=vv;};}}
+  ov.appendChild(img);
+  const btn=document.createElement('button');btn.textContent='×';btn.style.cssText='position:absolute;top:16px;right:16px;background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:50%;width:36px;height:36px;font-size:20px;cursor:pointer;';
+  btn.onclick=function(){ov.remove();};ov.appendChild(btn);
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
   document.body.appendChild(ov);
+}
+// ===== Instagram共有（共有シート＋キャプションコピー。完全自動投稿は対象外）=====
+function buildIgCaption(record, type){
+  var maker=(record.maker||'').trim(), model=(record.model||'').trim();
+  var head=(maker+' '+model).trim();
+  var body=(record.work||record.memo||'').trim();
+  var tagBase='#財部農機センター #そお鹿児島農業協同組合';
+  var cap='【整備・修理】'+head+'\n'+body+'\n\n#農機修理 #農業機械 '+(maker?('#'+maker+' '):'')+tagBase+' #農機';
+  return cap.replace(/\n{3,}/g,'\n\n').trim();
+}
+function closeIgShare(){var e=document.getElementById('igShareModal');if(e)e.remove();}
+function copyIgCaption(){var t=document.getElementById('igCapText');if(!t)return;t.focus();t.select();var ok=false;try{navigator.clipboard.writeText(t.value);ok=true;}catch(e){}if(!ok){try{ok=document.execCommand('copy');}catch(_){}}if(typeof showSyncBar==='function')showSyncBar(ok?'✅ キャプションをコピーしました':'テキストを選択して手動でコピーしてください',ok?'ok':'conflict');}
+function _igOpenInstagram(){try{window.open('instagram://camera');}catch(e){}setTimeout(function(){try{window.open('https://www.instagram.com/','_blank');}catch(e){}},700);}
+function openIgShareModal(cap,withOpenBtn){
+  closeIgShare();
+  var ov=document.createElement('div');ov.className='modal-overlay';ov.id='igShareModal';ov.style.zIndex='1650';ov.style.display='flex';
+  ov.onclick=function(e){if(e.target.id==='igShareModal')closeIgShare();};
+  var inner='<div class="modal-box"><div class="modal-header"><h3 style="font-size:15px;font-weight:800;color:var(--text);">📸 Instagramへ共有</h3><button onclick="closeIgShare()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button></div>';
+  inner+='<div style="padding:16px 18px 30px;">';
+  inner+='<div style="font-size:12px;color:var(--text-sub);margin-bottom:8px;line-height:1.7;">✅ キャプションをコピーしました。Instagramでキャプション欄を長押し→貼り付けしてください。</div>';
+  inner+='<textarea id="igCapText" class="field-textarea" rows="7" style="margin-bottom:10px;">'+esc(String(cap||''))+'</textarea>';
+  inner+='<button type="button" onclick="copyIgCaption()" class="save-btn" style="width:100%;margin-bottom:8px;background:#8e44ad;">📋 キャプションをコピー</button>';
+  if(withOpenBtn)inner+='<button type="button" onclick="_igOpenInstagram()" class="save-btn" style="width:100%;background:linear-gradient(45deg,#f09433,#dc2743,#bc1888);">📸 Instagramを開く</button>';
+  inner+='</div></div>';
+  ov.innerHTML=inner;
+  document.body.appendChild(ov);pushBack();
+}
+async function shareRepairToInstagram(){
+  const get=id=>(document.getElementById('f_'+id)?.value||'').trim();
+  const rec={maker:get('maker'),model:get('model'),work:get('issue'),memo:''};
+  const cap=buildIgCaption(rec,'repair');
+  let copied=false;try{await navigator.clipboard.writeText(cap);copied=true;}catch(e){copied=false;}
+  const base=((rec.model||rec.maker||'repair').replace(/[\\\/:*?"<>|\s]/g,'_')).slice(0,30)||'repair';
+  let files=[];try{files=await photosToFiles(currentRepairPhotos,base,10);}catch(e){files=[];}
+  let shared=false;
+  try{
+    if(files.length&&navigator.canShare&&navigator.canShare({files})){await navigator.share({files,title:'農機管理PRO'});shared=true;}
+  }catch(e){if(e&&e.name==='AbortError')shared=true;}
+  if(shared){if(typeof showSyncBar==='function')showSyncBar('✅ キャプションをコピーしました。Instagramでキャプション欄を長押し→貼り付けしてください','ok',false);return;}
+  // files共有非対応/失敗 → キャプション＋Instagramを開くフォールバック
+  openIgShareModal(cap,true);
+}
+// ===== 既存base64写真のDrive移行（起動時一度・冪等・消失防止）=====
+let _photoMigrationRan=false;
+async function migrateRepairPhotos(){
+  if(_photoMigrationRan)return;_photoMigrationRan=true;
+  try{
+    if(typeof navigator!=='undefined'&&navigator.onLine===false)return;
+    const targets=(DB.repairs||[]).filter(r=>Array.isArray(r.photos)&&r.photos.some(p=>typeof p==='string'&&p.indexOf('data:')===0));
+    if(!targets.length)return;
+    saveEmergencyBackup(); // 移行前に必ずスナップショット（base64原本を退避＝消失防止）
+    let changed=false;
+    for(const r of targets){
+      const np=[];
+      for(const p of r.photos){
+        if(typeof p==='string'&&p.indexOf('data:')===0){
+          try{
+            const f=dataUrlToFile(p,'mig_'+Date.now());
+            const blob=await compressImage(f,1080,0.72);
+            const meta=await uploadPhotoToDrive(blob);
+            if(meta){np.push(meta);changed=true;}else{np.push(p);} // 失敗時はbase64保持（次回再試行）
+          }catch(e){np.push(p);}
+        }else{np.push(p);}
+      }
+      r.photos=np;
+    }
+    if(changed){saveDB();if(typeof showSyncBar==='function')showSyncBar('☁️ 修理写真をクラウドへ移行しました','ok');}
+  }catch(e){console.error('写真移行エラー',e);}
 }
 function fileToB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result.split(',')[1]);r.onerror=()=>rej(new Error('読込失敗'));r.readAsDataURL(file);});}
 
@@ -1493,6 +1636,7 @@ function closeTopModal(){
   const doClose=(id,fn)=>{try{if(fn){fn();return;}}catch(e){}const el=document.getElementById(id);if(el)el.style.display='none';};
   const list=[
     ['morningDigestModal',closeMorningDigest],
+    ['igShareModal',closeIgShare],
     ['memoEditModal',closeMemoEdit],
     ['quotePriceModal',_qpClose],
     ['recallModal',closeRecall],['scanQuoteModal',closeScanQuoteModal],['ocrModal',closeOcrModal],
@@ -2262,7 +2406,7 @@ function showModal(){
   // --- 修理写真エリア ---
   currentRepairPhotos=JSON.parse(JSON.stringify(it.photos||[]));
   form+='<div style="margin-bottom:10px;"><label class="field-label">📷 修理写真</label><div id="repairPhotoArea" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">'+buildRepairPhotoHTML()+'</div>';
-  form+='<button type="button" onclick="openDiagnosis()" style="background:#8e44ad;color:#fff;border:none;border-radius:10px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;width:100%;margin-bottom:4px;">🔍 故障写真でAI診断</button></div>';
+  form+='<button type="button" onclick="openDiagnosis()" style="background:#8e44ad;color:#fff;border:none;border-radius:10px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;width:100%;margin-bottom:4px;">🔍 故障写真でAI診断</button>'+((it.photos&&it.photos.length)?'<button type="button" onclick="shareRepairToInstagram()" class="save-btn" style="width:100%;margin-top:6px;background:linear-gradient(45deg,#f09433,#dc2743,#bc1888);">📸 Instagramへ共有</button>':'')+'</div>';
   form+='<button onclick="regToCalendar(\'repair\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに納期を登録</button><button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 見積書を作成</button><button type="button" onclick="notifyComplete(\'repair\')" class="save-btn" style="background:#06C755;width:100%;margin:0 0 10px;">💬 完了をLINEで通知'+((it.photos&&it.photos.length)?'（写真'+it.photos.length+'枚）':'')+'</button>';form+=buildQuickRegBox(2,it);}
   else if(modalState.tab===3){form+=inp('customerName','対象顧客',it.customerName);[['','🚜 実演機 1',''],['2','🚜 実演機 2 (任意)','var(--text-sub)'],['3','🚜 実演機 3 (任意)','var(--text-sub)']].forEach(([n,label,color])=>{form+='<div style="padding:10px;background:var(--input-bg);border-radius:10px;margin-bottom:12px;"><div style="font-size:12px;font-weight:bold;color:'+(color||'var(--text)')+';margin-bottom:8px;">'+label+'</div>'+inp('targetMachine'+n,'対象機械 (品名)',it['targetMachine'+n])+'<div class="fl" style="margin-bottom:0;"><div class="fg">'+inp('maker'+n,'メーカー',it['maker'+n])+'</div><div class="fg">'+inp('model'+n,'型式',it['model'+n])+'</div></div></div>';});form+='<div class="fl"><div class="fg">'+sel('status','ステータス',['実演予定','実施済','見積提示中','成約'],it.status)+'</div><div class="fg">'+inp('date','予定日/実施日',it.date,'date')+'</div></div>';form+='<button onclick="regToCalendar(\'demo\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに予定を登録</button><button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 見積書を作成</button>';form+=buildQuickRegBox(3,it);}
   else if(modalState.tab===4){form+='<button type="button" onclick="openPartsOCR()" style="background:#2980b9;color:#fff;border:none;border-radius:10px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;width:100%;margin-bottom:12px;">📷 納品伝票・部品ラベルを読取→自動入力</button>';form+=inp('customerName','顧客名（任意）',it.customerName)+inp('name','部品名① (必須)',it.name)+'<div class="fl"><div class="fg">'+inp('maker','メーカー',it.maker)+'</div><div class="fg">'+inp('partNo','品番・型式①',it.partNo)+'</div></div><div class="fl"><div class="fg">'+inp('qty','数量',it.qty,'number')+'</div><div class="fg">'+inp('price','仕入・販売単価',it.price,'number')+'</div></div>';form+='<div style="background:var(--input-bg);border-radius:10px;padding:10px;margin-bottom:10px;"><div style="font-size:11px;color:var(--text-sub);font-weight:700;margin-bottom:8px;">➕ 追加部品②〜⑩（任意）</div>';for(let i=2;i<=10;i++){form+=inp('name'+i,'部品名'+i,it['name'+i])+inp('partNo'+i,'品番'+i,it['partNo'+i])+'<div class="fl"><div class="fg">'+inp('qty'+i,'数量'+i,it['qty'+i],'number')+'</div><div class="fg">'+inp('price'+i,'単価'+i,it['price'+i],'number')+'</div></div>';}form+='</div><div class="fl"><div class="fg">'+sel('status','ステータス',['発注前','発注済','入荷済','納品済','完了','請求済'],it.status)+'</div><div class="fg">'+inp('orderDate','発注日',it.orderDate,'date')+'</div></div>';form+=inp('billedDate','請求日',it.billedDate,'date');form+='<button onclick="regToCalendar(\'part\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに発注日を登録</button><button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 この部品で見積書を作成</button>';form+=buildQuickRegBox(4,it);}
@@ -2795,6 +2939,7 @@ window.onload=async function(){
     armBack();
     if(!hasAnyData())showSyncBar('⚠️ データなし。🛡️ボタンからバックアップを復元できます。','conflict',false);
     if(gasUrl){setInterval(()=>{if(gasUrl)syncToCloud(false);},30000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&gasUrl)syncToCloud(false);});}
+    setTimeout(()=>{try{migrateRepairPhotos();}catch(e){console.error(e);}},6000); // 既存base64写真をDriveへ一度だけ移行（背景・冪等）
   }catch(e){alert('起動処理中にエラーが発生しました。\n詳細: '+e.message);console.error(e);}
 };
 </script>
