@@ -1,5 +1,5 @@
 // 農機業務管理 PWA Service Worker
-const CACHE_NAME = 'nouki-pwa-v7-invoicepdf';
+const CACHE_NAME = 'nouki-pwa-v8-homecardcontent';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
