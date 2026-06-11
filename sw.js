@@ -1,5 +1,5 @@
 // 農機業務管理 PWA Service Worker
-const CACHE_NAME = 'nouki-pwa-v5-splashsound';
+const CACHE_NAME = 'nouki-pwa-v6-machinehistory';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();

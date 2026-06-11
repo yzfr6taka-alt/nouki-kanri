@@ -574,6 +574,7 @@ body.dark .bc-blue{background:#1b2a44;color:#7eacff;}
 <button onclick="openBackupModal()" style="flex:1 1 0;background:linear-gradient(180deg,#27c06a,#1f9d55);border:none;color:#fff;border-radius:11px;height:40px;font-size:15px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;">🛡️</button>
 <button onclick="openSmartModal()" style="flex:1 1 0;background:linear-gradient(180deg,#f39c12,#e67e22);border:none;color:#fff;border-radius:11px;height:40px;font-size:15px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;">🎤</button>
 <button onclick="openMemoModal()" style="flex:1 1 0;background:linear-gradient(180deg,#f7d046,#f1c40f);border:none;color:#16232e;border-radius:11px;height:40px;font-size:15px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;">📝</button>
+<button onclick="openMachineHistory()" style="flex:1 1 0;background:linear-gradient(180deg,#2ecc71,#1f9d55);border:none;color:#fff;border-radius:11px;height:40px;font-size:15px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;">🔧</button>
 <button onclick="openApiKey()" style="flex:1 1 0;background:rgba(255,255,255,.14);border:none;color:#fff;border-radius:11px;height:40px;font-size:15px;display:inline-flex;align-items:center;justify-content:center;">🔑</button>
 </div>
 <div class="tab-wrap" id="tabBar"></div>
@@ -1890,6 +1891,7 @@ window.addEventListener('popstate',function(e){
   // 3) カレンダー表示中なら閉じる
   if(calViewActive){ calViewActive=false; renderAll(); clearExitConfirm(); return; }
   if(dashViewActive){ dashViewActive=false; renderAll(); clearExitConfirm(); return; }
+  if(machViewActive){ if(machSelKey){ machSelKey=''; renderAll(); clearExitConfirm(); return; } machViewActive=false; renderAll(); clearExitConfirm(); return; }
   // 4) ホーム以外のタブなら1つ前のタブへ（進んだ回数ぶん、1回ずつ戻る）
   if(currentTab!==0){ goPrevTab(); clearExitConfirm(); return; }
 
@@ -2366,6 +2368,7 @@ function renderHome(){
     return h;
   }
   if(dashViewActive){return renderDashboard();}
+  if(machViewActive){return renderMachineHistory();}
   const sales=computeSales();
   let target=10000000;if(DB.settings?.[0]){target=Number(DB.settings[0].targetSales)||10000000;}
   const current=sales.total;
@@ -2526,6 +2529,91 @@ function openCustomerCard(id){
   document.getElementById('customerModal').style.display='flex';
 }
 function renderCustomers(){let html='<button onclick="openNew(1)" class="save-btn" style="margin-bottom:15px;width:100%;">＋ 顧客を新規登録</button>';let custList=DB.customers.slice();if(searchQuery)custList=custList.filter(x=>[x.name,x.phone,x.address,x.memo].some(f=>(f||'').toLowerCase().includes(searchQuery)));if(searchQuery&&!custList.length)return html+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">検索結果なし</div>';custList.sort((a,b)=>String(a.kana||a.furigana||a.name||'').localeCompare(String(b.kana||b.furigana||b.name||''),'ja'));custList.forEach(item=>{const n=item.name;const rc=DB.repairs.filter(x=>x.customerName===n).length,dc=DB.demos.filter(x=>x.customerName===n).length,pc=DB.products.filter(x=>x.customer===n).length,ptc=DB.parts.filter(x=>x.customerName===n).length;html+='<div class="card" onclick="openCustomerCard(\''+item.id+'\')"><div style="font-weight:bold;font-size:15px;margin-bottom:4px;">'+n+'　様</div>'+(item.phone?'<div style="font-size:12px;color:var(--text-sub);margin-bottom:6px;">📞 '+item.phone+'</div>':'')+'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;"><span class="badge-count '+(rc?'bc-red':'bc-gray')+'">🔧 修理 '+rc+'</span><span class="badge-count '+(dc?'bc-orange':'bc-gray')+'">🌾 実演 '+dc+'</span><span class="badge-count '+(pc?'bc-green':'bc-gray')+'">🚜 製品 '+pc+'</span><span class="badge-count '+(ptc?'bc-blue':'bc-gray')+'">⚙️ 部品 '+ptc+'</span></div></div>';});return html;}
+// ===== 機械履歴（修理記録を機械単位でグルーピング）=====
+let machViewActive=false,machSelKey='',machQuery='',_mhListCache=[];
+// グルーピング専用キー: NFKC→大文字→ハイフン類/空白除去（表示は元の値のまま）
+function normalizeMachineKey(maker,model,serial){
+  var norm=function(s){return String(s==null?'':s).normalize('NFKC').toUpperCase()
+    .replace(/[-‐‑‒–—―−ー－ｰ]/g,'')
+    .replace(/[\s　]+/g,'');};
+  return norm(maker)+'|'+norm(model)+'|'+norm(serial);
+}
+function _mhRepDate(r){return r.date||r.billedDate||r.dueDate||'';}
+function _mhRepAmount(r){return Number(r.amount)||Number(r.price)||0;}
+function _mhParts(r){var u=r.usedParts;if(Array.isArray(u)&&u.length)return u.map(function(p){return (p&&typeof p==='object')?(p.name||p.partName||p.partNo||''):String(p||'');}).filter(Boolean).join('、');return '';}
+function buildMachineGroups(){
+  var map={},order=[];
+  (DB.repairs||[]).forEach(function(r){
+    var key=normalizeMachineKey(r.maker,r.model,r.serialNo);
+    var g=map[key];
+    if(!g){g={key:key,maker:'',model:'',serialNo:'',count:0,total:0,lastDate:'',repairs:[],custs:{}};map[key]=g;order.push(key);}
+    g.repairs.push(r);g.count++;g.total+=_mhRepAmount(r);
+    var d=_mhRepDate(r);if(String(d)>String(g.lastDate))g.lastDate=String(d);
+    if(!g.maker&&r.maker)g.maker=r.maker;if(!g.model&&r.model)g.model=r.model;if(!g.serialNo&&r.serialNo)g.serialNo=r.serialNo;
+    if(r.customerName)g.custs[r.customerName]=1;
+  });
+  return order.map(function(k){return map[k];});
+}
+function openMachineHistory(){machViewActive=true;machSelKey='';machQuery='';currentTab=0;pushBack();renderAll();}
+function openMachineDetail(key){machViewActive=true;machSelKey=key;currentTab=0;pushBack();renderAll();}
+function openMachineDetailIdx(i){var g=_mhListCache[i];if(g)openMachineDetail(g.key);}
+function openMachineHistoryFromForm(){
+  var mk=(document.getElementById('f_maker')||{}).value||'',md=(document.getElementById('f_model')||{}).value||'',sn=(document.getElementById('f_serialNo')||{}).value||'';
+  var key=normalizeMachineKey(mk,md,sn);
+  try{closeModal();}catch(e){}
+  machViewActive=true;machSelKey=key;machQuery='';currentTab=0;pushBack();renderAll();
+}
+function updateMachQuery(v){machQuery=v;renderAll();var el=document.getElementById('machSearchInput');if(el){el.focus();try{el.setSelectionRange(el.value.length,el.value.length);}catch(e){}}}
+function renderMachineHistory(){return machSelKey?renderMachineDetail(machSelKey):renderMachineList();}
+function _mhLabel(g){var t=[g.maker,g.model].filter(Boolean).join(' ').trim();return t||'機械情報なし';}
+function _mhSerial(g){return (g.serialNo&&String(g.serialNo).trim())?String(g.serialNo).trim():'機番未登録';}
+function renderMachineList(){
+  var groups=buildMachineGroups();
+  var q=String(machQuery||'').trim().toLowerCase();
+  if(q)groups=groups.filter(function(g){var cu=Object.keys(g.custs).join(' ');return [g.model,g.serialNo,g.maker,cu].some(function(f){return String(f||'').toLowerCase().indexOf(q)>=0;});});
+  groups.sort(function(a,b){return String(b.lastDate).localeCompare(String(a.lastDate));});
+  _mhListCache=groups;
+  var h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
+  h+='<button onclick="machViewActive=false;renderAll()" style="background:none;border:1.5px solid var(--border);color:var(--text);border-radius:10px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;">← ホームに戻る</button>';
+  h+='<div style="font-size:13px;font-weight:900;color:var(--text);font-family:ui-monospace,monospace;letter-spacing:1px;">🔧 機械履歴</div><div></div></div>';
+  h+='<input id="machSearchInput" type="text" value="'+esc(machQuery)+'" oninput="updateMachQuery(this.value)" placeholder="🔍 型式・機番・顧客名で絞り込み" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;background:var(--input-bg);color:var(--text);margin-bottom:12px;">';
+  h+='<div style="font-size:11px;color:var(--text-sub);margin-bottom:8px;">'+groups.length+' 台</div>';
+  if(!groups.length)return h+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">'+(q?'該当する機械がありません':'修理記録がありません')+'</div>';
+  groups.forEach(function(g,i){
+    h+='<div class="card" onclick="openMachineDetailIdx('+i+')" style="border-left:4px solid #2ecc71;margin-bottom:8px;">';
+    h+='<div style="font-weight:bold;font-size:14px;color:var(--text);">'+esc(_mhLabel(g))+'</div>';
+    h+='<div style="font-size:11px;color:var(--text-sub);margin-top:2px;font-family:ui-monospace,monospace;">機番: '+esc(_mhSerial(g))+'</div>';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:11px;color:var(--text-sub);">';
+    h+='<span>🔧 '+g.count+'回 / 最終 '+esc(g.lastDate||'-')+'</span>';
+    h+='<span style="font-weight:800;color:#2ecc71;">¥'+Number(g.total||0).toLocaleString()+'</span></div></div>';
+  });
+  return h;
+}
+function renderMachineDetail(key){
+  var groups=buildMachineGroups(),g=null;
+  for(var i=0;i<groups.length;i++){if(groups[i].key===key){g=groups[i];break;}}
+  var h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
+  h+='<button onclick="machSelKey=\'\';renderAll()" style="background:none;border:1.5px solid var(--border);color:var(--text);border-radius:10px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;">← 一覧に戻る</button>';
+  h+='<div style="font-size:13px;font-weight:900;color:var(--text);font-family:ui-monospace,monospace;letter-spacing:1px;">🔧 機械履歴</div><div></div></div>';
+  if(!g)return h+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">機械が見つかりません</div>';
+  h+='<div style="background:linear-gradient(135deg,#1f9d55,#16232e);color:#fff;border-radius:14px;padding:16px;margin-bottom:14px;">';
+  h+='<div style="font-size:17px;font-weight:900;">'+esc(_mhLabel(g))+'</div>';
+  h+='<div style="font-size:12px;opacity:.92;margin-top:3px;font-family:ui-monospace,monospace;">機番: '+esc(_mhSerial(g))+'</div>';
+  h+='<div style="display:flex;gap:16px;margin-top:10px;font-size:12px;"><span>🔧 修理 '+g.count+'回</span><span>累計 ¥'+Number(g.total||0).toLocaleString()+'</span><span>最終 '+esc(g.lastDate||'-')+'</span></div></div>';
+  var reps=g.repairs.slice().sort(function(a,b){return String(_mhRepDate(b)).localeCompare(String(_mhRepDate(a)));});
+  reps.forEach(function(r){
+    var parts=_mhParts(r),amt=_mhRepAmount(r);
+    h+='<div class="card" onclick="openEdit(\''+r.id+'\',2)" style="border-left:4px solid '+(STATUS_COLORS[r.status]||'#2ecc71')+';margin-bottom:8px;">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-weight:800;font-size:13px;color:var(--text);font-family:ui-monospace,monospace;">'+esc(_mhRepDate(r)||'日付なし')+'</span><span class="badge" style="background:'+(STATUS_COLORS[r.status]||'#95a5a6')+';display:inline-block;">'+esc(r.status||'')+'</span></div>';
+    h+='<div style="font-size:12px;color:var(--text-sub);margin-top:3px;">👤 '+esc(r.customerName||'-')+'</div>';
+    if(r.issue)h+='<div style="font-size:12px;color:var(--text);margin-top:4px;"><b style="color:#e67e22;">症状:</b> '+esc(r.issue)+'</div>';
+    if(r.repairWork||'')h+='<div style="font-size:12px;color:var(--text);margin-top:2px;"><b style="color:#2ecc71;">修理:</b> '+esc(r.repairWork||'')+'</div>';
+    if(parts)h+='<div style="font-size:11px;color:var(--text-sub);margin-top:2px;">⚙️ 部品: '+esc(parts)+'</div>';
+    if(amt)h+='<div style="text-align:right;font-size:12px;font-weight:800;color:#2ecc71;margin-top:4px;">¥'+amt.toLocaleString()+'</div>';
+    h+='</div>';
+  });
+  return h;
+}
 function renderRepairs(){
   let html='<button onclick="openNew(2)" class="save-btn" style="margin-bottom:10px;width:100%;">＋ 修理依頼を新規登録</button>';
   let items=DB.repairs.slice().sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999'));
@@ -2542,6 +2630,7 @@ function renderRepairs(){
         +(item.serialNo?'<div style="font-size:11px;color:var(--text-sub);">製造番号: '+item.serialNo+'</div>':'')
         +(item.hourMeter?'<div style="font-size:11px;color:var(--text-sub);">稼働: '+item.hourMeter+'h</div>':'')
         +(item.issue?'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+item.issue+'</div>':'')
+        +((item.repairWork||'')?'<div style="font-size:12px;color:#2ecc71;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🔧 '+item.repairWork+'</div>':'')
         +'<div style="display:flex;justify-content:space-between;align-items:center;"><span class="badge" style="background:'+(STATUS_COLORS[item.status]||'#95a5a6')+';display:inline-block;">'+item.status+'</span>'
         +(item.dueDate?'<span style="font-size:10px;color:var(--text-sub);">納期: '+item.dueDate+'</span>':'')+'</div></div>';
     });
@@ -2629,13 +2718,14 @@ function showModal(){
   if(modalState.tab===1){form+=inp('name','顧客名',it.name)+inp('phone','電話番号',it.phone)+inp('address','住所',it.address);form+='<label class="field-label">メモ・備考</label><textarea id="f_memo" class="field-textarea" rows="2">'+esc(it.memo)+'</textarea>';form+=buildQuickRegBox(1,it);}
   else if(modalState.tab===2){form+='<button type="button" onclick="openRecall(\'repair\')" style="width:100%;background:#2980b9;color:#fff;border:none;border-radius:10px;padding:11px 0;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:10px;">📋 お客様・機械を呼び出して入力</button><div style="display:flex;gap:8px;margin-bottom:12px;"><label style="flex:1;text-align:center;background:#16a085;color:#fff;border-radius:10px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;">📷 銘板読取<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="repairScanNameplate(event)"></label><label style="flex:1;text-align:center;background:#16a085;color:#fff;border-radius:10px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;">📷 稼働時間<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="repairScanMeter(event)"></label></div><input type="hidden" id="f_machineId" value="'+esc(it.machineId||'')+'">'+machineBadgeHTML(it.machineId);form+=inp('customerName','顧客名',it.customerName)+inp('machine','機械名 (品名)',it.machine)+'<div class="fl"><div class="fg">'+inp('maker','メーカー',it.maker)+'</div><div class="fg">'+inp('model','型式',it.model)+'</div></div>'+inp('serialNo','製造番号',it.serialNo)+'<div class="fl"><div class="fg">'+inp('attachment','アタッチメント',it.attachment)+'</div><div class="fg">'+inp('hourMeter','稼働時間(h)',it.hourMeter,'number')+'</div></div>';
   form+='<label class="field-label">不具合内容・依頼事項</label><div style="position:relative;"><button type="button" onclick="fieldVoice(\'f_issue\',this)" style="position:absolute;right:6px;top:6px;background:#e67e22;border:none;border-radius:6px;width:26px;height:26px;font-size:12px;cursor:pointer;color:#fff;padding:0;line-height:1;z-index:1;">🎙</button><textarea id="f_issue" class="field-textarea" rows="2" style="padding-right:38px;">'+esc(it.issue)+'</textarea></div>';
+  form+='<label class="field-label">修理内容（実施した作業）</label><div style="position:relative;"><button type="button" onclick="fieldVoice(\'f_repairWork\',this)" style="position:absolute;right:6px;top:6px;background:#e67e22;border:none;border-radius:6px;width:26px;height:26px;font-size:12px;cursor:pointer;color:#fff;padding:0;line-height:1;z-index:1;">🎙</button><textarea id="f_repairWork" class="field-textarea" rows="2" style="padding-right:38px;">'+esc(it.repairWork||'')+'</textarea></div>';
   form+='<div class="fl"><div class="fg">'+sel('status','ステータス',['修理依頼','見積中','部品待ち','修理中','完了(未請求)','請求済'],it.status)+'</div><div class="fg">'+inp('dueDate','納期・予定日',it.dueDate,'date')+'</div></div>';form+=inp('billedDate','請求日',it.billedDate,'date');
   form+=inp('amount','売上金額（税抜・任意）',it.amount,'number');
   // --- 修理写真エリア ---
   currentRepairPhotos=JSON.parse(JSON.stringify(it.photos||[]));
   form+='<div style="margin-bottom:10px;"><label class="field-label">📷 修理写真</label><div id="repairPhotoArea" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">'+buildRepairPhotoHTML()+'</div>';
   form+='<button type="button" onclick="openDiagnosis()" style="background:#8e44ad;color:#fff;border:none;border-radius:10px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;width:100%;margin-bottom:4px;">🔍 故障写真でAI診断</button>'+((it.photos&&it.photos.length)?'<button type="button" onclick="shareRepairToInstagram()" class="save-btn" style="width:100%;margin-top:6px;background:linear-gradient(45deg,#f09433,#dc2743,#bc1888);">📸 Instagramへ共有</button>':'')+'</div>';
-  form+='<button onclick="regToCalendar(\'repair\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに納期を登録</button><button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 見積書を作成</button><button type="button" onclick="notifyComplete(\'repair\')" class="save-btn" style="background:#06C755;width:100%;margin:0 0 10px;">💬 完了をLINEで通知'+((it.photos&&it.photos.length)?'（写真'+it.photos.length+'枚）':'')+'</button>';form+=buildQuickRegBox(2,it);}
+  form+='<button onclick="regToCalendar(\'repair\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに納期を登録</button><button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 見積書を作成</button><button type="button" onclick="notifyComplete(\'repair\')" class="save-btn" style="background:#06C755;width:100%;margin:0 0 10px;">💬 完了をLINEで通知'+((it.photos&&it.photos.length)?'（写真'+it.photos.length+'枚）':'')+'</button>'+'<button type="button" onclick="openMachineHistoryFromForm()" class="save-btn" style="background:linear-gradient(180deg,#2ecc71,#1f9d55);width:100%;margin:0 0 10px;">🔧 この機械の履歴</button>';form+=buildQuickRegBox(2,it);}
   else if(modalState.tab===3){form+=inp('customerName','対象顧客',it.customerName);[['','🚜 実演機 1',''],['2','🚜 実演機 2 (任意)','var(--text-sub)'],['3','🚜 実演機 3 (任意)','var(--text-sub)']].forEach(([n,label,color])=>{form+='<div style="padding:10px;background:var(--input-bg);border-radius:10px;margin-bottom:12px;"><div style="font-size:12px;font-weight:bold;color:'+(color||'var(--text)')+';margin-bottom:8px;">'+label+'</div>'+inp('targetMachine'+n,'対象機械 (品名)',it['targetMachine'+n])+'<div class="fl" style="margin-bottom:0;"><div class="fg">'+inp('maker'+n,'メーカー',it['maker'+n])+'</div><div class="fg">'+inp('model'+n,'型式',it['model'+n])+'</div></div></div>';});form+='<div class="fl"><div class="fg">'+sel('status','ステータス',['実演予定','実施済','見積提示中','成約'],it.status)+'</div><div class="fg">'+inp('date','予定日/実施日',it.date,'date')+'</div></div>';form+='<button onclick="regToCalendar(\'demo\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに予定を登録</button><button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 見積書を作成</button>';form+=buildQuickRegBox(3,it);}
   else if(modalState.tab===4){form+='<button type="button" onclick="openPartsOCR()" style="background:#2980b9;color:#fff;border:none;border-radius:10px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;width:100%;margin-bottom:12px;">📷 納品伝票・部品ラベルを読取→自動入力</button>';form+=inp('customerName','顧客名（任意）',it.customerName)+inp('name','部品名① (必須)',it.name)+'<div class="fl"><div class="fg">'+inp('maker','メーカー',it.maker)+'</div><div class="fg">'+inp('partNo','品番・型式①',it.partNo)+'</div></div><div class="fl"><div class="fg">'+inp('qty','数量',it.qty,'number')+'</div><div class="fg">'+inp('price','仕入・販売単価',it.price,'number')+'</div></div>';form+='<div style="background:var(--input-bg);border-radius:10px;padding:10px;margin-bottom:10px;"><div style="font-size:11px;color:var(--text-sub);font-weight:700;margin-bottom:8px;">➕ 追加部品②〜⑩（任意）</div>';for(let i=2;i<=10;i++){form+=inp('name'+i,'部品名'+i,it['name'+i])+inp('partNo'+i,'品番'+i,it['partNo'+i])+'<div class="fl"><div class="fg">'+inp('qty'+i,'数量'+i,it['qty'+i],'number')+'</div><div class="fg">'+inp('price'+i,'単価'+i,it['price'+i],'number')+'</div></div>';}form+='</div><div class="fl"><div class="fg">'+sel('status','ステータス',['発注前','発注済','入荷済','納品済','完了','請求済'],it.status)+'</div><div class="fg">'+inp('orderDate','発注日',it.orderDate,'date')+'</div></div>';form+=inp('billedDate','請求日',it.billedDate,'date');form+='<button onclick="regToCalendar(\'part\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに発注日を登録</button><button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 この部品で見積書を作成</button>';form+=buildQuickRegBox(4,it);}
   else if(modalState.tab===5){form+=inp('customer','顧客名',it.customer)+inp('productName','製品名① (必須)',it.productName)+'<div class="fl"><div class="fg">'+inp('maker','メーカー',it.maker)+'</div><div class="fg">'+inp('model','型式①',it.model)+'</div></div>'+inp('serialNo','製造番号①',it.serialNo);form+='<div style="background:var(--input-bg);border-radius:10px;padding:10px;margin-bottom:10px;"><div style="font-size:11px;color:var(--text-sub);font-weight:700;margin-bottom:8px;">➕ 追加品目②〜⑩（任意）</div>';for(let i=2;i<=10;i++){form+=inp('productName'+i,'製品名'+i,it['productName'+i])+inp('model'+i,'型式'+i,it['model'+i])+inp('serialNo'+i,'製造番号'+i,it['serialNo'+i]);}form+='</div><div class="fl"><div class="fg">'+sel('status','ステータス',['商談中','受注','発注済','入荷済','納品(納車)済','完了','請求済'],it.status)+'</div><div class="fg">'+inp('deliveryDate','納品予定日',it.deliveryDate,'date')+'</div></div>'+inp('billedDate','請求日',it.billedDate,'date')+inp('price','販売額',it.price,'number');form+='<button type="button" onclick="importQuotePrice()" class="save-btn" style="background:#8e44ad;width:100%;margin:0 0 10px;padding:11px;font-size:13px;">📄 見積から金額を取込</button><button onclick="regToCalendar(\'product\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに納品予定を登録</button><button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 この製品で見積書を作成</button><button type="button" onclick="notifyComplete(\'product\')" class="save-btn" style="background:#06C755;width:100%;margin:0 0 10px;">💬 入荷・準備完了をLINEで通知</button>';form+=buildQuickRegBox(5,it);}
