@@ -1091,14 +1091,16 @@ async function notifyComplete(type){
     item=(document.getElementById('f_machine')?.value||'').trim();
     msg=`${name?name+'様':'お客様'}\n\nいつもお世話になっております。\n\n${item?'【'+item+'】':'機械'}の修理が完了いたしました。\nご確認のほど、よろしくお願いいたします。\n\nご不明な点等ございましたら、お気軽にご連絡ください。\nどうぞよろしくお願いいたします。`;
     const photos=(typeof currentRepairPhotos!=='undefined'&&Array.isArray(currentRepairPhotos))?currentRepairPhotos:[];
-    if(photos.length){
+    const invoiceFiles=(_invoiceImages&&_invoiceImages.length)?_invoiceImages.map((d,i)=>dataUrlToFile(d,'請求書_'+(i+1))):[];
+    if(photos.length||invoiceFiles.length){
       try{
         const base=((item||'修理写真').replace(/[\\\/:*?"<>|\s]/g,'_')).slice(0,30)||'修理写真';
         const photoFiles=await photosToFiles(photos,base,10);
         const msgImg=await buildMessageImage(msg,'🔧 修理完了のお知らせ');
-        const files=[msgImg,...photoFiles];
+        const files=[msgImg,...photoFiles,...invoiceFiles];
         if(navigator.share&&navigator.canShare&&navigator.canShare({files})){
           await navigator.share({files});
+          clearInvoiceAttachment();
           return;
         }
         showSyncBar('⚠️ この端末は画像付き共有に未対応。本文のみLINEで送ります','conflict');
@@ -1539,6 +1541,64 @@ async function aiCorrectVoiceText(){
 // ===== 修理写真：Driveクラウド保存（写真本体はlocalStorage/同期/バックアップに残さない）=====
 const PHOTO_GAS_URL="https://script.google.com/macros/s/AKfycbw1nnVdfEKhuh1K3lGZHBqV_EIMb2HOgpPyVKGVrEJTTX6IG4t4jz94QAtH9VAiXQ9o/exec";
 let currentRepairPhotos=[];let _repairPhotoUploading=false;
+// ===== 請求書PDF添付（pdf.jsで画像化・メモリ上のみ保持。localStorage/DBには保存しない）=====
+let _invoiceImages=[],_pdfjsLoading=null;
+function loadPdfJs(){
+  if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);
+  if(_pdfjsLoading)return _pdfjsLoading;
+  _pdfjsLoading=new Promise(function(resolve,reject){
+    var s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload=function(){try{if(window.pdfjsLib&&window.pdfjsLib.GlobalWorkerOptions)window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';resolve(window.pdfjsLib);}catch(e){reject(e);}};
+    s.onerror=function(){_pdfjsLoading=null;reject(new Error('pdf.js load failed'));};
+    document.head.appendChild(s);
+  });
+  return _pdfjsLoading;
+}
+function _notifyLabelSuffix(){
+  var parts=[];
+  var pc=(typeof currentRepairPhotos!=='undefined'&&Array.isArray(currentRepairPhotos))?currentRepairPhotos.length:0;
+  if(pc>0)parts.push('写真'+pc+'枚');
+  if(_invoiceImages.length>0)parts.push('請求書');
+  return parts.length?'（'+parts.join('＋')+'）':'';
+}
+function updateRepairNotifyLabel(){var b=document.getElementById('repairNotifyBtn');if(b)b.textContent='💬 完了をLINEで通知'+_notifyLabelSuffix();}
+function renderInvoiceAttachUI(){
+  if(_invoiceImages.length>0){
+    return '<div style="display:flex;gap:8px;margin:0 0 10px;">'
+      +'<div class="save-btn" style="flex:1;background:#16a085;cursor:default;">📎 請求書添付済（'+_invoiceImages.length+'ページ）</div>'
+      +'<button type="button" onclick="clearInvoiceAttachment()" class="save-btn" style="flex:0 0 auto;background:#e74c3c;padding:0 16px;">✕解除</button></div>';
+  }
+  return '<label class="save-btn" style="background:#9b59b6;width:100%;margin:0 0 10px;cursor:pointer;display:flex;align-items:center;justify-content:center;">📎 請求書PDFを添付<input type="file" accept="application/pdf" style="display:none;" onchange="handleInvoicePdf(event)"></label>';
+}
+function refreshInvoiceUI(){var a=document.getElementById('invoiceAttachArea');if(a)a.innerHTML=renderInvoiceAttachUI();updateRepairNotifyLabel();}
+function clearInvoiceAttachment(){_invoiceImages=[];refreshInvoiceUI();}
+async function handleInvoicePdf(event){
+  var file=event.target.files&&event.target.files[0];event.target.value='';
+  if(!file)return;
+  var area=document.getElementById('invoiceAttachArea');
+  if(area)area.innerHTML='<div class="save-btn" style="background:#9b59b6;width:100%;margin:0 0 10px;cursor:default;opacity:.85;">📎 請求書を変換中…</div>';
+  var pdfjsLib;
+  try{pdfjsLib=await loadPdfJs();}catch(e){alert('PDF変換ライブラリの読み込みに失敗しました。\n通信環境のある場所で再度お試しください。');refreshInvoiceUI();return;}
+  try{
+    var buf=await file.arrayBuffer();
+    var pdf=await pdfjsLib.getDocument({data:buf}).promise;
+    var total=pdf.numPages,limit=Math.min(total,5),imgs=[];
+    for(var pn=1;pn<=limit;pn++){
+      var page=await pdf.getPage(pn);
+      var vp0=page.getViewport({scale:1});
+      var vp=page.getViewport({scale:1080/vp0.width});
+      var canvas=document.createElement('canvas');canvas.width=Math.round(vp.width);canvas.height=Math.round(vp.height);
+      var cctx=canvas.getContext('2d');cctx.fillStyle='#ffffff';cctx.fillRect(0,0,canvas.width,canvas.height);
+      await page.render({canvasContext:cctx,viewport:vp}).promise;
+      imgs.push(canvas.toDataURL('image/jpeg',0.85));
+    }
+    _invoiceImages=imgs;
+    refreshInvoiceUI();
+    if(total>5)alert('請求書PDFは'+total+'ページありますが、先頭5ページのみ添付します。');
+    if(typeof showSyncBar==='function')showSyncBar('✅ 請求書を添付しました（'+imgs.length+'ページ）','ok');
+  }catch(e){console.error('PDF変換エラー',e);alert('PDFの変換に失敗しました。\n別のPDFファイルでお試しください。');refreshInvoiceUI();}
+}
 function compressImage(file,maxEdge=1080,quality=0.72){
   return new Promise((resolve,reject)=>{
     const r=new FileReader();
@@ -2723,9 +2783,10 @@ function showModal(){
   form+=inp('amount','売上金額（税抜・任意）',it.amount,'number');
   // --- 修理写真エリア ---
   currentRepairPhotos=JSON.parse(JSON.stringify(it.photos||[]));
+  _invoiceImages=[]; // 別レコードを開いたら請求書添付をクリア
   form+='<div style="margin-bottom:10px;"><label class="field-label">📷 修理写真</label><div id="repairPhotoArea" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">'+buildRepairPhotoHTML()+'</div>';
   form+='<button type="button" onclick="openDiagnosis()" style="background:#8e44ad;color:#fff;border:none;border-radius:10px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;width:100%;margin-bottom:4px;">🔍 故障写真でAI診断</button>'+((it.photos&&it.photos.length)?'<button type="button" onclick="shareRepairToInstagram()" class="save-btn" style="width:100%;margin-top:6px;background:linear-gradient(45deg,#f09433,#dc2743,#bc1888);">📸 Instagramへ共有</button>':'')+'</div>';
-  form+='<button onclick="regToCalendar(\'repair\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに納期を登録</button><button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 見積書を作成</button><button type="button" onclick="notifyComplete(\'repair\')" class="save-btn" style="background:#06C755;width:100%;margin:0 0 10px;">💬 完了をLINEで通知'+((it.photos&&it.photos.length)?'（写真'+it.photos.length+'枚）':'')+'</button>'+'<button type="button" onclick="openMachineHistoryFromForm()" class="save-btn" style="background:linear-gradient(180deg,#2ecc71,#1f9d55);width:100%;margin:0 0 10px;">🔧 この機械の履歴</button>';form+=buildQuickRegBox(2,it);}
+  form+='<button onclick="regToCalendar(\'repair\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに納期を登録</button><button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 見積書を作成</button>'+'<div id="invoiceAttachArea">'+renderInvoiceAttachUI()+'</div>'+'<button type="button" onclick="notifyComplete(\'repair\')" id="repairNotifyBtn" class="save-btn" style="background:#06C755;width:100%;margin:0 0 10px;">💬 完了をLINEで通知'+_notifyLabelSuffix()+'</button>'+'<button type="button" onclick="openMachineHistoryFromForm()" class="save-btn" style="background:linear-gradient(180deg,#2ecc71,#1f9d55);width:100%;margin:0 0 10px;">🔧 この機械の履歴</button>';form+=buildQuickRegBox(2,it);}
   else if(modalState.tab===3){form+=inp('customerName','対象顧客',it.customerName);[['','🚜 実演機 1',''],['2','🚜 実演機 2 (任意)','var(--text-sub)'],['3','🚜 実演機 3 (任意)','var(--text-sub)']].forEach(([n,label,color])=>{form+='<div style="padding:10px;background:var(--input-bg);border-radius:10px;margin-bottom:12px;"><div style="font-size:12px;font-weight:bold;color:'+(color||'var(--text)')+';margin-bottom:8px;">'+label+'</div>'+inp('targetMachine'+n,'対象機械 (品名)',it['targetMachine'+n])+'<div class="fl" style="margin-bottom:0;"><div class="fg">'+inp('maker'+n,'メーカー',it['maker'+n])+'</div><div class="fg">'+inp('model'+n,'型式',it['model'+n])+'</div></div></div>';});form+='<div class="fl"><div class="fg">'+sel('status','ステータス',['実演予定','実施済','見積提示中','成約'],it.status)+'</div><div class="fg">'+inp('date','予定日/実施日',it.date,'date')+'</div></div>';form+='<button onclick="regToCalendar(\'demo\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに予定を登録</button><button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 見積書を作成</button>';form+=buildQuickRegBox(3,it);}
   else if(modalState.tab===4){form+='<button type="button" onclick="openPartsOCR()" style="background:#2980b9;color:#fff;border:none;border-radius:10px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;width:100%;margin-bottom:12px;">📷 納品伝票・部品ラベルを読取→自動入力</button>';form+=inp('customerName','顧客名（任意）',it.customerName)+inp('name','部品名① (必須)',it.name)+'<div class="fl"><div class="fg">'+inp('maker','メーカー',it.maker)+'</div><div class="fg">'+inp('partNo','品番・型式①',it.partNo)+'</div></div><div class="fl"><div class="fg">'+inp('qty','数量',it.qty,'number')+'</div><div class="fg">'+inp('price','仕入・販売単価',it.price,'number')+'</div></div>';form+='<div style="background:var(--input-bg);border-radius:10px;padding:10px;margin-bottom:10px;"><div style="font-size:11px;color:var(--text-sub);font-weight:700;margin-bottom:8px;">➕ 追加部品②〜⑩（任意）</div>';for(let i=2;i<=10;i++){form+=inp('name'+i,'部品名'+i,it['name'+i])+inp('partNo'+i,'品番'+i,it['partNo'+i])+'<div class="fl"><div class="fg">'+inp('qty'+i,'数量'+i,it['qty'+i],'number')+'</div><div class="fg">'+inp('price'+i,'単価'+i,it['price'+i],'number')+'</div></div>';}form+='</div><div class="fl"><div class="fg">'+sel('status','ステータス',['発注前','発注済','入荷済','納品済','完了','請求済'],it.status)+'</div><div class="fg">'+inp('orderDate','発注日',it.orderDate,'date')+'</div></div>';form+=inp('billedDate','請求日',it.billedDate,'date');form+='<button onclick="regToCalendar(\'part\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに発注日を登録</button><button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 この部品で見積書を作成</button>';form+=buildQuickRegBox(4,it);}
   else if(modalState.tab===5){form+=inp('customer','顧客名',it.customer)+inp('productName','製品名① (必須)',it.productName)+'<div class="fl"><div class="fg">'+inp('maker','メーカー',it.maker)+'</div><div class="fg">'+inp('model','型式①',it.model)+'</div></div>'+inp('serialNo','製造番号①',it.serialNo);form+='<div style="background:var(--input-bg);border-radius:10px;padding:10px;margin-bottom:10px;"><div style="font-size:11px;color:var(--text-sub);font-weight:700;margin-bottom:8px;">➕ 追加品目②〜⑩（任意）</div>';for(let i=2;i<=10;i++){form+=inp('productName'+i,'製品名'+i,it['productName'+i])+inp('model'+i,'型式'+i,it['model'+i])+inp('serialNo'+i,'製造番号'+i,it['serialNo'+i]);}form+='</div><div class="fl"><div class="fg">'+sel('status','ステータス',['商談中','受注','発注済','入荷済','納品(納車)済','完了','請求済'],it.status)+'</div><div class="fg">'+inp('deliveryDate','納品予定日',it.deliveryDate,'date')+'</div></div>'+inp('billedDate','請求日',it.billedDate,'date')+inp('price','販売額',it.price,'number');form+='<button type="button" onclick="importQuotePrice()" class="save-btn" style="background:#8e44ad;width:100%;margin:0 0 10px;padding:11px;font-size:13px;">📄 見積から金額を取込</button><button onclick="regToCalendar(\'product\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに納品予定を登録</button><button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 この製品で見積書を作成</button><button type="button" onclick="notifyComplete(\'product\')" class="save-btn" style="background:#06C755;width:100%;margin:0 0 10px;">💬 入荷・準備完了をLINEで通知</button>';form+=buildQuickRegBox(5,it);}
