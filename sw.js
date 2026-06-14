@@ -1,5 +1,5 @@
 // 農機業務管理 PWA Service Worker
-const CACHE_NAME = 'nouki-pwa-v8-homecardcontent';
+const CACHE_NAME = 'nouki-pwa-v9-repairkanban';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
