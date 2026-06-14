@@ -1924,6 +1924,7 @@ function closeTopModal(){
   const isOpen=id=>{const e=document.getElementById(id);return e&&e.style&&e.style.display&&e.style.display!=='none';};
   const doClose=(id,fn)=>{try{if(fn){fn();return;}}catch(e){}const el=document.getElementById(id);if(el)el.style.display='none';};
   const list=[
+    ['repairGaugeModal',closeRepairGauge],
     ['morningDigestModal',closeMorningDigest],
     ['igShareModal',closeIgShare],
     ['memoEditModal',closeMemoEdit],
@@ -1952,6 +1953,7 @@ window.addEventListener('popstate',function(e){
   if(calViewActive){ calViewActive=false; renderAll(); clearExitConfirm(); return; }
   if(dashViewActive){ dashViewActive=false; renderAll(); clearExitConfirm(); return; }
   if(machViewActive){ if(machSelKey){ machSelKey=''; renderAll(); clearExitConfirm(); return; } machViewActive=false; renderAll(); clearExitConfirm(); return; }
+  if(repairKanbanView&&currentTab===2){ repairKanbanView=false; renderAll(); clearExitConfirm(); return; }
   // 4) ホーム以外のタブなら1つ前のタブへ（進んだ回数ぶん、1回ずつ戻る）
   if(currentTab!==0){ goPrevTab(); clearExitConfirm(); return; }
 
@@ -2674,8 +2676,148 @@ function renderMachineDetail(key){
   });
   return h;
 }
+
+// ===== 修理カンバン / リペアゲージ / 納期・滞留シグナル / 点火演出 =====
+let repairKanbanView=false;
+const REPAIR_STALE_DAYS=7;
+const REPAIR_ACTIVE=['修理依頼','見積中','部品待ち','修理中'];
+function _stampRepairStatus(rec){ if(rec) rec.statusChangedAt=new Date().toISOString(); }
+function _rkTodayYMD(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function _rkDays(a,b){try{return Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000);}catch(e){return 0;}}
+function repairDueState(r){
+  if(!r||REPAIR_ACTIVE.indexOf(r.status)<0||!r.dueDate)return '';
+  const diff=_rkDays(_rkTodayYMD(),String(r.dueDate).slice(0,10));
+  if(diff<0)return 'overdue';if(diff<=3)return 'soon';return '';
+}
+function repairStaleDays(r){
+  if(!r||REPAIR_ACTIVE.indexOf(r.status)<0)return 0;
+  const base=String(r.statusChangedAt||r.date||'').slice(0,10);if(!base)return 0;
+  const d=_rkDays(base,_rkTodayYMD());return d>0?d:0;
+}
+function _repairViewToggle(){
+  const on='background:#2ecc71;color:#fff;',off='background:var(--input-bg);color:var(--text);';
+  return '<div style="display:flex;gap:6px;margin-bottom:10px;">'
+   +'<button type="button" onclick="if(repairKanbanView){repairKanbanView=false;renderAll();}" style="flex:1;border:1.5px solid var(--border);border-radius:10px;padding:9px 0;font-size:12px;font-weight:800;cursor:pointer;'+(repairKanbanView?off:on)+'">📋 リスト</button>'
+   +'<button type="button" onclick="if(!repairKanbanView){repairKanbanView=true;pushBack();renderAll();}" style="flex:1;border:1.5px solid var(--border);border-radius:10px;padding:9px 0;font-size:12px;font-weight:800;cursor:pointer;'+(repairKanbanView?on:off)+'">🗂 カンバン</button></div>';
+}
+function renderRepairKanban(){
+  const flow=STATUS_FLOW[2];
+  let items=(DB.repairs||[]).slice();
+  if(searchQuery)items=items.filter(x=>[x.customerName,x.machine,x.maker,x.model,x.issue,x.serialNo].some(f=>(f||'').toLowerCase().includes(searchQuery)));
+  const cols={};flow.forEach(s=>cols[s]=[]);
+  items.forEach(it=>{if(cols[it.status])cols[it.status].push(it);});
+  let h='<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:10px;"><div style="display:flex;gap:10px;min-width:max-content;align-items:flex-start;">';
+  flow.forEach(s=>{
+    const list=cols[s],color=STATUS_COLORS[s]||'#95a5a6';
+    h+='<div style="flex:0 0 150px;width:150px;">';
+    h+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;font-size:12px;font-weight:900;color:var(--text);"><span style="width:10px;height:10px;border-radius:50%;background:'+color+';flex-shrink:0;"></span><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(s)+'</span><span style="background:'+color+';color:#fff;border-radius:9px;padding:1px 7px;font-size:10px;font-weight:800;">'+list.length+'</span></div>';
+    if(!list.length)h+='<div style="font-size:10px;color:var(--text-sub);text-align:center;padding:14px 0;border:1px dashed var(--border);border-radius:10px;">—</div>';
+    list.forEach(it=>{
+      const mStr=buildMachineStr(it.machine,it.maker,it.model)||'機械未入力';
+      const due=repairDueState(it),stale=repairStaleDays(it);
+      let cls='rk-card',badge='';
+      if(due==='overdue'){cls+=' rk-overdue';const dd=_rkDays(_rkTodayYMD(),String(it.dueDate).slice(0,10));badge+='<span class="rk-b rk-b-red">'+(-dd)+'日遅れ</span>';}
+      else if(due==='soon'){cls+=' rk-soon';const dd=_rkDays(_rkTodayYMD(),String(it.dueDate).slice(0,10));badge+='<span class="rk-b rk-b-amber">'+(dd>0?('あと'+dd+'日'):'本日')+'</span>';}
+      if(stale>=REPAIR_STALE_DAYS)badge+='<span class="rk-b rk-b-stale">⚠️ '+stale+'日停滞</span>';
+      h+='<div class="'+cls+'" onclick="openRepairGauge(\''+it.id+'\')" style="border-left:4px solid '+color+';">';
+      h+='<div style="font-size:11px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(it.customerName||'(顧客未設定)')+'</div>';
+      h+='<div style="font-size:11px;color:var(--text-sub);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc(mStr)+'</div>';
+      if(it.dueDate)h+='<div style="font-size:10px;color:var(--text-sub);margin-top:3px;font-family:ui-monospace,monospace;">納期 '+esc(String(it.dueDate))+'</div>';
+      if(badge)h+='<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:3px;">'+badge+'</div>';
+      h+='</div>';
+    });
+    h+='</div>';
+  });
+  h+='</div></div>';
+  return h;
+}
+// ----- リペアゲージ（RPM型ステータスダイヤル）-----
+let _rgId=null,_rgFlow=null,_rgIdx=0,_rgCv=null,_rgGeo=null,_rgDrag=false;
+function openRepairGauge(id){
+  const rec=(DB.repairs||[]).find(x=>String(x.id)===String(id));if(!rec)return;
+  _rgId=id;_rgFlow=STATUS_FLOW[2].slice();_rgIdx=Math.max(0,_rgFlow.indexOf(rec.status));
+  const old=document.getElementById('repairGaugeModal');if(old)old.remove();
+  const ov=document.createElement('div');ov.id='repairGaugeModal';ov.className='modal-overlay';
+  ov.style.cssText='position:fixed;inset:0;z-index:1680;display:flex;align-items:flex-end;justify-content:center;background:rgba(8,15,22,.62);';
+  ov.onclick=function(e){if(e.target.id==='repairGaugeModal')closeRepairGauge();};
+  const mStr=buildMachineStr(rec.machine,rec.maker,rec.model)||'機械未入力';
+  let labels='<div id="rgLabels" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:8px;">';
+  _rgFlow.forEach(function(s,i){const c=STATUS_COLORS[s]||'#888';labels+='<button type="button" data-rgi="'+i+'" onclick="_rgSelect('+i+',true)" style="border:1.5px solid '+c+';background:'+(i===_rgIdx?c:'transparent')+';color:'+(i===_rgIdx?'#fff':'var(--text)')+';border-radius:14px;padding:5px 10px;font-size:11px;font-weight:800;cursor:pointer;">'+esc(s)+'</button>';});
+  labels+='</div>';
+  ov.innerHTML='<div class="modal-box" style="padding:14px 16px 26px;text-align:center;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><span style="font-size:13px;font-weight:900;color:var(--text);font-family:ui-monospace,monospace;">🔧 ステータスダイヤル</span><button type="button" onclick="closeRepairGauge()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button></div>'
+    +'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+esc((rec.customerName||'(顧客未設定)')+' / '+mStr)+'</div>'
+    +'<canvas id="rgCanvas" style="width:100%;max-width:320px;touch-action:none;display:block;margin:0 auto;"></canvas>'
+    +labels
+    +'<button type="button" onclick="_rgCommit()" class="save-btn" style="width:100%;margin-top:12px;background:#2ecc71;">決定</button>'
+    +'</div>';
+  document.body.appendChild(ov);pushBack();
+  _rgCv=document.getElementById('rgCanvas');_rgSetupCanvas();_rgDraw();
+  _rgCv.addEventListener('pointerdown',_rgPointer);_rgCv.addEventListener('pointermove',_rgPointer);
+  _rgCv.addEventListener('pointerup',_rgPointerUp);_rgCv.addEventListener('pointercancel',function(){_rgDrag=false;});
+}
+function _rgSetupCanvas(){
+  if(!_rgCv)return;
+  const cssW=Math.min(320,(_rgCv.clientWidth||300))||300,cssH=Math.round(cssW*0.74);
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  _rgCv.width=Math.round(cssW*dpr);_rgCv.height=Math.round(cssH*dpr);_rgCv.style.height=cssH+'px';
+  _rgGeo={cx:_rgCv.width/2,cy:_rgCv.height*0.60,R:Math.min(_rgCv.width,_rgCv.height*1.45)*0.40,a0:Math.PI*0.78,a1:Math.PI*2.22};
+}
+function _rgDraw(){
+  if(!_rgCv)return;const ctx=_rgCv.getContext('2d');if(!ctx)return;const g=_rgGeo,n=_rgFlow.length;
+  ctx.clearRect(0,0,_rgCv.width,_rgCv.height);
+  ctx.lineCap='round';ctx.lineWidth=Math.max(6,g.R*0.11);
+  for(let i=0;i<n-1;i++){const s0=g.a0+(g.a1-g.a0)*(i/(n-1)),s1=g.a0+(g.a1-g.a0)*((i+1)/(n-1));ctx.strokeStyle=STATUS_COLORS[_rgFlow[i]]||'#888';ctx.globalAlpha=(i<=_rgIdx-1?0.95:0.22);ctx.beginPath();ctx.arc(g.cx,g.cy,g.R,s0,s1);ctx.stroke();}
+  ctx.globalAlpha=1;
+  for(let i=0;i<n;i++){const a=g.a0+(g.a1-g.a0)*(i/(n-1));ctx.strokeStyle=(i===_rgIdx)?'#fff':'rgba(160,180,200,.6)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(g.cx+Math.cos(a)*(g.R-g.R*0.17),g.cy+Math.sin(a)*(g.R-g.R*0.17));ctx.lineTo(g.cx+Math.cos(a)*(g.R+g.R*0.03),g.cy+Math.sin(a)*(g.R+g.R*0.03));ctx.stroke();}
+  const an=g.a0+(g.a1-g.a0)*(_rgIdx/(n-1)),col=STATUS_COLORS[_rgFlow[_rgIdx]]||'#2ecc71';
+  ctx.strokeStyle=col;ctx.lineWidth=Math.max(3,g.R*0.05);ctx.shadowColor=col;ctx.shadowBlur=12;
+  ctx.beginPath();ctx.moveTo(g.cx,g.cy);ctx.lineTo(g.cx+Math.cos(an)*(g.R*0.82),g.cy+Math.sin(an)*(g.R*0.82));ctx.stroke();ctx.shadowBlur=0;
+  ctx.fillStyle=col;ctx.beginPath();ctx.arc(g.cx,g.cy,Math.max(4,g.R*0.08),0,6.283);ctx.fill();
+  let tcol='#e7eef4';try{tcol=(getComputedStyle(document.body).getPropertyValue('--text')||'').trim()||'#888';}catch(e){}
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=tcol;
+  ctx.font='800 '+Math.round(g.R*0.22)+'px ui-monospace,monospace';ctx.fillText((_rgIdx+1)+'/'+n,g.cx,g.cy+g.R*0.34);
+  ctx.fillStyle=col;ctx.font='800 '+Math.round(g.R*0.12)+'px ui-monospace,monospace';ctx.fillText(_rgFlow[_rgIdx],g.cx,g.cy+g.R*0.53);
+}
+function _rgAngleToIdx(x,y){const g=_rgGeo,n=_rgFlow.length;let a=Math.atan2(y-g.cy,x-g.cx);if(a<g.a0-0.35)a+=Math.PI*2;if(a<g.a0)a=g.a0;if(a>g.a1)a=g.a1;const i=Math.round((a-g.a0)/(g.a1-g.a0)*(n-1));return Math.max(0,Math.min(n-1,i));}
+function _rgPointer(e){
+  if(e.type==='pointerdown'){_rgDrag=true;try{_rgCv.setPointerCapture(e.pointerId);}catch(_){}}
+  if(!_rgDrag||!_rgCv)return;e.preventDefault();
+  const r=_rgCv.getBoundingClientRect();const sx=_rgCv.width/(r.width||1),sy=_rgCv.height/(r.height||1);
+  const i=_rgAngleToIdx((e.clientX-r.left)*sx,(e.clientY-r.top)*sy);
+  if(i!=null&&i!==_rgIdx){_rgIdx=i;_rgDraw();_rgSyncLabels();vibe('step');}
+}
+function _rgPointerUp(e){if(_rgDrag){_rgDrag=false;_rgCommit();}}
+function _rgSyncLabels(){const wrap=document.getElementById('rgLabels');if(!wrap)return;wrap.querySelectorAll('button[data-rgi]').forEach(function(b){const i=Number(b.getAttribute('data-rgi')),s=_rgFlow[i],c=STATUS_COLORS[s]||'#888';b.style.background=(i===_rgIdx)?c:'transparent';b.style.color=(i===_rgIdx)?'#fff':'var(--text)';});}
+function _rgSelect(i,commit){i=Math.max(0,Math.min(_rgFlow.length-1,i));if(i!==_rgIdx){_rgIdx=i;_rgDraw();_rgSyncLabels();vibe('step');}if(commit)_rgCommit();}
+function _rgCommit(){if(_rgId==null||!_rgFlow)return;_setRepairStatus(_rgId,_rgFlow[_rgIdx]);}
+function closeRepairGauge(){const e=document.getElementById('repairGaugeModal');if(e)e.remove();_rgId=null;_rgCv=null;_rgDrag=false;}
+function _setRepairStatus(id,newStatus){
+  const rec=(DB.repairs||[]).find(x=>String(x.id)===String(id)); if(!rec) return;
+  const prev=rec.status; if(prev===newStatus){ closeRepairGauge(); return; }
+  rec.status=newStatus; _stampRepairStatus(rec); saveDB();
+  closeRepairGauge(); renderAll(); vibe('step');
+  showToast(((typeof _recName==='function')?_recName(rec,2):'修理')+' → '+newStatus, function(){ const r2=(DB.repairs||[]).find(x=>String(x.id)===String(id)); if(r2){ r2.status=prev; _stampRepairStatus(r2); saveDB(); renderAll(); vibe('ok'); } });
+  if(newStatus==='完了(未請求)') repairIgnitionFx();
+}
+// ----- 完了で“点火”演出（独立実装・自己完結）-----
+function repairIgnitionFx(){
+  try{
+    var reduce=false;try{reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
+    var ov=document.createElement('div');ov.style.cssText='position:fixed;inset:0;z-index:2147483646;pointer-events:none;overflow:hidden;';document.body.appendChild(ov);
+    var flash=document.createElement('div');flash.style.cssText='position:absolute;inset:0;background:#fff;opacity:0;';ov.appendChild(flash);
+    try{var AC=window.AudioContext||window.webkitAudioContext;if(AC){var ac=new AC();var t0=ac.currentTime;var o=ac.createOscillator();o.type='sine';o.frequency.setValueAtTime(180,t0);o.frequency.exponentialRampToValueAtTime(58,t0+0.25);var g=ac.createGain();g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(0.5,t0+0.02);g.gain.exponentialRampToValueAtTime(0.001,t0+0.4);o.connect(g).connect(ac.destination);o.start(t0);o.stop(t0+0.45);setTimeout(function(){try{ac.close();}catch(e){}},800);}}catch(e){}
+    if(reduce){ if(flash.animate)flash.animate([{opacity:.45},{opacity:0}],{duration:300}); setTimeout(function(){if(ov.parentNode)ov.remove();},340); return; }
+    [['#2ecc71',0],['#ff5a4d',90]].forEach(function(c){var ring=document.createElement('div');ring.style.cssText='position:absolute;left:50%;top:50%;width:40px;height:40px;border-radius:50%;border:4px solid '+c[0]+';transform:translate(-50%,-50%) scale(.2);opacity:.9;';ov.appendChild(ring);setTimeout(function(){if(ring.animate)ring.animate([{transform:'translate(-50%,-50%) scale(.2)',opacity:.9},{transform:'translate(-50%,-50%) scale(16)',opacity:0}],{duration:580,easing:'cubic-bezier(.2,.7,.3,1)'});},c[1]);});
+    if(flash.animate)flash.animate([{opacity:.85},{opacity:0}],{duration:260,easing:'ease-out'});
+    if(typeof vibe==='function')vibe('done');
+    setTimeout(function(){if(ov.parentNode)ov.remove();},680);
+  }catch(e){}
+}
 function renderRepairs(){
-  let html='<button onclick="openNew(2)" class="save-btn" style="margin-bottom:10px;width:100%;">＋ 修理依頼を新規登録</button>';
+  const _rkToggle=_repairViewToggle();
+  if(repairKanbanView)return _rkToggle+renderRepairKanban();
+  let html=_rkToggle+'<button onclick="openNew(2)" class="save-btn" style="margin-bottom:10px;width:100%;">＋ 修理依頼を新規登録</button>';
   let items=DB.repairs.slice().sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999'));
   if(searchQuery)items=items.filter(x=>[x.customerName,x.machine,x.maker,x.model,x.issue,x.serialNo].some(f=>(f||'').toLowerCase().includes(searchQuery)));
   if(!items.length)return html+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">'+(searchQuery?'検索結果なし':'修理依頼はありません')+'</div>';
@@ -2809,6 +2951,7 @@ function saveItem(){
   document.querySelectorAll('#modalBody input,#modalBody select,#modalBody textarea').forEach(el=>{const key=el.id.replace('f_','');if(key&&el.type!=='file')item[key]=el.value;});
   // 修理写真を保存
   if(modalState.tab===2)item.photos=currentRepairPhotos;
+  if(modalState.tab===2){const _pv=(modalState.mode==='edit'&&modalState.item)?modalState.item.status:undefined;if(modalState.mode==='new'||item.status!==_pv)_stampRepairStatus(item);}
   // 製品：販売額が空/0 かつ 顧客一致の見積があれば、見積から反映するか確認（自動確定しない）
   if(modalState.tab===5&&(Number(item.price)||0)<=0&&quotesForCustomer(item.customer).length){
     openAutoPricePrompt(item);return;
@@ -3202,7 +3345,7 @@ function _applyStatusDelta(tab,id,delta){
   const rec=(DB[key]||[]).find(x=>String(x.id)===String(id));if(!rec)return;
   const cur=flow.indexOf(rec.status);let idx=(cur<0)?0:cur+delta;idx=Math.max(0,Math.min(flow.length-1,idx));
   if(idx===cur){vibe('warn');showToast(delta>0?'これ以上進められません':'これ以上戻せません');return;}
-  const prev=rec.status;rec.status=flow[idx];saveDB();renderAll();vibe('step');
+  const prev=rec.status;rec.status=flow[idx];if(tab===2)_stampRepairStatus(rec);saveDB();renderAll();vibe('step');
   showToast(_recName(rec,tab)+' → '+rec.status,function(){const r2=(DB[key]||[]).find(x=>String(x.id)===String(id));if(r2){r2.status=prev;saveDB();renderAll();vibe('ok');}});
 }
 
@@ -3272,7 +3415,7 @@ function _updateBulkBar(){
 }
 function bulkDelta(delta){
   let n=0;
-  selected.forEach(k=>{const i=k.indexOf(':'),tab=Number(k.slice(0,i)),id=k.slice(i+1);const flow=STATUS_FLOW[tab],dk=TAB_DBKEY[tab];if(!flow||!dk)return;const rec=(DB[dk]||[]).find(x=>String(x.id)===String(id));if(!rec)return;const cur=flow.indexOf(rec.status);let idx=(cur<0)?0:cur+delta;idx=Math.max(0,Math.min(flow.length-1,idx));if(idx!==cur){rec.status=flow[idx];n++;}});
+  selected.forEach(k=>{const i=k.indexOf(':'),tab=Number(k.slice(0,i)),id=k.slice(i+1);const flow=STATUS_FLOW[tab],dk=TAB_DBKEY[tab];if(!flow||!dk)return;const rec=(DB[dk]||[]).find(x=>String(x.id)===String(id));if(!rec)return;const cur=flow.indexOf(rec.status);let idx=(cur<0)?0:cur+delta;idx=Math.max(0,Math.min(flow.length-1,idx));if(idx!==cur){rec.status=flow[idx];if(tab===2)_stampRepairStatus(rec);n++;}});
   if(n>0){saveDB();vibe('done');showToast(n+'件のステータスを更新しました');}else{vibe('warn');showToast('変更できる項目がありませんでした');}
   exitSelectMode(true);
 }
@@ -3352,5 +3495,15 @@ if('serviceWorker' in navigator){
 <div style="padding:16px 18px 40px;" id="memoEditBody"></div>
 </div>
 </div>
+<style id="repair-kanban-style">
+.rk-card{background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:8px 9px;margin-bottom:8px;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.06);transition:transform .1s ease;}
+.rk-card:active{transform:scale(.97);}
+.rk-overdue{border:1.5px solid #e74c3c;animation:rkPulse 1.3s ease-in-out infinite;}
+@keyframes rkPulse{0%,100%{box-shadow:0 0 0 0 rgba(231,76,60,0);}50%{box-shadow:0 0 0 4px rgba(231,76,60,.30);}}
+.rk-soon{border:1.5px solid #f39c12;}
+.rk-b{display:inline-block;font-size:9px;font-weight:800;border-radius:7px;padding:1px 6px;line-height:1.5;}
+.rk-b-red{background:#fdecea;color:#c0392b;}.rk-b-amber{background:#fef5e6;color:#b9770e;}.rk-b-stale{background:var(--input-bg);color:var(--text-sub);}
+@media(prefers-reduced-motion:reduce){.rk-overdue{animation:none;}}
+</style>
 </body>
 </html>
