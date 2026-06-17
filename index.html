@@ -1142,6 +1142,7 @@ function _memoTitle(m){const t=(m&&m.title||'').trim();if(t)return t;const b=Str
 function _memoBodyText(m){return String((m&&(m.text!==undefined?m.text:m.body))||'');}
 function renderMemosTab(){
   let html='<button onclick="openMemoEdit(\'\')" class="save-btn" style="margin-bottom:12px;width:100%;">＋ 新規メモ</button>';
+  html+='<label class="save-btn" style="margin-bottom:12px;width:100%;background:#2ecc71;display:flex;align-items:center;justify-content:center;cursor:pointer;">📷 画像からメモに取り込む<input type="file" accept="image/*" style="display:none;" onchange="memoOcrPickFromTab(event)"></label>';
   let list=(DB.memos||[]).slice();
   if(searchQuery)list=list.filter(m=>[_memoTitle(m),_memoBodyText(m)].some(f=>(f||'').toLowerCase().includes(searchQuery)));
   list.sort((a,b)=>String(b.updatedAt||b.createdAt||'').localeCompare(String(a.updatedAt||a.createdAt||''))); // 更新日時の新しい順
@@ -1165,6 +1166,7 @@ function openMemoEdit(id){
   h+='<input type="text" id="memoEditTitle" class="field-input" value="'+esc(title)+'" placeholder="例: 在庫メモ・連絡事項" style="margin-bottom:11px;">';
   h+='<label class="field-label">本文</label>';
   h+='<textarea id="memoEditBodyText" class="field-textarea" rows="8" placeholder="覚え書き・連絡事項など">'+esc(body)+'</textarea>';
+  h+='<label class="save-btn" style="width:100%;margin-top:8px;background:#2ecc71;display:flex;align-items:center;justify-content:center;cursor:pointer;">📷 画像から文字を取り込む<input type="file" accept="image/*" style="display:none;" onchange="memoOcrPick(event)"></label>';
   h+='<button class="save-btn" style="width:100%;margin-top:12px;" onclick="saveMemoEdit()">💾 保存する</button>';
   if(m)h+='<div style="text-align:center;margin-top:10px;"><button onclick="deleteMemoEdit()" style="background:none;border:none;color:#e74c3c;text-decoration:underline;cursor:pointer;font-size:12px;">このメモを削除</button></div>';
   document.getElementById('memoEditBody').innerHTML=h;
@@ -1182,6 +1184,88 @@ function saveMemoEdit(){
   saveDB();closeMemoEdit();renderAll();showSyncBar('✅ メモを保存しました','ok');
 }
 function deleteMemoEdit(){if(!_memoEditId)return;if(!confirm('このメモを削除しますか？'))return;DB.memos=(DB.memos||[]).filter(x=>x.id!==_memoEditId);saveDB();closeMemoEdit();renderAll();showSyncBar('🗑 メモを削除しました','ok');}
+// ===== メモ：画像から文字を取り込む（汎用OCR・3段階確認）=====
+// 既存の圧縮(compressImage 1080/0.72)→_blobToB64→Vision(callAIText) を流用。保存は通常のsaveMemoEditに乗せる。
+const MEMO_OCR_PROMPT='この画像に写っている文字を、日本語のプレーンテキストとして正確に書き起こしてください。\n- 手書き・印刷どちらも対象。読み取れる文字をできるだけ正確に書き起こす。\n- 伝票やリストなど項目が並ぶものは、行・箇条書きの構造を保って整形する。\n- 機械や部品の写真で文字が少ない場合は、読み取れた型式・銘板情報や、目に見える状態の要点を簡潔にメモ化する。\n- 読み取れない箇所は勝手に創作せず「（判読不可）」として残す。\n- 農機関連の用語（メーカー名：ヤンマー・クボタ・イセキ・三菱・丸山・筑水・共立 等、型式番号、作業内容）はそのまま正確に。\n- 出力は本文のテキストのみ。前置き・説明・Markdown装飾（#、*、`、表記号等）は一切付けない。';
+let _mocrStep=0,_mocrFile=null,_mocrDataUrl='',_mocrText='',_mocrBusy=false;
+function memoOcrPick(e){const f=e.target.files&&e.target.files[0];e.target.value='';if(f)_mocrOpen(f);}
+function memoOcrPickFromTab(e){const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;openMemoEdit('');_mocrOpen(f);}
+function _mocrEnsureModal(){
+  let ov=document.getElementById('memoOcrModal');
+  if(!ov){ov=document.createElement('div');ov.id='memoOcrModal';ov.className='modal-overlay';ov.style.cssText='position:fixed;inset:0;z-index:1700;display:flex;align-items:flex-end;justify-content:center;background:rgba(8,15,22,.62);';ov.onclick=function(e){if(e.target.id==='memoOcrModal')_mocrClose();};document.body.appendChild(ov);}
+  return ov;
+}
+function _mocrClose(){const e=document.getElementById('memoOcrModal');if(e)e.remove();_mocrStep=0;_mocrFile=null;_mocrDataUrl='';_mocrText='';_mocrBusy=false;}
+function _mocrBack(){ if(_mocrStep===2){_mocrStep=1;_mocrRenderStep1();return;} _mocrClose(); } // Android戻る＝前ステップへ
+function _mocrHeader(title){return '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span style="font-size:13px;font-weight:900;color:var(--text);font-family:ui-monospace,monospace;">'+esc(title)+'</span><button type="button" onclick="_mocrClose()" style="background:var(--border);border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:var(--text);">×</button></div>';}
+function _mocrOpen(file){
+  _mocrFile=file;_mocrText='';_mocrStep=1;
+  _mocrEnsureModal();_mocrRenderStep1();pushBack();
+  try{const r=new FileReader();r.onload=function(ev){_mocrDataUrl=ev.target.result;if(_mocrStep===1)_mocrRenderStep1();};r.onerror=function(){_mocrDataUrl='';if(_mocrStep===1)_mocrRenderStep1();};r.readAsDataURL(file);}catch(e){}
+}
+function _mocrRenderStep1(){
+  const ov=_mocrEnsureModal();_mocrStep=1;
+  let h='<div class="modal-box" style="padding:14px 16px 24px;">';
+  h+=_mocrHeader('📷 画像の確認（1/3）');
+  h+='<div style="font-size:11px;color:var(--text-sub);margin-bottom:10px;">この画像で文字を読み取ります。よければ「読み取る」を押してください（押すまでAPIは呼ばれません）。</div>';
+  h+=_mocrDataUrl?('<img src="'+_mocrDataUrl+'" style="width:100%;max-height:300px;object-fit:contain;background:#000;border-radius:10px;margin-bottom:12px;">'):'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">画像を読み込み中…</div>';
+  h+='<button type="button" onclick="_mocrToStep2()" class="save-btn" style="width:100%;background:#2ecc71;margin-bottom:8px;">🔍 この画像で読み取る</button>';
+  h+='<label class="save-btn" style="width:100%;background:var(--input-bg);color:var(--text);margin-bottom:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1.5px solid var(--border);">🔄 画像を選び直す<input type="file" accept="image/*" style="display:none;" onchange="_mocrReplace(event)"></label>';
+  h+='<button type="button" onclick="_mocrClose()" style="width:100%;background:none;border:none;color:var(--text-sub);font-size:13px;font-weight:700;cursor:pointer;padding:8px;">キャンセル</button>';
+  h+='</div>';ov.innerHTML=h;
+}
+function _mocrReplace(e){const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;_mocrFile=f;_mocrText='';_mocrDataUrl='';_mocrRenderStep1();try{const r=new FileReader();r.onload=function(ev){_mocrDataUrl=ev.target.result;if(_mocrStep===1)_mocrRenderStep1();};r.readAsDataURL(f);}catch(_){}}
+function _mocrToStep2(){ if(!_mocrFile)return; _mocrStep=2; pushBack(); _mocrRetry(); }
+function _mocrRetry(){ _mocrStep=2; _mocrRenderStep2Loading(); _mocrRecognize(); }
+function _mocrRenderStep2Loading(){
+  const ov=_mocrEnsureModal();
+  ov.innerHTML='<div class="modal-box" style="padding:14px 16px 24px;">'+_mocrHeader('🔎 文字を認識中…（2/3）')
+   +'<div style="text-align:center;padding:30px 0;color:#2ecc71;font-family:ui-monospace,monospace;font-weight:800;">&gt; reading image ...<br><span style="font-size:11px;color:var(--text-sub);font-weight:400;">Claude Vision で文字を読み取っています</span></div></div>';
+}
+async function _mocrRecognize(){
+  if(_mocrBusy)return;_mocrBusy=true;
+  try{
+    const blob=await compressImage(_mocrFile,1080,0.72);
+    const b64=await _blobToB64(blob);
+    const text=await callAIText(MEMO_OCR_PROMPT,b64,'image/jpeg');
+    _mocrBusy=false;_mocrText=String(text||'').trim();
+    if(_mocrStep!==2)return; // ユーザーが戻った/閉じた
+    _mocrRenderStep2Result();
+  }catch(err){
+    _mocrBusy=false;if(_mocrStep!==2)return;
+    _mocrRenderStep2Error((err&&err.message)||String(err));
+  }
+}
+function _mocrRenderStep2Error(msg){
+  const ov=_mocrEnsureModal();
+  ov.innerHTML='<div class="modal-box" style="padding:14px 16px 24px;">'+_mocrHeader('⚠️ 認識に失敗（2/3）')
+   +'<div style="background:#fdecea;border:1.5px solid #f5b7b1;color:#c0392b;border-radius:10px;padding:12px;font-size:12px;margin-bottom:12px;white-space:pre-wrap;">'+esc(msg||'読み取りに失敗しました')+'</div>'
+   +'<div style="font-size:11px;color:var(--text-sub);margin-bottom:12px;">通信環境やAPIキー設定（🔑）をご確認ください。メモの内容は変更していません。</div>'
+   +'<button type="button" onclick="_mocrRetry()" class="save-btn" style="width:100%;background:#2ecc71;margin-bottom:8px;">🔁 もう一度認識する</button>'
+   +'<button type="button" onclick="_mocrBack()" style="width:100%;background:none;border:none;color:var(--text-sub);font-size:13px;font-weight:700;cursor:pointer;padding:8px;">← 画像選択に戻る</button></div>';
+}
+function _mocrRenderStep2Result(){
+  const ov=_mocrEnsureModal();
+  let h='<div class="modal-box" style="padding:14px 16px 24px;">';
+  h+=_mocrHeader('📝 メモ化内容の確認（2/3）');
+  h+='<div style="font-size:11px;color:var(--text-sub);margin-bottom:8px;">認識結果です。内容を確認・修正してから取り込んでください（まだメモには反映していません）。</div>';
+  h+='<textarea id="mocrText" class="field-textarea" rows="9" style="font-family:ui-monospace,monospace;">'+esc(_mocrText)+'</textarea>';
+  h+='<button type="button" onclick="_mocrImport()" class="save-btn" style="width:100%;background:#2ecc71;margin:10px 0 8px;">✅ メモに取り込む</button>';
+  h+='<div style="display:flex;gap:8px;">';
+  h+='<button type="button" onclick="_mocrRetry()" style="flex:1;background:var(--input-bg);color:var(--text);border:1.5px solid var(--border);border-radius:10px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;">🔄 やり直す</button>';
+  h+='<button type="button" onclick="_mocrClose()" style="flex:1;background:none;border:1.5px solid var(--border);color:var(--text-sub);border-radius:10px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;">キャンセル</button>';
+  h+='</div></div>';ov.innerHTML=h;
+}
+function _mocrImport(){
+  const edited=(document.getElementById('mocrText')?(document.getElementById('mocrText').value||''):'').trim();
+  if(!edited){alert('取り込む内容がありません。');return;}
+  const ta=document.getElementById('memoEditBodyText');
+  if(!ta){_mocrClose();alert('メモ入力欄が見つかりません。メモを開いてからお試しください。');return;}
+  const cur=ta.value||'';
+  ta.value=cur.trim()?(cur.replace(/\s+$/,'')+'\n'+edited):edited; // 空→そのまま / 既存→改行で追記
+  _mocrClose();
+  try{ if(typeof saveMemoEdit==='function')saveMemoEdit(); }catch(e){ if(typeof showSyncBar==='function')showSyncBar('✅ メモに取り込みました（保存は手動で）','ok'); }
+}
 async function printDoc(){
   const tN=(document.getElementById('toName')?.value||'').trim();
   const subj=(document.getElementById('subject')?.value||'').trim();
@@ -1926,6 +2010,7 @@ function closeTopModal(){
   const isOpen=id=>{const e=document.getElementById(id);return e&&e.style&&e.style.display&&e.style.display!=='none';};
   const doClose=(id,fn)=>{try{if(fn){fn();return;}}catch(e){}const el=document.getElementById(id);if(el)el.style.display='none';};
   const list=[
+    ['memoOcrModal',_mocrBack],
     ['repairGaugeModal',closeRepairGauge],
     ['morningDigestModal',closeMorningDigest],
     ['igShareModal',closeIgShare],
