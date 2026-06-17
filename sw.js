@@ -1,7 +1,14 @@
 // 農機業務管理 PWA Service Worker
-const CACHE_NAME = 'nouki-pwa-v9-repairkanban';
+const CACHE_NAME = 'nouki-pwa-v10-opening';
+// プリキャッシュ対象（オープニング動画とポスター。実体が無くても install は失敗しない）
+const PRECACHE = ['opening.mp4', 'opening-poster.jpg'];
 
 self.addEventListener('install', (e) => {
+  e.waitUntil(
+    caches.open(CACHE_NAME)
+      .then((c) => Promise.all(PRECACHE.map((u) => c.add(u).catch(() => {}))))
+      .catch(() => {})
+  );
   self.skipWaiting();
 });
 
