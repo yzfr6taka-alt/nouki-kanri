@@ -1,5 +1,5 @@
 // 農機業務管理 PWA Service Worker
-const CACHE_NAME = 'nouki-pwa-v10-memoocr';
+const CACHE_NAME = 'nouki-pwa-v11-ocrerrmsg';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();

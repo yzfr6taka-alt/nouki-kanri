@@ -1220,6 +1220,12 @@ function _mocrRenderStep2Loading(){
   ov.innerHTML='<div class="modal-box" style="padding:14px 16px 24px;">'+_mocrHeader('🔎 文字を認識中…（2/3）')
    +'<div style="text-align:center;padding:30px 0;color:#2ecc71;font-family:ui-monospace,monospace;font-weight:800;">&gt; reading image ...<br><span style="font-size:11px;color:var(--text-sub);font-weight:400;">Claude Vision で文字を読み取っています</span></div></div>';
 }
+function toErrMsg(e){
+  if(e instanceof Error)return e.message;
+  if(e&&e.target&&e.target.error&&e.target.error.message)return e.target.error.message;
+  if(typeof e==='string')return e;
+  try{return JSON.stringify(e);}catch(_){return String(e);}
+}
 async function _mocrRecognize(){
   if(_mocrBusy)return;_mocrBusy=true;
   try{
@@ -1231,7 +1237,7 @@ async function _mocrRecognize(){
     _mocrRenderStep2Result();
   }catch(err){
     _mocrBusy=false;if(_mocrStep!==2)return;
-    _mocrRenderStep2Error((err&&err.message)||String(err));
+    _mocrRenderStep2Error(toErrMsg(err));
   }
 }
 function _mocrRenderStep2Error(msg){
@@ -1693,12 +1699,12 @@ function compressImage(file,maxEdge=1080,quality=0.72){
         c.getContext('2d').drawImage(img,0,0,w,h);
         c.toBlob(b=>b?resolve(b):reject(new Error('toBlob失敗')),'image/jpeg',quality);
       };
-      img.onerror=reject;img.src=r.result;
+      img.onerror=()=>reject(new Error('画像の読み込みに失敗しました'));img.src=r.result;
     };
-    r.onerror=reject;r.readAsDataURL(file);
+    r.onerror=()=>reject(new Error('ファイルの読み込みに失敗しました'));r.readAsDataURL(file);
   });
 }
-function _blobToB64(blob){return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(',')[1]);fr.onerror=rej;fr.readAsDataURL(blob);});}
+function _blobToB64(blob){return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(',')[1]);fr.onerror=()=>rej(new Error('ファイルの読み込みに失敗しました'));fr.readAsDataURL(blob);});}
 async function uploadPhotoToDrive(blob){
   try{
     const dataBase64=await _blobToB64(blob);
