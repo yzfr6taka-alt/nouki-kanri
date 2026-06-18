@@ -3595,15 +3595,11 @@ if('serviceWorker' in navigator){
 .rk-b-red{background:#fdecea;color:#c0392b;}.rk-b-amber{background:#fef5e6;color:#b9770e;}.rk-b-stale{background:var(--input-bg);color:var(--text-sub);}
 @media(prefers-reduced-motion:reduce){.rk-overdue{animation:none;}}
 </style>
-<!-- ===== OPENING MOVIE : FULL IGNITION（起動時オープニング動画 / タップで音アリ始動） ===== -->
+<!-- ===== OPENING MOVIE : FULL IGNITION（起動時オープニング動画 / 即時再生・画面にフィット） ===== -->
 <div id="nkOpeningWrap" style="position:fixed;inset:0;z-index:2147483600;background:#000;display:none;opacity:1;transition:opacity .25s ease;">
-  <video id="nkOpening" src="opening.mp4" poster="opening-poster.jpg" playsinline webkit-playsinline preload="auto" style="width:100%;height:100%;object-fit:cover;background:#000;display:block;"></video>
+  <video id="nkOpening" src="opening.mp4" poster="opening-poster.jpg" playsinline webkit-playsinline preload="auto" style="width:100%;height:100%;object-fit:contain;background:#000;display:block;"></video>
   <button id="nkOpeningSkip" type="button" aria-label="スキップ" style="position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);right:12px;z-index:3;background:rgba(0,0,0,.42);color:#cfe9da;border:1px solid rgba(46,204,113,.5);border-radius:18px;padding:7px 14px;font-size:12px;font-weight:800;letter-spacing:.08em;font-family:ui-monospace,'Roboto Mono','DejaVu Sans Mono',Consolas,monospace;cursor:pointer;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);">スキップ ▶</button>
-  <div id="nkOpeningGate" style="position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;background:radial-gradient(120% 100% at 50% 50%,rgba(0,0,0,.22) 40%,rgba(0,0,0,.72) 100%);font-family:ui-monospace,'Roboto Mono','DejaVu Sans Mono',Consolas,monospace;-webkit-user-select:none;user-select:none;">
-    <div style="font-size:clamp(34px,12vw,60px);line-height:1;filter:drop-shadow(0 0 16px rgba(46,204,113,.7));">🔑</div>
-    <div style="font-size:clamp(15px,4.6vw,21px);font-weight:800;letter-spacing:.22em;color:#fff;text-shadow:0 0 18px #2ecc7188,0 0 5px #2ecc71;">タップで始動</div>
-    <div style="font-size:11px;letter-spacing:.34em;color:#2ecc71;">FULL IGNITION</div>
-  </div>
+  <div id="nkOpeningSound" style="display:none;position:absolute;top:calc(env(safe-area-inset-top,0px) + 52px);right:12px;z-index:3;align-items:center;gap:6px;background:rgba(0,0,0,.42);color:#2ecc71;border:1px solid rgba(46,204,113,.5);border-radius:16px;padding:6px 12px;font-size:12px;font-weight:800;letter-spacing:.06em;font-family:ui-monospace,'Roboto Mono','DejaVu Sans Mono',Consolas,monospace;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);pointer-events:none;">🔊 タップで音</div>
 </div>
 <script>
 (function(){
@@ -3613,10 +3609,10 @@ if('serviceWorker' in navigator){
   window.openingActive=false;
   var wrap=document.getElementById('nkOpeningWrap');
   var vid=document.getElementById('nkOpening');
-  var gate=document.getElementById('nkOpeningGate');
   var skipBtn=document.getElementById('nkOpeningSkip');
+  var soundHint=document.getElementById('nkOpeningSound');
   if(!wrap||!vid){ window.__nkOpeningTakeover=false; return; }
-  var SKEY='nk_opening_played', closed=false, started=false;
+  var SKEY='nk_opening_played', closed=false;
 
   function revealHome(){ try{ var a=document.getElementById('app'); if(a)a.style.display='block'; }catch(e){} }
 
@@ -3636,23 +3632,32 @@ if('serviceWorker' in navigator){
   var played=false; try{ played=(sessionStorage.getItem(SKEY)==='1'); }catch(e){}
   if(played){ window.openingActive=false; wrap.style.display='none'; revealHome(); return; }
 
-  // オープニング表示
+  // オープニング表示＋即時再生
   wrap.style.display='block'; window.openingActive=true;
+  try{ sessionStorage.setItem(SKEY,'1'); }catch(e){}   // 再生開始時にセット
 
-  // タップで音アリ始動（ユーザー操作前は音アリ自動再生がブロックされる制約への対応）
-  function ignite(){
-    if(started)return; started=true;
-    try{ sessionStorage.setItem(SKEY,'1'); }catch(e){}   // 再生開始時にセット
-    if(gate)gate.style.display='none';
-    try{
-      var p=vid.play();
-      if(p&&p.catch)p.catch(function(){ try{ vid.muted=true; vid.play(); }catch(e){} }); // 失敗時は無音で再生継続
-    }catch(e){}
+  function showSoundHint(){ if(soundHint)soundHint.style.display='flex'; }
+  function hideSoundHint(){ if(soundHint)soundHint.style.display='none'; }
+  function unmute(){ try{ vid.muted=false; }catch(e){} hideSoundHint(); }
+
+  // 即時再生：まず音アリで play()。ブロックされたら無音で play() し直し「🔊 タップで音」を出す
+  function startPlayback(){
+    try{ vid.muted=false; }catch(e){}
+    var p;
+    try{ p=vid.play(); }catch(e){ p=null; }
+    if(p&&p.then){
+      p.then(function(){ hideSoundHint(); }).catch(function(){
+        try{ vid.muted=true; var p2=vid.play(); if(p2&&p2.catch)p2.catch(function(){}); }catch(e){}
+        showSoundHint(); // 無音で自動再生開始。タップで音アリへ
+      });
+    }
   }
-  // 画面のpointerdown/clickで始動（スキップボタン上は除外）
-  var onGesture=function(e){ if(e&&e.target===skipBtn)return; if(!started)ignite(); };
-  wrap.addEventListener('pointerdown',onGesture,{passive:true});
-  wrap.addEventListener('click',onGesture);
+  startPlayback();
+
+  // 無音フォールバック中は画面タップで音アリに（スキップボタン上は除外）
+  var onTapSound=function(e){ if(e&&e.target===skipBtn)return; if(vid.muted)unmute(); };
+  wrap.addEventListener('pointerdown',onTapSound,{passive:true});
+  wrap.addEventListener('click',onTapSound);
 
   if(skipBtn){ skipBtn.addEventListener('click',function(e){ e.stopPropagation(); closeOpening(); }); }
   vid.addEventListener('ended',function(){ closeOpening(); });
