@@ -1476,7 +1476,7 @@ async function callAI(prompt,mediaData=null,mediaType=null){
 }
 
 // ===== テキスト専用AI（JSON以外の応答を返す）=====
-async function callAIText(prompt,mediaData=null,mediaType=null){
+async function callAIText(prompt,mediaData=null,mediaType=null,model='claude-sonnet-4-5'){
   if(!apiKey.trim())throw new Error('APIキーが設定されていません。🔑ボタンから設定してください。');
   let content;
   if(mediaData&&mediaType){
@@ -1488,7 +1488,7 @@ async function callAIText(prompt,mediaData=null,mediaType=null){
       {type:'text',text:prompt}
     ];
   }else{content=prompt;}
-  const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey.trim(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1000,messages:[{role:'user',content}]})});
+  const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey.trim(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:model||'claude-sonnet-4-5',max_tokens:1000,messages:[{role:'user',content}]})});
   const data=await res.json();if(data.error)throw new Error(data.error.message);
   if(data.content&&data.content[0]&&data.content[0].text)return data.content[0].text;
   return '';
@@ -3009,8 +3009,8 @@ function showModal(){
   document.getElementById('modalTitle').innerText=TABS[modalState.tab]+' 詳細';let form='';const it=modalState.item;
   if(modalState.tab===1){form+=inp('name','顧客名',it.name)+inp('phone','電話番号',it.phone)+inp('address','住所',it.address);form+='<label class="field-label">メモ・備考</label><textarea id="f_memo" class="field-textarea" rows="2">'+esc(it.memo)+'</textarea>';form+=buildQuickRegBox(1,it);}
   else if(modalState.tab===2){form+='<button type="button" onclick="openRecall(\'repair\')" style="width:100%;background:#2980b9;color:#fff;border:none;border-radius:10px;padding:11px 0;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:10px;">📋 お客様・機械を呼び出して入力</button><div style="display:flex;gap:8px;margin-bottom:12px;"><label style="flex:1;text-align:center;background:#16a085;color:#fff;border-radius:10px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;">📷 銘板読取<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="repairScanNameplate(event)"></label><label style="flex:1;text-align:center;background:#16a085;color:#fff;border-radius:10px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;">📷 稼働時間<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="repairScanMeter(event)"></label></div><input type="hidden" id="f_machineId" value="'+esc(it.machineId||'')+'">'+machineBadgeHTML(it.machineId);form+=inp('customerName','顧客名',it.customerName)+inp('machine','機械名 (品名)',it.machine)+'<div class="fl"><div class="fg">'+inp('maker','メーカー',it.maker)+'</div><div class="fg">'+inp('model','型式',it.model)+'</div></div>'+inp('serialNo','製造番号',it.serialNo)+'<div class="fl"><div class="fg">'+inp('attachment','アタッチメント',it.attachment)+'</div><div class="fg">'+inp('hourMeter','稼働時間(h)',it.hourMeter,'number')+'</div></div>';
-  form+='<label class="field-label">不具合内容・依頼事項</label><div style="position:relative;"><button type="button" onclick="fieldVoice(\'f_issue\',this)" style="position:absolute;right:6px;top:6px;background:#e67e22;border:none;border-radius:6px;width:26px;height:26px;font-size:12px;cursor:pointer;color:#fff;padding:0;line-height:1;z-index:1;">🎙</button><textarea id="f_issue" class="field-textarea" rows="2" style="padding-right:38px;">'+esc(it.issue)+'</textarea></div>';
-  form+='<label class="field-label">修理内容（実施した作業）</label><div style="position:relative;"><button type="button" onclick="fieldVoice(\'f_repairWork\',this)" style="position:absolute;right:6px;top:6px;background:#e67e22;border:none;border-radius:6px;width:26px;height:26px;font-size:12px;cursor:pointer;color:#fff;padding:0;line-height:1;z-index:1;">🎙</button><textarea id="f_repairWork" class="field-textarea" rows="2" style="padding-right:38px;">'+esc(it.repairWork||'')+'</textarea></div>';
+  form+='<label class="field-label">不具合内容・依頼事項</label><div style="position:relative;"><button type="button" onclick="fieldVoice(\'f_issue\',this)" style="position:absolute;right:6px;top:6px;background:#e67e22;border:none;border-radius:6px;width:26px;height:26px;font-size:12px;cursor:pointer;color:#fff;padding:0;line-height:1;z-index:1;">🎙</button><textarea id="f_issue" class="field-textarea" rows="2" data-voicefix="format" style="padding-right:38px;">'+esc(it.issue)+'</textarea></div>';
+  form+='<label class="field-label">修理内容（実施した作業）</label><div style="position:relative;"><button type="button" onclick="fieldVoice(\'f_repairWork\',this)" style="position:absolute;right:6px;top:6px;background:#e67e22;border:none;border-radius:6px;width:26px;height:26px;font-size:12px;cursor:pointer;color:#fff;padding:0;line-height:1;z-index:1;">🎙</button><textarea id="f_repairWork" class="field-textarea" rows="2" data-voicefix="format" style="padding-right:38px;">'+esc(it.repairWork||'')+'</textarea></div>';
   form+='<div class="fl"><div class="fg">'+sel('status','ステータス',['修理依頼','見積中','部品待ち','修理中','完了(未請求)','請求済'],it.status)+'</div><div class="fg">'+inp('dueDate','納期・予定日',it.dueDate,'date')+'</div></div>';form+=inp('billedDate','請求日',it.billedDate,'date');
   form+=inp('amount','売上金額（税抜・任意）',it.amount,'number');
   // --- 修理写真エリア ---
@@ -3031,7 +3031,9 @@ function inp(id,label,val,type='text'){
   const wr=hasVoice?`<div style="position:relative;">`:'';
   const wre=hasVoice?'</div>':'';
   const pr=hasVoice?'padding-right:38px;':'';
-  return `<label class="field-label">${label}</label>${wr}<input type="${type}" id="f_${id}" class="field-input" value="${esc(val||'')}" style="margin-bottom:11px;${pr}"${type==='number'?' min="0"':''}>${vb}${wre}`;
+  // 製番・型式欄は音声停止時にローカル照合（Claude不使用）
+  const vf=/^(model|serialNo|partNo)\d*$/.test(id)?' data-voicefix="raw"':'';
+  return `<label class="field-label">${label}</label>${wr}<input type="${type}" id="f_${id}" class="field-input" value="${esc(val||'')}"${vf} style="margin-bottom:11px;${pr}"${type==='number'?' min="0"':''}>${vb}${wre}`;
 }function sel(id,label,opts,cur){let o='';opts.forEach(v=>{o+='<option value="'+v+'"'+(cur===v?' selected':'')+'>'+v+'</option>';});return'<label class="field-label">'+label+'</label><select id="f_'+id+'" class="field-select" style="margin-bottom:11px;">'+o+'</select>';}
 function esc(s){return String(s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function closeModal(){document.getElementById('modalOverlay').style.display='none';}
@@ -3664,5 +3666,162 @@ if('serviceWorker' in navigator){
 })();
 </script>
 <!-- ===== /OPENING MOVIE ===== -->
+<!-- ===== VOICE AUTO-FIX & MATCH（音声停止時に自動整形／登録照合・data-voicefixでオプトイン）===== -->
+<script>
+(function(){
+  "use strict";
+  // 既存識別子を流用: vibe / showToast / saveDB / renderAll / fixVoice / autoResize /
+  //   callAIText / getRegisteredCustomers / getRegisteredMachines / normalizeMachineKey
+  var VOICEFIX_MODEL='claude-haiku-4-5-20251001'; // 速度重視（後で差替可）
+  var REC=null, busy=false;
+
+  function SR(){return window.SpeechRecognition||window.webkitSpeechRecognition;}
+  function caretOf(el){ try{ if(typeof el.selectionStart==='number')return el.selectionStart; }catch(e){} return (el.value||'').length; }
+  function resize(el){ if(el&&el.tagName==='TEXTAREA'&&typeof autoResize==='function'){try{autoResize(el);}catch(e){}} }
+  function setRange(el,baseline,pos,result){ el.value=baseline.slice(0,pos)+result+baseline.slice(pos); resize(el); }
+  function hasKey(){ try{ return typeof apiKey!=='undefined'&&apiKey&&apiKey.trim().length>0; }catch(e){ return false; } }
+
+  function fieldLabel(field){
+    try{
+      var w=field.parentNode, lab=w&&w.previousElementSibling;
+      if(lab&&lab.className&&String(lab.className).indexOf('field-label')>=0)return (lab.textContent||'').trim();
+      var p=field.previousElementSibling;
+      while(p){ if(p.className&&String(p.className).indexOf('field-label')>=0)return (p.textContent||'').trim(); p=p.previousElementSibling; }
+    }catch(e){}
+    return '自由記述';
+  }
+
+  // ---- 製番・型式 ローカル後処理＆照合（Claude不使用）----
+  function rawNormalize(s){
+    s=String(s||'').normalize('NFKC');
+    s=s.replace(/ハイフン|はいふん|ダッシュ|だっしゅ/g,'-');
+    s=s.replace(/[‐‑‒–—―−ー－ｰ]/g,'-');
+    s=s.replace(/[\s　]+/g,'');
+    return s.toUpperCase();
+  }
+  function modelKey(s){ try{ return (normalizeMachineKey('',s,'').split('|')[1])||''; }catch(e){ return rawNormalize(s).replace(/-/g,''); } }
+  function levenshtein(a,b){
+    a=String(a||'');b=String(b||'');var m=a.length,n=b.length;if(!m)return n;if(!n)return m;
+    var dp=[];for(var j=0;j<=n;j++)dp[j]=j;
+    for(var i=1;i<=m;i++){var prev=dp[0];dp[0]=i;
+      for(var k=1;k<=n;k++){var tmp=dp[k];dp[k]=Math.min(dp[k]+1,dp[k-1]+1,prev+(a.charAt(i-1)===b.charAt(k-1)?0:1));prev=tmp;}}
+    return dp[n];
+  }
+  function registeredModels(){
+    var list=(typeof getRegisteredMachines==='function')?getRegisteredMachines(typeof DB!=='undefined'?DB:{}):[];
+    var out=[],seen={};
+    list.forEach(function(m){var md=String((m&&m.model)||'').trim();if(!md)return;var k=md.toUpperCase();if(seen[k])return;seen[k]=1;out.push({maker:(m.maker||''),model:md});});
+    return out;
+  }
+  function clearChips(field){ var c=document.getElementById(field.id+'_vfchips'); if(c&&c.parentNode)c.parentNode.removeChild(c); }
+  function renderChips(field,baseline,pos,cands){
+    clearChips(field);
+    var host=field.parentNode||field;
+    var box=document.createElement('div'); box.id=field.id+'_vfchips';
+    box.style.cssText='display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 11px;align-items:center;';
+    var lab=document.createElement('span'); lab.textContent='登録候補:';
+    lab.style.cssText='font-size:11px;color:var(--text-sub);font-weight:700;font-family:ui-monospace,monospace;';
+    box.appendChild(lab);
+    cands.forEach(function(c){
+      var b=document.createElement('button'); b.type='button';
+      b.textContent=(c.maker?c.maker+' ':'')+c.model;
+      b.style.cssText='background:var(--input-bg);border:1.5px solid #2ecc71;color:var(--text);border-radius:14px;padding:6px 11px;font-size:12px;font-weight:800;cursor:pointer;font-family:ui-monospace,monospace;';
+      b.onclick=function(){
+        setRange(field,baseline,pos,c.model); clearChips(field);
+        if(typeof vibe==='function')vibe('ok');
+        if(typeof showToast==='function')showToast('「'+c.model+'」を入力しました',function(){ setRange(field,baseline,pos,''); });
+      };
+      box.appendChild(b);
+    });
+    if(host.parentNode){ if(host.nextSibling)host.parentNode.insertBefore(box,host.nextSibling); else host.parentNode.appendChild(box); }
+  }
+  function runMachineMatch(field,baseline,pos,transcript){
+    var post=rawNormalize(transcript);
+    setRange(field,baseline,pos,post); // 素起こしを反映（黙って確定はしない）
+    clearChips(field);
+    if(!post)return;
+    var sk=modelKey(post); if(!sk)return;
+    var cands=[];
+    registeredModels().forEach(function(m){
+      var mk=modelKey(m.model); if(!mk)return;
+      var score=null;
+      if(mk===sk)score=0;
+      else if(sk.length>=2&&(mk.indexOf(sk)===0||sk.indexOf(mk)===0))score=1;
+      else if(sk.length>=3){var d=levenshtein(mk,sk); if(d<=2)score=2+d;}
+      if(score!==null)cands.push({maker:m.maker,model:m.model,score:score});
+    });
+    cands.sort(function(a,b){return a.score-b.score;});
+    cands=cands.slice(0,3);
+    if(cands.length){ renderChips(field,baseline,pos,cands); if(typeof vibe==='function')vibe('step'); }
+    else if(typeof vibe==='function')vibe('ok'); // 候補ゼロ＝新規機械、素起こしのまま
+  }
+
+  // ---- 自由記述 整形（既存Claude経路 callAIText を再利用）----
+  function runVoiceFix(field,baseline,pos,transcript){
+    var local=(typeof fixVoice==='function')?fixVoice(transcript):transcript; // 先にローカル辞書
+    setRange(field,baseline,pos,local); // 失敗・無キーでもデータを失わないよう生テキストを反映
+    if(!hasKey()){ if(typeof vibe==='function')vibe('ok'); if(typeof showToast==='function')showToast('音声を入力しました',function(){ setRange(field,baseline,pos,''); }); return Promise.resolve(); }
+    var custList=(typeof getRegisteredCustomers==='function')?(getRegisteredCustomers(typeof DB!=='undefined'?DB:{}).join('・')||'なし'):'なし';
+    var prompt='あなたは農機修理業務の音声入力テキストを整形するアシスタントです。\n'
+      +'入力は音声認識の生テキストで、誤認識や句読点の欠落を含みます。\n'
+      +'(1)文脈から明らかな誤認識を修正\n'
+      +'(2)メーカー名・部品名を辞書に従い正規化（ヤンマー/クボタ/イセキ/三菱/丸山/筑水/共立 など）\n'
+      +'(3)句読点を補い整える\n'
+      +'(4)内容の追加・要約・翻訳・意味変更は禁止。\n'
+      +'以下は登録済み顧客名です。崩れていても該当しそうなら正しい名称に合わせてください（無理に当てはめない）: '+custList+'\n'
+      +'対象欄: '+fieldLabel(field)+'\n'
+      +'出力は整形後テキストのみ。前置き・説明・引用符・マークダウン不要。\n\n音声テキスト:\n'+local;
+    return callAIText(prompt,null,null,VOICEFIX_MODEL).then(function(out){
+      out=String(out||'').replace(/^```[a-z]*\n?/i,'').replace(/```$/,'').trim();
+      if(!out)throw new Error('空応答');
+      setRange(field,baseline,pos,out);
+      if(typeof vibe==='function')vibe('done');
+      if(typeof showToast==='function')showToast('音声を整形しました',function(){ setRange(field,baseline,pos,''); });
+    }).catch(function(){
+      // 失敗：生テキスト保持（既に反映済み）。データは消さない。
+      if(typeof vibe==='function')vibe('warn');
+      if(typeof showToast==='function')showToast('整形できませんでした（電波?）');
+    });
+  }
+
+  // ---- 共通：🎙開始〜停止（recognition.onend で実行）----
+  function fieldVoice(targetId,btn){
+    var S=SR();
+    if(!S){ alert('このブラウザは音声認識非対応です（Chrome/Safari推奨）'); return; }
+    if(REC){ try{REC.stop();}catch(e){} return; } // トグル停止
+    var field=document.getElementById(targetId); if(!field)return;
+    var baseline=field.value||'', pos=caretOf(field), sessionTranscript='';
+    var mode=(field.getAttribute&&field.getAttribute('data-voicefix'))||'';
+    clearChips(field);
+    var r=new S(); r.lang='ja-JP'; r.continuous=true; r.interimResults=true; r.maxAlternatives=3;
+    function live(extra){ field.value=baseline.slice(0,pos)+(sessionTranscript+extra)+baseline.slice(pos); resize(field); }
+    r.onresult=function(e){
+      var im='';
+      for(var i=e.resultIndex;i<e.results.length;i++){
+        if(e.results[i].isFinal)sessionTranscript+=e.results[i][0].transcript; else im+=e.results[i][0].transcript;
+      }
+      live(im); // ライブ表示は従来通り
+    };
+    r.onerror=function(ev){ try{ if(ev&&ev.error&&ev.error!=='aborted'&&ev.error!=='no-speech'&&typeof showSyncBar==='function')showSyncBar('🎙 音声認識エラー: '+ev.error,'error'); }catch(e){} };
+    r.onend=function(){
+      if(btn){try{btn.style.background='#e67e22';btn.textContent='🎙';}catch(e){}}
+      REC=null;
+      var transcript=(sessionTranscript||'').trim();
+      // 多重発火ガード：何も話していない or 処理中なら元に戻して終了
+      if(!transcript||busy){ field.value=baseline; resize(field); return; }
+      field.value=baseline; resize(field); // ライブ表示を一旦解除し、認識範囲だけ処理
+      if(mode==='format'){ busy=true; runVoiceFix(field,baseline,pos,transcript).then(function(){busy=false;},function(){busy=false;}); }
+      else if(mode==='raw'){ busy=true; try{ runMachineMatch(field,baseline,pos,transcript); }finally{ busy=false; } }
+      else { setRange(field,baseline,pos,transcript); } // 属性なし＝素通し（整形しない）
+    };
+    try{ r.start(); }catch(e){ return; }
+    REC=r;
+    if(btn){try{btn.style.background='#e74c3c';btn.textContent='⏹';}catch(e){}}
+  }
+
+  window.fieldVoice=fieldVoice; // 既存の🎙ボタン(onclick=fieldVoice(...))を上書き
+})();
+</script>
+<!-- ===== /VOICE AUTO-FIX & MATCH ===== -->
 </body>
 </html>
