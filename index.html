@@ -3042,7 +3042,15 @@ function closeModal(){document.getElementById('modalOverlay').style.display='non
 function closeModalOnBg(e){if(e.target.id==='modalOverlay')closeModal();}
 function saveItem(){
   const item={id:modalState.mode==='new'?'ID_'+Date.now():modalState.item.id};
-  document.querySelectorAll('#modalBody input,#modalBody select,#modalBody textarea').forEach(el=>{const key=el.id.replace('f_','');if(key&&el.type!=='file')item[key]=el.value;});
+  const _tab=modalState.tab;
+  // 部品(4)・製品(5)の「②〜⑩」欄は別レコードとして展開する。本体には混入させない。
+  // ※実演(3)の maker2/model2/targetMachine2 等は正規の項目なので除外しない。
+  const _isExtra=(key)=>{
+    if(_tab!==4&&_tab!==5)return false;
+    const m=key.match(/^(name|partNo|qty|price|productName|model|serialNo)(\d+)$/);
+    return !!(m&&Number(m[2])>=2);
+  };
+  document.querySelectorAll('#modalBody input,#modalBody select,#modalBody textarea').forEach(el=>{const key=el.id.replace('f_','');if(key&&el.type!=='file'&&!_isExtra(key))item[key]=el.value;});
   // 修理写真を保存
   if(modalState.tab===2)item.photos=currentRepairPhotos;
   if(modalState.tab===2){const _pv=(modalState.mode==='edit'&&modalState.item)?modalState.item.status:undefined;if(modalState.mode==='new'||item.status!==_pv)_stampRepairStatus(item);}
