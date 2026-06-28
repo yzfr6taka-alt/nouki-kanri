@@ -1,5 +1,5 @@
 // 農機業務管理 PWA Service Worker
-const CACHE_NAME = 'nouki-pwa-v12-voicefix';
+const CACHE_NAME = 'nouki-pwa-v13-opening-fallback';
 // プリキャッシュ対象（オープニング動画とポスター。実体が無くても install は失敗しない）
 const PRECACHE = ['opening.mp4', 'opening-poster.jpg'];
 
