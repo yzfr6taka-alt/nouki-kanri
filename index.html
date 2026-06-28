@@ -1853,8 +1853,6 @@ async function migrateRepairPhotos(){
     if(changed){saveDB();if(typeof showSyncBar==='function')showSyncBar('☁️ 修理写真をクラウドへ移行しました','ok');}
   }catch(e){console.error('写真移行エラー',e);}
 }
-function fileToB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result.split(',')[1]);r.onerror=()=>rej(new Error('読込失敗'));r.readAsDataURL(file);});}
-
 // ===== 故障診断 =====
 let lastDiagText='';
 function openDiagnosis(){document.getElementById('diagModal').style.display='flex';document.getElementById('diagResult').style.display='none';document.getElementById('diagApplyBtn').style.display='none';}
