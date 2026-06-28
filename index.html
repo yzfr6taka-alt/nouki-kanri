@@ -551,7 +551,9 @@ body.dark .bc-blue{background:#1b2a44;color:#7eacff;}
   sp.addEventListener('click',skip);
   window.addEventListener('resize',function(){if(!running&&!done_)size();});
   // 動画オープニングが起動を引き継ぐ場合は、Canvasスプラッシュは走らせない（二重に長くしない）
-  function _nkSplashStart(){ if(window.__nkOpeningTakeover){ try{ if(sp&&sp.parentNode)sp.parentNode.removeChild(sp); }catch(e){} return; } init(); }
+  // 動画オープニングが失敗したときだけ呼ぶフォールバック起動口（音付き合成スプラッシュを活用）
+  window.__nkRunCanvasSplash=function(){ try{ if(sp)sp.style.display='block'; }catch(e){} init(); };
+  function _nkSplashStart(){ if(window.__nkOpeningTakeover){ try{ if(sp)sp.style.display='none'; }catch(e){} return; } init(); }
   if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){_nkSplashStart();});}
   else{_nkSplashStart();}
 })();
@@ -3660,6 +3662,25 @@ if('serviceWorker' in navigator){
   var onTapSound=function(e){ if(e&&e.target===skipBtn)return; if(vid.muted)unmute(); };
   wrap.addEventListener('pointerdown',onTapSound,{passive:true});
   wrap.addEventListener('click',onTapSound);
+
+  // 動画が再生開始できたか
+  var started=false;
+  vid.addEventListener('playing',function(){ started=true; });
+
+  // 読込失敗 → 黒画面で固まらせず、Canvas合成スプラッシュにフォールバック
+  function failToFallback(){
+    if(closed)return; closed=true; window.openingActive=false;
+    try{ vid.pause(); }catch(e){}
+    wrap.style.display='none';
+    revealHome();
+    try{ if(typeof window.__nkRunCanvasSplash==='function')window.__nkRunCanvasSplash(); }catch(e){}
+  }
+  vid.addEventListener('error',failToFallback);
+  vid.addEventListener('stalled',function(){ if(!started)failToFallback(); });
+
+  // ウォッチドッグ：10秒で再生が始まらなければフォールバック、60秒で必ず終了
+  setTimeout(function(){ if(!closed&&!started)failToFallback(); },10000);
+  setTimeout(function(){ if(!closed)closeOpening(); },60000);
 
   if(skipBtn){ skipBtn.addEventListener('click',function(e){ e.stopPropagation(); closeOpening(); }); }
   vid.addEventListener('ended',function(){ closeOpening(); });
