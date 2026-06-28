@@ -2099,7 +2099,14 @@ function renderMachines(){
   return h;
 }
 function renderMachineList(){const el=document.getElementById('machineListArea');if(el)el.innerHTML=machineListHTML((document.getElementById('machineSearch')||{}).value||'');}
-function _machineKey(o){const s=_norm(o.serialNo);return s?('S:'+s):('C:'+_norm(o.customerName)+'|'+_norm(o.maker)+'|'+_norm(o.model));}
+function _machineKey(o){
+  o=o||{};
+  const parts=normalizeMachineKey(o.maker,o.model,o.serialNo).split('|'); // [maker,model,serial]
+  const serial=parts[2];
+  if(serial)return 'S:'+serial;
+  const cust=normalizeMachineKey(o.customerName,'','').split('|')[0];
+  return 'C:'+cust+'|'+parts[0]+'|'+parts[1];
+}
 function repairMachineGroups(){
   const exKeys=new Set((DB.machines||[]).map(m=>_machineKey(m)));
   const map=new Map();
