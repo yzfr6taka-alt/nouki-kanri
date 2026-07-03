@@ -2763,8 +2763,9 @@ function renderMachineDetail(key){
   reps.forEach(function(r){
     var parts=_mhParts(r),amt=_mhRepAmount(r);
     h+='<div class="card" onclick="openEdit(\''+r.id+'\',2)" style="border-left:4px solid '+(STATUS_COLORS[r.status]||'#2ecc71')+';margin-bottom:8px;">';
-    h+='<div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-weight:800;font-size:13px;color:var(--text);font-family:ui-monospace,monospace;">'+esc(_mhRepDate(r)||'日付なし')+'</span><span class="badge" style="background:'+(STATUS_COLORS[r.status]||'#95a5a6')+';display:inline-block;">'+esc(r.status||'')+'</span></div>';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-weight:800;font-size:13px;color:var(--text);font-family:ui-monospace,monospace;">'+(typeof _wrtBadge==='function'?_wrtBadge(r.type):'')+esc(_mhRepDate(r)||'日付なし')+'</span><span class="badge" style="background:'+(STATUS_COLORS[r.status]||'#95a5a6')+';display:inline-block;">'+esc(r.status||'')+'</span></div>';
     h+='<div style="font-size:12px;color:var(--text-sub);margin-top:3px;">👤 '+esc(r.customerName||'-')+'</div>';
+    if(typeof _wrtHistoryDetail==='function'){h+=_wrtHistoryDetail(r);}
     if(r.issue)h+='<div style="font-size:12px;color:var(--text);margin-top:4px;"><b style="color:#e67e22;">症状:</b> '+esc(r.issue)+'</div>';
     if(r.repairWork||'')h+='<div style="font-size:12px;color:var(--text);margin-top:2px;"><b style="color:#2ecc71;">修理:</b> '+esc(r.repairWork||'')+'</div>';
     if(parts)h+='<div style="font-size:11px;color:var(--text-sub);margin-top:2px;">⚙️ 部品: '+esc(parts)+'</div>';
@@ -2914,9 +2915,10 @@ function repairIgnitionFx(){
 function renderRepairs(){
   const _rkToggle=_repairViewToggle();
   if(repairKanbanView)return _rkToggle+renderRepairKanban();
-  let html=_rkToggle+'<button onclick="openNew(2)" class="save-btn" style="margin-bottom:10px;width:100%;">＋ 修理依頼を新規登録</button>';
+  let html=_rkToggle+'<button onclick="openNew(2)" class="save-btn" style="margin-bottom:10px;width:100%;">＋ 作業記録を新規登録</button>'+(typeof _wrtFilterRow==='function'?_wrtFilterRow():'');
   let items=DB.repairs.slice().sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999'));
   if(searchQuery)items=items.filter(x=>[x.customerName,x.machine,x.maker,x.model,x.issue,x.serialNo].some(f=>(f||'').toLowerCase().includes(searchQuery)));
+  if(typeof _wrtFilterList==='function')items=_wrtFilterList(items);
   if(!items.length)return html+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">'+(searchQuery?'検索結果なし':'修理依頼はありません')+'</div>';
   const grp={};const ord=[];
   items.forEach(item=>{const k=item.customerName||'顧客未設定';if(!grp[k]){grp[k]=[];ord.push(k);}grp[k].push(item);});
@@ -2925,7 +2927,8 @@ function renderRepairs(){
     grp[cName].forEach(item=>{
       const mStr=buildMachineStr(item.machine,item.maker,item.model);
       html+='<div class="card" data-swid="'+item.id+'" data-swtab="2" onclick="openEdit(\''+item.id+'\',2)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-left:8px;margin-bottom:7px;">'
-        +'<div style="font-weight:bold;font-size:14px;margin-bottom:4px;">'+(mStr||'機械未入力')+'</div>'
+        +'<div style="font-weight:bold;font-size:14px;margin-bottom:4px;">'+(typeof _wrtBadge==='function'?_wrtBadge(item.type):'')+(mStr||'機械未入力')+'</div>'
+        +(typeof _wrtCardSummary==='function'?_wrtCardSummary(item):'')
         +(item.serialNo?'<div style="font-size:11px;color:var(--text-sub);">製造番号: '+item.serialNo+'</div>':'')
         +(item.hourMeter?'<div style="font-size:11px;color:var(--text-sub);">稼働: '+item.hourMeter+'h</div>':'')
         +(item.issue?'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+item.issue+'</div>':'')
@@ -3857,5 +3860,432 @@ if('serviceWorker' in navigator){
 })();
 </script>
 <!-- ===== /VOICE AUTO-FIX & MATCH ===== -->
+<!-- ===== WORK RECORD TYPES（作業記録の業務別入力：修理／点検整備／オイル交換）===== -->
+<script>
+(function(){
+  "use strict";
+  // 既存識別子を流用: vibe / showToast / saveDB / renderAll / normalizeMachineKey / esc / fieldVoice
+  // 組織名は「そお鹿児島農業協同組合」。作業レコードは DB.repairs に type で1本化して格納する。
+
+  // ---- マスタ（コード内定義・後から1行ずつ追加可）----
+  var OIL_TYPES = [
+    "エンジンオイル(10W-30)", "作動油(UTF)", "ギヤオイル", "グリス",
+  ];
+  var INSPECT_ITEMS = {
+    "田植機": [
+      "エンジンオイル油面", "オイルの汚れ", "オイルもれ",
+      "燃料もれ(パイプ・継手)", "燃料ストレーナ",
+      "空冷フィンの清掃", "エアクリーナ(エレメント)",
+      "運転状態(排気・異音・回転)", "マフラー防護カバー", "停止装置",
+      "ブレーキ(遊び・きき)", "駐車ブレーキ", "クラッチペダル",
+      "かじ取りハンドル(遊び)", "車輪(ボルト・ナット緩み)",
+      "燈火類", "配線・装着状態",
+      "油圧レバー(昇降・停止)", "PTOクラッチ",
+      "植付部高さ制御", "植付部水平制御", "植付深さ自動調節",
+      "各軸受・給油脂部(グリス)", "運転状態(異音・振動)", "計器類",
+      "機体外装・付属品(緩み)", "安全カバー・安全装置",
+      "携帯工具", "清掃・洗車",
+    ],
+    "コンバイン(自脱型)": [
+      "エンジンオイル油面", "オイルの汚れ", "オイルもれ",
+      "燃料もれ", "燃料ストレーナ",
+      "ラジエーター水量", "空気取入口の清掃", "水もれ",
+      "ファンベルトの張り", "エアクリーナ",
+      "運転状態(排気・異音)", "計器類", "停止装置",
+      "デバイダー(損傷・曲り)", "引き起こし装置(チェン張り・爪)",
+      "刈刃(切れ味・すき間)", "縦横送りチェン・ベルト張り",
+      "刈取クラッチ(遊び)", "脱穀クラッチ(遊び)",
+      "こき胴・受け網", "フィードチェン(張り)", "揺動板・篩(清掃)",
+      "圧風・吸引ファン(清掃)", "処理胴・排塵ロール",
+      "スクリューコンベア", "グレンタンク/袋詰め", "排わらチェン・ベルト",
+      "カッタ(切断刃)", "結束装置",
+      "ベルト・チェン(損傷・張り)", "回転軸受・軸受部", "主クラッチ(遊び)",
+      "駐車ブレーキ", "操向クラッチ(遊び)", "クローラ張り・フレーム(緩み)",
+      "燈火装置", "警音器・方向指示器",
+      "作動油量", "作動油もれ", "前処理昇降装置",
+      "こぎ深さ制御", "方向制御", "警報装置",
+      "各軸受・給油脂部(グリス)", "運転状態(異音・振動)",
+      "機体外装・付属品", "安全カバー・安全装置",
+      "携帯工具", "後写鏡", "清掃・洗車",
+    ],
+    "甘藷収穫機": [
+      "先金(すくい部)の摩耗・曲がり", "刃先の状態",
+      "第1コンベアネット張り・摩耗", "第2コンベアネット張り・摩耗",
+      "回転部のガタつき",
+      "振動機構の異常", "土塊分離の状態",
+      "Vベルト張り・摩耗", "チェーン緩み・給油", "ギアケースのオイル量",
+      "クローラ亀裂・張り・摩耗", "各ボルトの緩み",
+      "油圧シリンダー油漏れ", "配線の被膜損傷", "バッテリー液量",
+      "各軸受・給油脂部(グリス)", "清掃・洗車",
+    ],
+    "トラクター": [
+      "エンジンオイル量・汚れ", "エンジンオイルフィルタ交換時間",
+      "燃料フィルタ交換時間",
+      "ウォーターセパレータの状態", "ウォーターセパレータ交換時間",
+      "燃料もれ(タンク・ホース・パイプ)",
+      "エアクリーナエレメントの汚れ", "エアクリーナエレメント交換時間",
+      "冷却水の量", "ラジエータの汚れ・液もれ", "ラジエータホースの損傷",
+      "冷却ファンベルトの張り・損傷",
+      "バッテリーの変形・損傷", "バッテリーの液量", "バッテリー充電状態",
+      "ヒューズ(ヒュージブルリンク)", "配線コードの被膜・接続部",
+      "始動状態", "運転状態", "計器類", "停止状態",
+      "ハンドルの作動", "クラッチペダル遊び量", "クラッチペダル作動",
+      "ブレーキペダル遊び量(左右)", "ブレーキペダル作動", "駐車ブレーキ作動",
+      "タイヤの空気圧", "タイヤ・ホイルの亀裂・損傷",
+      "ミッションオイル量・汚れ", "ミッションオイル交換時間",
+      "作業機(ロータリ)の点検", "グリスアップ(注油)", "その他作動確認",
+      "排気フィルタ交換時間", "尿素水(AdBlue)残量", "エアコンの点検",
+      "フロンガス簡易点検",
+    ],
+  };
+  // 機種チップ（機械マスタ未設定時のフォールバック選択・INSPECT_ITEMS のキーに一致）
+  var MACHINE_TYPE_CHIPS = [
+    {key:"田植機", emoji:"🌾"}, {key:"トラクター", emoji:"🚜"},
+    {key:"コンバイン(自脱型)", emoji:"🌾"}, {key:"甘藷収穫機", emoji:"🍠"},
+  ];
+  var WORK_TYPES = {
+    repair:  {emoji:"🔧", label:"修理"},
+    inspect: {emoji:"🛠", label:"点検整備"},
+    oil:     {emoji:"🛢", label:"オイル交換"},
+  };
+  var INSPECT_STATES = [
+    {v:"good",          label:"良",    on:"#2ecc71"},
+    {v:"replace_needed",label:"要交換", on:"#e74c3c"},
+    {v:"replaced",      label:"交換済", on:"#3498db"},
+  ];
+
+  // ---- 状態 ----
+  var _listFilter='all';       // 一覧の種別フィルタ
+  var _inspectState={};        // 点検結果 { 項目名: 'good'|'replace_needed'|'replaced' }
+  var _curType='repair';       // 編集中レコードの種別
+  var _curMachineType=null;    // 編集中の機種（点検）
+  var _inspectBuilt=false;
+
+  function T(rec){ return (rec&&rec.type)||'repair'; }
+  function DBref(){ return (typeof DB!=='undefined')?DB:{}; }
+  function num(v){ var n=Number(v); return isFinite(n)?n:0; }
+
+  // ---- 既存データ移行（type欠損 → 'repair'）----
+  function migrate(){
+    var db=DBref(); if(!db||!Array.isArray(db.repairs))return;
+    db.repairs.forEach(function(r){ if(r&&!r.type)r.type='repair'; });
+  }
+
+  // ---- バッジ・一覧 ----
+  function badge(type){
+    var w=WORK_TYPES[T({type:type})]||WORK_TYPES.repair;
+    return '<span title="'+w.label+'" style="display:inline-block;margin-right:5px;">'+w.emoji+'</span>';
+  }
+  function filterRow(){
+    var opts=[['all','全て'],['repair','🔧修理'],['inspect','🛠点検整備'],['oil','🛢オイル交換']];
+    var h='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">';
+    opts.forEach(function(o){
+      var on=(_listFilter===o[0]);
+      h+='<button type="button" onclick="_wrtSetFilter(\''+o[0]+'\')" style="flex:1;min-width:70px;border:1.5px solid '+(on?'#2ecc71':'var(--border)')+';background:'+(on?'#2ecc71':'var(--card-bg)')+';color:'+(on?'#fff':'var(--text)')+';border-radius:10px;padding:8px 4px;font-size:11px;font-weight:800;cursor:pointer;">'+o[1]+'</button>';
+    });
+    return h+'</div>';
+  }
+  function setFilter(f){ _listFilter=f; if(typeof renderAll==='function')renderAll(); }
+  function filterList(items){ if(_listFilter==='all')return items; return items.filter(function(x){return T(x)===_listFilter;}); }
+
+  function cardSummary(item){
+    var t=T(item);
+    if(t==='oil'){
+      var bits=[]; if(item.oilType)bits.push(item.oilType); if(item.oilAmount)bits.push(num(item.oilAmount)+'L');
+      if(item.filterChanged===true||item.filterChanged==='true')bits.push('フィルタ交換');
+      return bits.length?'<div style="font-size:12px;color:#8e44ad;margin-bottom:4px;">🛢 '+esc(bits.join(' / '))+'</div>':'';
+    }
+    if(t==='inspect'){
+      var res=parseResults(item.inspectResults), n=0,rep=0;
+      Object.keys(res).forEach(function(k){ if(res[k]){n++; if(res[k]==='replace_needed')rep++;} });
+      return '<div style="font-size:12px;color:#2980b9;margin-bottom:4px;">🛠 点検 '+n+'項目'+(rep?'・要交換'+rep:'')+'</div>';
+    }
+    return '';
+  }
+  function historyDetail(r){
+    var t=T(r);
+    if(t==='oil'){
+      var bits=[]; if(r.oilType)bits.push(r.oilType); if(r.oilAmount)bits.push(num(r.oilAmount)+'L');
+      if(r.filterChanged===true||r.filterChanged==='true')bits.push('フィルタ交換');
+      if(r.nextOilGuide)bits.push('次回:'+r.nextOilGuide);
+      return bits.length?'<div style="font-size:12px;color:var(--text);margin-top:4px;"><b style="color:#8e44ad;">オイル:</b> '+esc(bits.join(' / '))+'</div>':'';
+    }
+    if(t==='inspect'){
+      var res=parseResults(r.inspectResults), n=0,rep=0,done=0;
+      Object.keys(res).forEach(function(k){ if(res[k]){n++; if(res[k]==='replace_needed')rep++; if(res[k]==='replaced')done++;} });
+      var s='<div style="font-size:12px;color:var(--text);margin-top:4px;"><b style="color:#2980b9;">点検:</b> '+n+'項目'+(rep?'・要交換'+rep:'')+(done?'・交換済'+done:'')+(r.machineType?'（'+esc(r.machineType)+'）':'')+'</div>';
+      if(r.inspectMemo)s+='<div style="font-size:11px;color:var(--text-sub);margin-top:2px;">📝 '+esc(r.inspectMemo)+'</div>';
+      return s;
+    }
+    return '';
+  }
+  function parseResults(v){
+    if(!v)return {};
+    if(typeof v==='object')return v;
+    try{ var o=JSON.parse(v); return (o&&typeof o==='object')?o:{}; }catch(e){ return {}; }
+  }
+
+  // ---- 機械マスタ照合（machineType 判定・書き戻し）----
+  function findMaster(item){
+    var db=DBref(); if(!Array.isArray(db.machines))return null;
+    var key=normalizeMachineKey(item.maker,item.model,item.serialNo);
+    var m=null,i;
+    for(i=0;i<db.machines.length;i++){ if(normalizeMachineKey(db.machines[i].maker,db.machines[i].model,db.machines[i].serialNo)===key){m=db.machines[i];break;} }
+    if(m)return m;
+    // 製番抜きのメーカー＋型式でフォールバック照合
+    var key2=normalizeMachineKey(item.maker,item.model,'');
+    for(i=0;i<db.machines.length;i++){ if(normalizeMachineKey(db.machines[i].maker,db.machines[i].model,'')===key2&&(db.machines[i].maker||db.machines[i].model)){return db.machines[i];} }
+    return null;
+  }
+  function resolveMachineType(item){
+    if(item&&item.machineType&&INSPECT_ITEMS[item.machineType])return item.machineType;
+    var m=findMaster(item||{});
+    if(m&&m.machineType&&INSPECT_ITEMS[m.machineType])return m.machineType;
+    return null;
+  }
+  function writeBackMachineType(item,mt){
+    var db=DBref(); if(!db)return;
+    var m=findMaster(item||{});
+    if(m){ m.machineType=mt; }
+    else{
+      if(!Array.isArray(db.machines))db.machines=[];
+      db.machines.push({id:'ID_'+(Date.now()+Math.random()),maker:item.maker||'',model:item.model||'',serialNo:item.serialNo||'',customerName:item.customerName||'',machineType:mt});
+    }
+    if(typeof saveDB==='function')saveDB();
+  }
+
+  // ---- 入力フォーム拡張（tab=2 の作業記録）----
+  function el(html){ var d=document.createElement('div'); d.innerHTML=html; return d.firstElementChild; }
+  function groupNodes(id){
+    var f=document.getElementById(id); if(!f)return [];
+    var wrap=f.parentNode, label=wrap?wrap.previousElementSibling:null;
+    var out=[]; if(label)out.push(label); if(wrap)out.push(wrap); return out;
+  }
+  function show(nodes,on){ nodes.forEach(function(n){ if(n)n.style.display=on?'':'none'; }); }
+
+  function enhanceForm(){
+    var mb=document.getElementById('modalBody'); if(!mb)return;
+    if(document.getElementById('wrtTypeChips'))return; // 二重適用防止
+    var item=(typeof modalState!=='undefined'&&modalState.item)?modalState.item:{};
+    _curType=T(item); _curMachineType=null; _inspectBuilt=false;
+    _inspectState=parseResults(item.inspectResults); // 編集時は既存結果を引き継ぐ
+
+    // 種別チップ＋共通追加欄（担当者／作業日）＋隠しtype
+    var head=el('<div id="wrtTypeChips" style="margin-bottom:12px;"></div>');
+    var chipRow='<div style="font-size:11px;color:var(--text-sub);font-weight:700;margin-bottom:6px;">作業種別</div><div style="display:flex;gap:6px;margin-bottom:10px;">';
+    ['repair','inspect','oil'].forEach(function(tp){
+      chipRow+='<button type="button" data-wrttype="'+tp+'" onclick="_wrtPickType(\''+tp+'\')" style="flex:1;border:1.5px solid var(--border);border-radius:10px;padding:9px 4px;font-size:12px;font-weight:800;cursor:pointer;background:var(--card-bg);color:var(--text);">'+WORK_TYPES[tp].emoji+WORK_TYPES[tp].label+'</button>';
+    });
+    chipRow+='</div>';
+    chipRow+='<input type="hidden" id="f_type" value="'+esc(_curType)+'">';
+    chipRow+='<div class="fl"><div class="fg"><label class="field-label">担当者</label><input type="text" id="f_worker" class="field-input" value="'+esc(item.worker||'')+'" style="margin-bottom:11px;"></div><div class="fg"><label class="field-label">作業日</label><input type="date" id="f_workDate" class="field-input" value="'+esc(item.workDate||'')+'" style="margin-bottom:11px;"></div></div>';
+    head.innerHTML=chipRow;
+    mb.insertBefore(head,mb.firstChild);
+
+    // 症状／処置（自由記述）グループ = 修理固有
+    var repairGroup=[].concat(groupNodes('f_issue'),groupNodes('f_repairWork'));
+
+    // 点検グループ・オイルグループの器を修理内容の直後に差し込む
+    var anchor=document.getElementById('f_repairWork');
+    anchor=anchor?anchor.parentNode:null;
+    var inspectG=el('<div id="wrtInspectGroup" style="display:none;"></div>');
+    var oilG=el('<div id="wrtOilGroup" style="display:none;"></div>');
+    if(anchor&&anchor.parentNode){ anchor.parentNode.insertBefore(inspectG,anchor.nextSibling); anchor.parentNode.insertBefore(oilG,inspectG.nextSibling); }
+    else{ mb.appendChild(inspectG); mb.appendChild(oilG); }
+    buildOilGroup(oilG,item);
+
+    // 表示適用
+    window.__wrtRepairGroup=repairGroup;
+    applyType(_curType);
+  }
+
+  function applyType(tp){
+    _curType=tp;
+    var f=document.getElementById('f_type'); if(f)f.value=tp;
+    // チップのハイライト
+    var chips=document.querySelectorAll('#wrtTypeChips button[data-wrttype]');
+    Array.prototype.forEach.call(chips,function(b){
+      var on=(b.getAttribute('data-wrttype')===tp);
+      b.style.background=on?'#2ecc71':'var(--card-bg)';
+      b.style.color=on?'#fff':'var(--text)';
+      b.style.borderColor=on?'#2ecc71':'var(--border)';
+    });
+    show(window.__wrtRepairGroup||[], tp==='repair');
+    var ig=document.getElementById('wrtInspectGroup'), og=document.getElementById('wrtOilGroup');
+    if(ig)ig.style.display=(tp==='inspect')?'':'none';
+    if(og)og.style.display=(tp==='oil')?'':'none';
+    if(tp==='inspect'&&!_inspectBuilt){ buildInspectGroup(); }
+  }
+  window._wrtPickType=function(tp){ applyType(tp); if(typeof vibe==='function')vibe('step'); };
+
+  // 点検グループ（機種判定→チェックリスト）
+  function buildInspectGroup(){
+    var ig=document.getElementById('wrtInspectGroup'); if(!ig)return;
+    var item=(typeof modalState!=='undefined'&&modalState.item)?modalState.item:{};
+    var mt=_curMachineType||resolveMachineType(item);
+    if(!mt){
+      // フォールバック：機種をチップで選ぶ
+      var h='<div style="background:var(--input-bg);border-radius:10px;padding:12px;margin-bottom:10px;">';
+      h+='<div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:8px;">🛠 機種を選択してください（点検項目を表示）</div>';
+      h+='<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+      MACHINE_TYPE_CHIPS.forEach(function(c){
+        h+='<button type="button" onclick="_wrtPickMachineType(\''+c.key.replace(/'/g,"\\'")+'\')" style="border:1.5px solid var(--border);border-radius:14px;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer;background:var(--card-bg);color:var(--text);">'+c.emoji+' '+esc(c.key)+'</button>';
+      });
+      h+='</div></div>';
+      ig.innerHTML=h; _inspectBuilt=true; return;
+    }
+    _curMachineType=mt;
+    renderChecklist(ig,mt);
+    _inspectBuilt=true;
+  }
+  window._wrtPickMachineType=function(mt){
+    _curMachineType=mt;
+    var item=(typeof modalState!=='undefined'&&modalState.item)?modalState.item:{};
+    writeBackMachineType(item,mt); // 機械マスタへ書き戻し（次回から自動）
+    if(typeof vibe==='function')vibe('ok');
+    renderChecklist(document.getElementById('wrtInspectGroup'),mt);
+  };
+  function renderChecklist(ig,mt){
+    if(!ig)return;
+    var items=INSPECT_ITEMS[mt]||[];
+    var h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+    h+='<span style="font-size:12px;font-weight:800;color:var(--text);">🛠 '+esc(mt)+' 点検（'+items.length+'項目）</span>';
+    h+='<button type="button" onclick="_wrtChangeMachineType()" style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--text-sub);font-size:11px;font-weight:700;padding:4px 8px;cursor:pointer;">機種変更</button></div>';
+    h+='<input type="hidden" id="f_machineType" value="'+esc(mt)+'">';
+    items.forEach(function(name,idx){
+      var cur=_inspectState[name]||'';
+      h+='<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);">';
+      h+='<span style="flex:1;font-size:12px;color:var(--text);">'+esc(name)+'</span>';
+      h+='<div style="display:flex;gap:4px;flex-shrink:0;">';
+      INSPECT_STATES.forEach(function(st){
+        var on=(cur===st.v);
+        h+='<button type="button" data-wrtitem="'+idx+'" data-wrtval="'+st.v+'" onclick="_wrtSetItem('+idx+',\''+st.v+'\')" style="border:1.5px solid '+(on?st.on:'var(--border)')+';background:'+(on?st.on:'var(--card-bg)')+';color:'+(on?'#fff':'var(--text-sub)')+';border-radius:8px;padding:5px 8px;font-size:11px;font-weight:800;cursor:pointer;">'+st.label+'</button>';
+      });
+      h+='</div></div>';
+    });
+    // 自由メモ（音声整形対象）
+    h+='<label class="field-label" style="margin-top:10px;">点検メモ</label><div style="position:relative;"><button type="button" onclick="fieldVoice(\'f_inspectMemo\',this)" style="position:absolute;right:6px;top:6px;background:#e67e22;border:none;border-radius:6px;width:26px;height:26px;font-size:12px;cursor:pointer;color:#fff;padding:0;line-height:1;z-index:1;">🎙</button><textarea id="f_inspectMemo" class="field-textarea" rows="2" data-voicefix="format" style="padding-right:38px;"></textarea></div>';
+    ig.innerHTML=h;
+    var memo=document.getElementById('f_inspectMemo'); if(memo)memo.value=(modalState&&modalState.item&&modalState.item.inspectMemo)||'';
+    ig._items=items; // 保存時にインデックス→項目名を引く
+  }
+  window._wrtChangeMachineType=function(){
+    _curMachineType=null; _inspectState={};
+    var ig=document.getElementById('wrtInspectGroup'); if(!ig)return; ig._items=null; _inspectBuilt=false; buildInspectGroup();
+  };
+  window._wrtSetItem=function(idx,val){
+    var ig=document.getElementById('wrtInspectGroup'); if(!ig||!ig._items)return;
+    var name=ig._items[idx]; if(!name)return;
+    _inspectState[name]=(_inspectState[name]===val)?'':val; // 同じ値を再タップで解除
+    // ボタン表示更新
+    var btns=ig.querySelectorAll('button[data-wrtitem="'+idx+'"]');
+    Array.prototype.forEach.call(btns,function(b){
+      var v=b.getAttribute('data-wrtval'), st=null,i; for(i=0;i<INSPECT_STATES.length;i++){if(INSPECT_STATES[i].v===v){st=INSPECT_STATES[i];break;}}
+      var on=(_inspectState[name]===v);
+      b.style.background=on?st.on:'var(--card-bg)'; b.style.color=on?'#fff':'var(--text-sub)'; b.style.borderColor=on?st.on:'var(--border)';
+    });
+    if(typeof vibe==='function')vibe('step');
+  };
+
+  // オイルグループ
+  function buildOilGroup(og,item){
+    if(!og)return;
+    var h='<div style="background:var(--input-bg);border-radius:10px;padding:12px;margin-bottom:10px;">';
+    h+='<div style="font-size:11px;color:var(--text-sub);font-weight:700;margin-bottom:6px;">油種</div>';
+    h+='<div id="wrtOilChips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">';
+    OIL_TYPES.forEach(function(o){
+      var on=((item.oilType||'')===o);
+      h+='<button type="button" data-wrtoil="'+esc(o)+'" onclick="_wrtPickOil(this)" style="border:1.5px solid '+(on?'#2ecc71':'var(--border)')+';border-radius:14px;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer;background:'+(on?'#2ecc71':'var(--card-bg)')+';color:'+(on?'#fff':'var(--text)')+';">'+esc(o)+'</button>';
+    });
+    h+='</div><input type="hidden" id="f_oilType" value="'+esc(item.oilType||'')+'">';
+    h+='<div class="fl"><div class="fg"><label class="field-label">量 (L)</label><input type="number" id="f_oilAmount" class="field-input" min="0" step="0.1" value="'+esc(item.oilAmount||'')+'" style="margin-bottom:11px;"></div>';
+    var fc=(item.filterChanged===true||item.filterChanged==='true');
+    h+='<div class="fg"><label class="field-label">フィルター交換</label><button type="button" id="f_filterToggle" onclick="_wrtToggleFilter()" style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:9px;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:11px;background:'+(fc?'#2ecc71':'var(--card-bg)')+';color:'+(fc?'#fff':'var(--text)')+';">'+(fc?'✅ 交換した':'交換なし')+'</button><input type="hidden" id="f_filterChanged" value="'+(fc?'true':'false')+'"></div></div>';
+    h+='<label class="field-label">次回交換の目安</label><input type="text" id="f_nextOilGuide" class="field-input" value="'+esc(item.nextOilGuide||'')+'" placeholder="例: 100時間後 / 半年後" style="margin-bottom:4px;">';
+    h+='</div>';
+    og.innerHTML=h;
+  }
+  window._wrtPickOil=function(btn){
+    var v=btn.getAttribute('data-wrtoil');
+    document.getElementById('f_oilType').value=v;
+    var chips=document.querySelectorAll('#wrtOilChips button[data-wrtoil]');
+    Array.prototype.forEach.call(chips,function(b){
+      var on=(b===btn); b.style.background=on?'#2ecc71':'var(--card-bg)'; b.style.color=on?'#fff':'var(--text)'; b.style.borderColor=on?'#2ecc71':'var(--border)';
+    });
+    if(typeof vibe==='function')vibe('step');
+  };
+  window._wrtToggleFilter=function(){
+    var hid=document.getElementById('f_filterChanged'), btn=document.getElementById('f_filterToggle'); if(!hid||!btn)return;
+    var on=(hid.value!=='true'); hid.value=on?'true':'false';
+    btn.textContent=on?'✅ 交換した':'交換なし'; btn.style.background=on?'#2ecc71':'var(--card-bg)'; btn.style.color=on?'#fff':'var(--text)';
+    if(typeof vibe==='function')vibe('step');
+  };
+
+  // ---- 保存の後処理（構造化：inspectResults→オブジェクト、型変換、種別外フィールド掃除）----
+  function afterSave(mode,editId){
+    var db=DBref(); if(!Array.isArray(db.repairs))return;
+    var rec=null;
+    if(mode==='edit'){ rec=db.repairs.filter(function(r){return String(r.id)===String(editId);})[0]; }
+    else{ rec=db.repairs[db.repairs.length-1]; }
+    if(!rec)return;
+    var t=T(rec);
+    if(t==='inspect'){
+      rec.inspectResults=JSON.parse(JSON.stringify(_inspectState||{}));
+      // オイル固有は掃除
+      delete rec.oilType; delete rec.oilAmount; delete rec.filterChanged; delete rec.nextOilGuide;
+    }else if(t==='oil'){
+      rec.filterChanged=(rec.filterChanged===true||rec.filterChanged==='true');
+      if(rec.oilAmount!==undefined&&rec.oilAmount!=='')rec.oilAmount=num(rec.oilAmount);
+      delete rec.inspectResults; delete rec.inspectMemo; delete rec.machineType;
+    }else{ // repair：種別固有を掃除
+      delete rec.inspectResults; delete rec.inspectMemo; delete rec.machineType;
+      delete rec.oilType; delete rec.oilAmount; delete rec.filterChanged; delete rec.nextOilGuide;
+    }
+    if(typeof saveDB==='function')saveDB();
+    if(typeof renderAll==='function')renderAll();
+  }
+
+  // ---- 既存関数フック ----
+  function hook(){
+    if(typeof window.showModal==='function'&&!window.showModal.__wrt){
+      var _origShow=window.showModal;
+      window.showModal=function(){
+        var r=_origShow.apply(this,arguments);
+        try{ if(typeof modalState!=='undefined'&&modalState&&modalState.tab===2)enhanceForm(); }catch(e){}
+        return r;
+      };
+      window.showModal.__wrt=true;
+    }
+    if(typeof window.saveItem==='function'&&!window.saveItem.__wrt){
+      var _origSave=window.saveItem;
+      window.saveItem=function(){
+        var t2=(typeof modalState!=='undefined'&&modalState&&modalState.tab===2);
+        var mode=t2?modalState.mode:null, editId=(t2&&modalState.item)?modalState.item.id:null;
+        var r=_origSave.apply(this,arguments);
+        if(t2){ try{ afterSave(mode,editId); }catch(e){} }
+        return r;
+      };
+      window.saveItem.__wrt=true;
+    }
+    if(typeof window.loadDB==='function'&&!window.loadDB.__wrt){
+      var _origLoad=window.loadDB;
+      window.loadDB=function(){ var r=_origLoad.apply(this,arguments); try{ migrate(); }catch(e){} return r; };
+      window.loadDB.__wrt=true;
+    }
+  }
+
+  // 公開（一覧・履歴フックから呼ぶ）
+  window._wrtBadge=badge;
+  window._wrtFilterRow=filterRow;
+  window._wrtSetFilter=setFilter;
+  window._wrtFilterList=filterList;
+  window._wrtCardSummary=cardSummary;
+  window._wrtHistoryDetail=historyDetail;
+
+  hook();
+  try{ migrate(); }catch(e){} // 既にロード済みでも移行（冪等）
+})();
+</script>
+<!-- ===== /WORK RECORD TYPES ===== -->
 </body>
 </html>
