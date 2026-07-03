@@ -551,7 +551,9 @@ body.dark .bc-blue{background:#1b2a44;color:#7eacff;}
   sp.addEventListener('click',skip);
   window.addEventListener('resize',function(){if(!running&&!done_)size();});
   // 動画オープニングが起動を引き継ぐ場合は、Canvasスプラッシュは走らせない（二重に長くしない）
-  function _nkSplashStart(){ if(window.__nkOpeningTakeover){ try{ if(sp&&sp.parentNode)sp.parentNode.removeChild(sp); }catch(e){} return; } init(); }
+  // 動画オープニングが失敗したときだけ呼ぶフォールバック起動口（音付き合成スプラッシュを活用）
+  window.__nkRunCanvasSplash=function(){ try{ if(sp)sp.style.display='block'; }catch(e){} init(); };
+  function _nkSplashStart(){ if(window.__nkOpeningTakeover){ try{ if(sp)sp.style.display='none'; }catch(e){} return; } init(); }
   if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){_nkSplashStart();});}
   else{_nkSplashStart();}
 })();
@@ -1851,8 +1853,6 @@ async function migrateRepairPhotos(){
     if(changed){saveDB();if(typeof showSyncBar==='function')showSyncBar('☁️ 修理写真をクラウドへ移行しました','ok');}
   }catch(e){console.error('写真移行エラー',e);}
 }
-function fileToB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result.split(',')[1]);r.onerror=()=>rej(new Error('読込失敗'));r.readAsDataURL(file);});}
-
 // ===== 故障診断 =====
 let lastDiagText='';
 function openDiagnosis(){document.getElementById('diagModal').style.display='flex';document.getElementById('diagResult').style.display='none';document.getElementById('diagApplyBtn').style.display='none';}
@@ -2097,7 +2097,14 @@ function renderMachines(){
   return h;
 }
 function renderMachineList(){const el=document.getElementById('machineListArea');if(el)el.innerHTML=machineListHTML((document.getElementById('machineSearch')||{}).value||'');}
-function _machineKey(o){const s=_norm(o.serialNo);return s?('S:'+s):('C:'+_norm(o.customerName)+'|'+_norm(o.maker)+'|'+_norm(o.model));}
+function _machineKey(o){
+  o=o||{};
+  const parts=normalizeMachineKey(o.maker,o.model,o.serialNo).split('|'); // [maker,model,serial]
+  const serial=parts[2];
+  if(serial)return 'S:'+serial;
+  const cust=normalizeMachineKey(o.customerName,'','').split('|')[0];
+  return 'C:'+cust+'|'+parts[0]+'|'+parts[1];
+}
 function repairMachineGroups(){
   const exKeys=new Set((DB.machines||[]).map(m=>_machineKey(m)));
   const map=new Map();
@@ -3040,7 +3047,15 @@ function closeModal(){document.getElementById('modalOverlay').style.display='non
 function closeModalOnBg(e){if(e.target.id==='modalOverlay')closeModal();}
 function saveItem(){
   const item={id:modalState.mode==='new'?'ID_'+Date.now():modalState.item.id};
-  document.querySelectorAll('#modalBody input,#modalBody select,#modalBody textarea').forEach(el=>{const key=el.id.replace('f_','');if(key&&el.type!=='file')item[key]=el.value;});
+  const _tab=modalState.tab;
+  // 部品(4)・製品(5)の「②〜⑩」欄は別レコードとして展開する。本体には混入させない。
+  // ※実演(3)の maker2/model2/targetMachine2 等は正規の項目なので除外しない。
+  const _isExtra=(key)=>{
+    if(_tab!==4&&_tab!==5)return false;
+    const m=key.match(/^(name|partNo|qty|price|productName|model|serialNo)(\d+)$/);
+    return !!(m&&Number(m[2])>=2);
+  };
+  document.querySelectorAll('#modalBody input,#modalBody select,#modalBody textarea').forEach(el=>{const key=el.id.replace('f_','');if(key&&el.type!=='file'&&!_isExtra(key))item[key]=el.value;});
   // 修理写真を保存
   if(modalState.tab===2)item.photos=currentRepairPhotos;
   if(modalState.tab===2){const _pv=(modalState.mode==='edit'&&modalState.item)?modalState.item.status:undefined;if(modalState.mode==='new'||item.status!==_pv)_stampRepairStatus(item);}
@@ -3660,6 +3675,25 @@ if('serviceWorker' in navigator){
   var onTapSound=function(e){ if(e&&e.target===skipBtn)return; if(vid.muted)unmute(); };
   wrap.addEventListener('pointerdown',onTapSound,{passive:true});
   wrap.addEventListener('click',onTapSound);
+
+  // 動画が再生開始できたか
+  var started=false;
+  vid.addEventListener('playing',function(){ started=true; });
+
+  // 読込失敗 → 黒画面で固まらせず、Canvas合成スプラッシュにフォールバック
+  function failToFallback(){
+    if(closed)return; closed=true; window.openingActive=false;
+    try{ vid.pause(); }catch(e){}
+    wrap.style.display='none';
+    revealHome();
+    try{ if(typeof window.__nkRunCanvasSplash==='function')window.__nkRunCanvasSplash(); }catch(e){}
+  }
+  vid.addEventListener('error',failToFallback);
+  vid.addEventListener('stalled',function(){ if(!started)failToFallback(); });
+
+  // ウォッチドッグ：10秒で再生が始まらなければフォールバック、60秒で必ず終了
+  setTimeout(function(){ if(!closed&&!started)failToFallback(); },10000);
+  setTimeout(function(){ if(!closed)closeOpening(); },60000);
 
   if(skipBtn){ skipBtn.addEventListener('click',function(e){ e.stopPropagation(); closeOpening(); }); }
   vid.addEventListener('ended',function(){ closeOpening(); });
