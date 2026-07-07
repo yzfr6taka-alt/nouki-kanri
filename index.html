@@ -4182,7 +4182,7 @@ if('serviceWorker' in navigator){
   window._wrtPickMachineType=function(mt){
     _curMachineType=mt;
     var item=(typeof modalState!=='undefined'&&modalState.item)?modalState.item:{};
-    writeBackMachineType(item,mt); // 機械マスタへ書き戻し（次回から自動）
+    // マスタ machineType の書き戻しは「保存時」のみ（途中でやめればマスタ無傷）
     seedSkip(item,mt);
     if(typeof vibe==='function')vibe('ok');
     renderChecklist(document.getElementById('wrtInspectGroup'),mt);
@@ -4211,9 +4211,51 @@ if('serviceWorker' in navigator){
     var memo=document.getElementById('f_inspectMemo'); if(memo)memo.value=(modalState&&modalState.item&&modalState.item.inspectMemo)||'';
     ig._items=items; // 保存時にインデックス→項目名を引く
   }
+  // 機種変更：機種選択チップを表示（現状維持のキャンセル付き）
   window._wrtChangeMachineType=function(){
-    _curMachineType=null; _inspectState={};
-    var ig=document.getElementById('wrtInspectGroup'); if(!ig)return; ig._items=null; _inspectBuilt=false; buildInspectGroup();
+    var ig=document.getElementById('wrtInspectGroup'); if(!ig)return;
+    var h='<div style="background:var(--input-bg);border-radius:10px;padding:12px;margin-bottom:10px;">';
+    h+='<div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:8px;">🛠 点検機種を選択</div>';
+    h+='<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+    MACHINE_TYPE_CHIPS.forEach(function(c){
+      var on=(_curMachineType===c.key);
+      h+='<button type="button" onclick="_wrtApplyMachineChange(\''+c.key.replace(/'/g,"\\'")+'\')" style="border:1.5px solid '+(on?'#2ecc71':'var(--border)')+';border-radius:14px;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer;background:'+(on?'#2ecc71':'var(--card-bg)')+';color:'+(on?'#fff':'var(--text)')+';">'+c.emoji+' '+esc(c.key)+'</button>';
+    });
+    h+='</div>';
+    if(_curMachineType)h+='<button type="button" onclick="_wrtCancelMachineChange()" style="margin-top:10px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--text-sub);font-size:11px;font-weight:700;padding:6px 10px;cursor:pointer;">キャンセル（現状維持）</button>';
+    h+='</div>';
+    ig.innerHTML=h;
+  };
+  window._wrtCancelMachineChange=function(){
+    var ig=document.getElementById('wrtInspectGroup'); if(ig&&_curMachineType)renderChecklist(ig,_curMachineType);
+  };
+  window._wrtApplyMachineChange=function(newType){
+    var ig=document.getElementById('wrtInspectGroup'); if(!ig)return;
+    var cur=_curMachineType;
+    if(newType===cur){ renderChecklist(ig,cur); return; } // 同機種→何もせず閉じる
+    var hasChecks=Object.keys(_inspectState).some(function(k){return !!_inspectState[k];});
+    if(hasChecks){
+      if(!confirm('点検機種を'+newType+'に変更します。入力済みのチェックは破棄されます。よろしいですか？')){
+        renderChecklist(ig,cur); return; // キャンセル→現状維持
+      }
+    }
+    // 変更前スナップショット（マスタは触らない＝途中でやめれば無傷）
+    var item=(typeof modalState!=='undefined'&&modalState.item)?modalState.item:{};
+    var m=findMaster(item);
+    var prevInspect={ machineType:cur, checks:JSON.parse(JSON.stringify(_inspectState||{})), inspectSkip:(m&&Array.isArray(m.inspectSkip))?m.inspectSkip.slice():null };
+    // 切替：INSPECT_ITEMS[新機種] で項目差し替え・チェック初期化
+    _curMachineType=newType; _inspectState={};
+    seedSkip(item,newType);
+    renderChecklist(ig,newType);
+    if(typeof vibe==='function')vibe('warn');
+    if(typeof showToast==='function')showToast('機種を'+newType+'に変更しました',function(){
+      // ↩ 復元：機種・チェック・skipを丸ごと戻す（マスタは元々未変更）
+      _curMachineType=prevInspect.machineType;
+      _inspectState=JSON.parse(JSON.stringify(prevInspect.checks||{}));
+      if(prevInspect.inspectSkip!==null&&m)m.inspectSkip=prevInspect.inspectSkip.slice();
+      var ig2=document.getElementById('wrtInspectGroup'); if(ig2&&_curMachineType)renderChecklist(ig2,_curMachineType);
+      if(typeof vibe==='function')vibe('ok');
+    });
   };
   window._wrtSetItem=function(idx,val){
     var ig=document.getElementById('wrtInspectGroup'); if(!ig||!ig._items)return;
@@ -4273,10 +4315,14 @@ if('serviceWorker' in navigator){
     var t=T(rec);
     if(t==='inspect'){
       rec.inspectResults=JSON.parse(JSON.stringify(_inspectState||{}));
-      // 個体別「無し(非装備)」記憶：現在の 'none' 項目を機械マスタ inspectSkip へ保存（次回引き継ぎ）
+      // 保存時のみ機械マスタへ machineType を書き戻し（無ければ作成）＋
+      // 個体別「無し(非装備)」記憶：現在の 'none' 項目を inspectSkip へ保存（次回引き継ぎ）
       var mt=rec.machineType||_curMachineType;
-      var mrec=findMaster(rec);
-      if(mrec&&mt){ var list=INSPECT_ITEMS[mt]||[], skip=[]; list.forEach(function(nm){ if(rec.inspectResults[nm]==='none')skip.push(nm); }); mrec.inspectSkip=skip; }
+      if(mt){
+        writeBackMachineType(rec,mt);
+        var mrec=findMaster(rec);
+        if(mrec){ var list=INSPECT_ITEMS[mt]||[], skip=[]; list.forEach(function(nm){ if(rec.inspectResults[nm]==='none')skip.push(nm); }); mrec.inspectSkip=skip; }
+      }
       // オイル固有は掃除
       delete rec.oilType; delete rec.oilAmount; delete rec.filterChanged; delete rec.nextOilGuide;
     }else if(t==='oil'){
