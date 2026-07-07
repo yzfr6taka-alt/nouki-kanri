@@ -3909,14 +3909,19 @@ if('serviceWorker' in navigator){
       "携帯工具", "後写鏡", "清掃・洗車",
     ],
     "甘藷収穫機": [
+      "エンジンオイル量・汚れ", "オイルもれ",
+      "燃料もれ(タンク・ホース・パイプ)", "燃料フィルタ・ストレーナ",
+      "エアクリーナエレメントの汚れ",
+      "冷却水の量", "ラジエータの汚れ・液もれ", "冷却ファンベルトの張り・損傷",
+      "バッテリー液量", "バッテリー充電状態", "配線の被膜損傷", "燈火類",
+      "始動状態", "運転状態(排気・異音)", "計器類",
       "先金(すくい部)の摩耗・曲がり", "刃先の状態",
       "第1コンベアネット張り・摩耗", "第2コンベアネット張り・摩耗",
       "回転部のガタつき",
       "振動機構の異常", "土塊分離の状態",
       "Vベルト張り・摩耗", "チェーン緩み・給油", "ギアケースのオイル量",
       "クローラ亀裂・張り・摩耗", "各ボルトの緩み",
-      "油圧シリンダー油漏れ", "配線の被膜損傷", "バッテリー液量",
-      "各軸受・給油脂部(グリス)", "清掃・洗車",
+      "油圧シリンダー油漏れ", "各軸受・給油脂部(グリス)", "清掃・洗車",
     ],
     "トラクター": [
       "エンジンオイル量・汚れ", "エンジンオイルフィルタ交換時間",
@@ -3952,6 +3957,7 @@ if('serviceWorker' in navigator){
     {v:"good",          label:"良",    on:"#2ecc71"},
     {v:"replace_needed",label:"要交換", on:"#e74c3c"},
     {v:"replaced",      label:"交換済", on:"#3498db"},
+    {v:"none",          label:"無し",  on:"#95a5a6"}, // 非装備（その機に該当装備が無い）
   ];
 
   // ---- 状態 ----
@@ -4135,13 +4141,21 @@ if('serviceWorker' in navigator){
       ig.innerHTML=h; _inspectBuilt=true; return;
     }
     _curMachineType=mt;
+    seedSkip(item,mt);
     renderChecklist(ig,mt);
     _inspectBuilt=true;
+  }
+  // 個体別「無し(非装備)」記憶：機械マスタ inspectSkip の項目を、まだ値が無いものだけ 'none' で引き継ぐ
+  function seedSkip(item,mt){
+    var m=findMaster(item||{}); if(!m||!Array.isArray(m.inspectSkip))return;
+    var list=INSPECT_ITEMS[mt]||[];
+    m.inspectSkip.forEach(function(name){ if(list.indexOf(name)>=0&&!_inspectState[name])_inspectState[name]='none'; });
   }
   window._wrtPickMachineType=function(mt){
     _curMachineType=mt;
     var item=(typeof modalState!=='undefined'&&modalState.item)?modalState.item:{};
     writeBackMachineType(item,mt); // 機械マスタへ書き戻し（次回から自動）
+    seedSkip(item,mt);
     if(typeof vibe==='function')vibe('ok');
     renderChecklist(document.getElementById('wrtInspectGroup'),mt);
   };
@@ -4154,12 +4168,12 @@ if('serviceWorker' in navigator){
     h+='<input type="hidden" id="f_machineType" value="'+esc(mt)+'">';
     items.forEach(function(name,idx){
       var cur=_inspectState[name]||'';
-      h+='<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);">';
-      h+='<span style="flex:1;font-size:12px;color:var(--text);">'+esc(name)+'</span>';
-      h+='<div style="display:flex;gap:4px;flex-shrink:0;">';
+      h+='<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;">';
+      h+='<span style="flex:1;min-width:96px;font-size:12px;color:var(--text);">'+esc(name)+'</span>';
+      h+='<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;">';
       INSPECT_STATES.forEach(function(st){
         var on=(cur===st.v);
-        h+='<button type="button" data-wrtitem="'+idx+'" data-wrtval="'+st.v+'" onclick="_wrtSetItem('+idx+',\''+st.v+'\')" style="border:1.5px solid '+(on?st.on:'var(--border)')+';background:'+(on?st.on:'var(--card-bg)')+';color:'+(on?'#fff':'var(--text-sub)')+';border-radius:8px;padding:5px 8px;font-size:11px;font-weight:800;cursor:pointer;">'+st.label+'</button>';
+        h+='<button type="button" data-wrtitem="'+idx+'" data-wrtval="'+st.v+'" onclick="_wrtSetItem('+idx+',\''+st.v+'\')" style="border:1.5px solid '+(on?st.on:'var(--border)')+';background:'+(on?st.on:'var(--card-bg)')+';color:'+(on?'#fff':'var(--text-sub)')+';border-radius:8px;padding:5px 7px;font-size:11px;font-weight:800;cursor:pointer;">'+st.label+'</button>';
       });
       h+='</div></div>';
     });
@@ -4231,6 +4245,10 @@ if('serviceWorker' in navigator){
     var t=T(rec);
     if(t==='inspect'){
       rec.inspectResults=JSON.parse(JSON.stringify(_inspectState||{}));
+      // 個体別「無し(非装備)」記憶：現在の 'none' 項目を機械マスタ inspectSkip へ保存（次回引き継ぎ）
+      var mt=rec.machineType||_curMachineType;
+      var mrec=findMaster(rec);
+      if(mrec&&mt){ var list=INSPECT_ITEMS[mt]||[], skip=[]; list.forEach(function(nm){ if(rec.inspectResults[nm]==='none')skip.push(nm); }); mrec.inspectSkip=skip; }
       // オイル固有は掃除
       delete rec.oilType; delete rec.oilAmount; delete rec.filterChanged; delete rec.nextOilGuide;
     }else if(t==='oil'){

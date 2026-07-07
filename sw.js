@@ -1,5 +1,5 @@
 // 農機業務管理 PWA Service Worker
-const CACHE_NAME = 'nouki-pwa-v14-worktypes';
+const CACHE_NAME = 'nouki-pwa-v15-inspect-none-skip';
 // プリキャッシュ対象（オープニング動画とポスター。実体が無くても install は失敗しない）
 const PRECACHE = ['opening.mp4', 'opening-poster.jpg'];
 
