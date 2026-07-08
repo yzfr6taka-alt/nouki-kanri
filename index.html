@@ -572,14 +572,8 @@ body.dark .bc-blue{background:#1b2a44;color:#7eacff;}
 </div>
 </div>
 <div style="display:flex;align-items:center;gap:5px;padding:0 11px 11px;">
-<button onclick="toggleDark()" style="flex:1 1 0;background:rgba(255,255,255,.08);border:none;color:#fff;font-size:16px;cursor:pointer;height:40px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;">🌓</button>
-<button onclick="manualSync()" style="flex:1 1 0;background:rgba(255,255,255,.14);border:none;color:#fff;border-radius:11px;height:40px;font-size:15px;display:inline-flex;align-items:center;justify-content:center;">☁️</button>
-<button onclick="forcePullFromCloud()" style="flex:1 1 0;background:linear-gradient(180deg,#9b59b6,#8e44ad);border:none;color:#fff;border-radius:11px;height:40px;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;">⬇️雲</button>
-<button onclick="openBackupModal()" style="flex:1 1 0;background:linear-gradient(180deg,#27c06a,#1f9d55);border:none;color:#fff;border-radius:11px;height:40px;font-size:15px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;">🛡️</button>
-<button onclick="openSmartModal()" style="flex:1 1 0;background:linear-gradient(180deg,#f39c12,#e67e22);border:none;color:#fff;border-radius:11px;height:40px;font-size:15px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;">🎤</button>
-<button onclick="openMemoModal()" style="flex:1 1 0;background:linear-gradient(180deg,#f7d046,#f1c40f);border:none;color:#16232e;border-radius:11px;height:40px;font-size:15px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;">📝</button>
-<button onclick="openMachineHistory()" style="flex:1 1 0;background:linear-gradient(180deg,#2ecc71,#1f9d55);border:none;color:#fff;border-radius:11px;height:40px;font-size:15px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;">🔧</button>
-<button onclick="openApiKey()" style="flex:1 1 0;background:rgba(255,255,255,.14);border:none;color:#fff;border-radius:11px;height:40px;font-size:15px;display:inline-flex;align-items:center;justify-content:center;">🔑</button>
+<button onclick="toggleDark()" style="flex:1 1 0;background:rgba(255,255,255,.08);border:none;color:#fff;font-size:16px;cursor:pointer;height:40px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;">🌓</button><button onclick="openBackupModal()" style="flex:1 1 0;background:linear-gradient(180deg,#27c06a,#1f9d55);border:none;color:#fff;border-radius:11px;height:40px;font-size:15px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;">🛡️</button>
+<button onclick="openSmartModal()" style="flex:1 1 0;background:linear-gradient(180deg,#f39c12,#e67e22);border:none;color:#fff;border-radius:11px;height:40px;font-size:15px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;">🎤</button><button onclick="openApiKey()" style="flex:1 1 0;background:rgba(255,255,255,.14);border:none;color:#fff;border-radius:11px;height:40px;font-size:15px;display:inline-flex;align-items:center;justify-content:center;">🔑</button>
 </div>
 <div class="tab-wrap" id="tabBar"></div>
 <div id="searchWrap" style="background:transparent;padding:8px 12px 12px;">
@@ -717,6 +711,7 @@ body.dark .bc-blue{background:#1b2a44;color:#7eacff;}
 <button onclick="exportJSON()" style="flex:1;background:#2980b9;color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:800;cursor:pointer;">📥 JSONで保存</button>
 <button onclick="importJSON()" style="flex:1;background:#27ae60;color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:800;cursor:pointer;">📤 JSONを読込</button>
 </div>
+<button onclick="forcePullFromCloud()" style="width:100%;background:linear-gradient(180deg,#9b59b6,#8e44ad);color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:16px;">⬇️ クラウドから強制取得（このスマホを上書き）</button>
 <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:8px;">🕐 自動バックアップ（最新24時間分）</div>
 <div id="backupList"></div>
 <div style="margin-top:16px;padding:12px;background:#e8f4fd;border-radius:12px;">
