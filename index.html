@@ -719,6 +719,14 @@ body.dark .bc-blue{background:#1b2a44;color:#7eacff;}
 <div style="font-size:11px;color:#555;margin-bottom:8px;">同名の顧客を1件に統合し、完全に重複したレコードを削除します（履歴は名前で紐付くため消えません）。</div>
 <button onclick="dedupeData()" style="background:#2980b9;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;width:100%;">🧹 重複を整理する</button>
 </div>
+<!-- ===== 移行ツール（使い捨て：中古品を中古タブへ移動）ここから／撤去時はこのブロックとJSブロックを削除 ===== -->
+<div style="margin-top:16px;padding:12px;background:#f3ebfa;border-radius:12px;">
+<div style="font-size:11px;font-weight:800;color:#8e44ad;margin-bottom:6px;">🔁 中古品を中古タブへ移動（移行ツール）</div>
+<div style="font-size:11px;color:#555;margin-bottom:8px;">既存の製品のうち、製品名に「中古」を含むものを中古タブへ移せます（一度きりの移行用）。「中古」を含まない中古品は自動では拾えないため、その場合は中古タブで手動作成してください。</div>
+<button onclick="usedMigrateScan()" style="background:#8e44ad;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;width:100%;">🔁 中古候補を探す</button>
+<div id="usedMigrateBox" style="margin-top:10px;"></div>
+</div>
+<!-- ===== 移行ツール ここまで ===== -->
 <div style="margin-top:16px;padding:12px;background:#fde8e8;border-radius:12px;">
 <div style="font-size:11px;font-weight:800;color:#e74c3c;margin-bottom:6px;">⚠️ 緊急時のみ：サンプルデータ読込</div>
 <div style="font-size:11px;color:#555;margin-bottom:8px;">現在のデータが消えます。</div>
@@ -823,17 +831,17 @@ body.dark .bc-blue{background:#1b2a44;color:#7eacff;}
 </div>
 <script>
 
-const TABS=['ホーム','顧客','修理','実演','部品','製品','見積書','機械','メモ'];
+const TABS=['ホーム','顧客','修理','実演','部品','製品','見積書','機械','メモ','中古'];
 let currentTab=0;
-const STATUS_COLORS={'修理依頼':'#e74c3c','見積中':'#9b59b6','部品待ち':'#f39c12','修理中':'#e67e22','完了(未請求)':'#3498db','請求済':'#95a5a6','実演予定':'#f39c12','実施済':'#3498db','見積提示中':'#9b59b6','成約':'#27ae60','発注前':'#e74c3c','発注済':'#e67e22','入荷済':'#f39c12','納品済':'#3498db','完了':'#27ae60','請求済み':'#95a5a6','商談中':'#9b59b6','受注':'#e67e22','納品(納車)済':'#3498db'};
-let DB={settings:[{id:1,targetSales:10000000,currentSales:0}],customers:[],repairs:[],demos:[],parts:[],products:[],quotes:[],memos:[],machines:[],lastModified:new Date().toISOString()};
+const STATUS_COLORS={'修理依頼':'#e74c3c','見積中':'#9b59b6','部品待ち':'#f39c12','修理中':'#e67e22','完了(未請求)':'#3498db','請求済':'#95a5a6','実演予定':'#f39c12','実施済':'#3498db','見積提示中':'#9b59b6','成約':'#27ae60','発注前':'#e74c3c','発注済':'#e67e22','入荷済':'#f39c12','納品済':'#3498db','完了':'#27ae60','請求済み':'#95a5a6','商談中':'#9b59b6','受注':'#e67e22','納品(納車)済':'#3498db','仕入れ':'#e74c3c','整備':'#e67e22','販売準備':'#f39c12'};
+let DB={settings:[{id:1,targetSales:10000000,currentSales:0}],customers:[],repairs:[],demos:[],parts:[],products:[],quotes:[],memos:[],machines:[],used:[],lastModified:new Date().toISOString()};
 let apiKey='',gasUrl='',syncTimer=null,isSyncing=false;
 let searchQuery='';let calViewActive=false;let calYear=new Date().getFullYear();let calMonth=new Date().getMonth();
 let dashViewActive=false;let dashYear=new Date().getFullYear();
 function hasAnyData(){return['customers','repairs','demos','parts','products'].some(k=>Array.isArray(DB[k])&&DB[k].length>0);}
 function saveDB(){const now=Date.now(),cur=new Date(DB.lastModified||0).getTime();DB.lastModified=new Date(Math.max(now,cur+1000)).toISOString();try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}saveEmergencyBackup();scheduleSync();}
 function saveEmergencyBackup(){if(!hasAnyData())return;try{const sn={data:DB,savedAt:new Date().toISOString()};localStorage.setItem('agri_emergency_backup',JSON.stringify(sn));const hk='agri_backup_'+new Date().toISOString().slice(0,13).replace('T','_');localStorage.setItem(hk,JSON.stringify(sn));const keys=Object.keys(localStorage).filter(k=>k.startsWith('agri_backup_')).sort();if(keys.length>24)keys.slice(0,keys.length-24).forEach(k=>localStorage.removeItem(k));}catch(e){}}
-function loadDB(){try{const d=localStorage.getItem('agri_db');if(d){const p=JSON.parse(d);if(p&&typeof p==='object'){['customers','repairs','demos','parts','products','settings','quotes','memos','machines'].forEach(k=>{if(Array.isArray(p[k]))DB[k]=p[k];});if(p.lastModified)DB.lastModified=p.lastModified;}}}catch(e){}try{const k=localStorage.getItem('agri_api_key');if(k)apiKey=k;}catch(e){}try{const g=localStorage.getItem('agri_gas_url');if(g)gasUrl=g;}catch(e){}}
+function loadDB(){try{const d=localStorage.getItem('agri_db');if(d){const p=JSON.parse(d);if(p&&typeof p==='object'){['customers','repairs','demos','parts','products','settings','quotes','memos','machines','used'].forEach(k=>{if(Array.isArray(p[k]))DB[k]=p[k];});if(p.lastModified)DB.lastModified=p.lastModified;}}}catch(e){}try{const k=localStorage.getItem('agri_api_key');if(k)apiKey=k;}catch(e){}try{const g=localStorage.getItem('agri_gas_url');if(g)gasUrl=g;}catch(e){}}
 function showSyncBar(msg,type,autohide=true){const bar=document.getElementById('syncBar');bar.textContent=msg;bar.className='show '+type;if(autohide)setTimeout(()=>{bar.className='';},3500);}
 function updateSyncLabel(msg){const el=document.getElementById('syncLabel');if(el)el.textContent=msg;}
 function scheduleSync(){if(syncTimer)clearTimeout(syncTimer);syncTimer=setTimeout(()=>{syncToCloud(false);},3000);}
@@ -848,11 +856,11 @@ async function syncToCloud(showResult=false){
     if(sd&&!sd.empty){
       const st=new Date(sd.lastModified||0).getTime(),lt=new Date(DB.lastModified||0).getTime();
       if(st>lt){
-        const shd=['customers','repairs','demos','parts','products','quotes'].some(k=>sd[k]&&sd[k].length>0);
+        const shd=['customers','repairs','demos','parts','products','quotes','used'].some(k=>sd[k]&&sd[k].length>0);
         const lhd=hasAnyData();
         if(lhd&&!shd){if(showResult)showSyncBar('⚠️ クラウドが空のためローカルデータを優先','conflict');DB.lastModified=new Date().toISOString();try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}isSyncing=false;setTimeout(()=>syncToCloud(false),500);return;}
         if(lhd)saveEmergencyBackup();
-        ['customers','repairs','demos','parts','products','settings','quotes','memos','machines'].forEach(k=>{if(sd[k])DB[k]=sd[k];});
+        ['customers','repairs','demos','parts','products','settings','quotes','memos','machines','used'].forEach(k=>{if(sd[k])DB[k]=sd[k];});
         DB.lastModified=sd.lastModified;try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}
         renderAll();const t=new Date(DB.lastModified).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});updateSyncLabel('最終同期: '+t);
         if(showResult)showSyncBar('✅ 最新データを受信しました','ok');isSyncing=false;return;
@@ -863,7 +871,7 @@ async function syncToCloud(showResult=false){
     if(!pr.ok)throw new Error('保存エラー: '+pr.status);
     const pt=await pr.text();let result;
     try{result=JSON.parse(pt);}catch(e){const t=pt.trim().toLowerCase();if(t==='success'||t.includes('"success"')||t.includes('ok')){result={status:'ok'};}else{throw new Error('GAS応答が不正: '+pt.slice(0,80));}}
-    if(result.status==='conflict'){['customers','repairs','demos','parts','products','settings','quotes','memos','machines'].forEach(k=>{if(result.data[k])DB[k]=result.data[k];});DB.lastModified=result.data.lastModified;try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}renderAll();if(showResult)showSyncBar('🔄 競合を解決しました','conflict');}
+    if(result.status==='conflict'){['customers','repairs','demos','parts','products','settings','quotes','memos','machines','used'].forEach(k=>{if(result.data[k])DB[k]=result.data[k];});DB.lastModified=result.data.lastModified;try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}renderAll();if(showResult)showSyncBar('🔄 競合を解決しました','conflict');}
     else if(result.status==='ok'){const t=new Date(DB.lastModified).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});updateSyncLabel('最終同期: '+t);if(showResult)showSyncBar('✅ 同期完了','ok');}
     else{if(showResult)showSyncBar('⚠️ GAS応答エラー','error');}
   }catch(e){let em=e.message||String(e);if(e.name==='AbortError')em='接続タイムアウト（15秒）';else if(em==='Failed to fetch')em='接続失敗（GASのアクセス権限を確認してください）';if(showResult)showSyncBar('❌ '+em,'error');}
@@ -879,7 +887,7 @@ async function forcePullFromCloud(){
     const sd=JSON.parse(await gr.text());
     if(!sd||sd.empty){showSyncBar('⚠️ クラウドにデータがありません','error');return;}
     if(!['customers','repairs','demos','parts','products'].some(k=>sd[k]&&sd[k].length>0)){showSyncBar('⚠️ クラウドが空です','error');return;}
-    saveEmergencyBackup();['customers','repairs','demos','parts','products','settings','quotes','memos','machines'].forEach(k=>{if(sd[k])DB[k]=sd[k];});
+    saveEmergencyBackup();['customers','repairs','demos','parts','products','settings','quotes','memos','machines','used'].forEach(k=>{if(sd[k])DB[k]=sd[k];});
     DB.lastModified=sd.lastModified;try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}
     renderAll();updateSyncLabel('最終同期: '+new Date(DB.lastModified).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}));showSyncBar('✅ クラウドから強制取得完了！','ok');
   }catch(e){showSyncBar('❌ '+(e.message||'取得失敗'),'error');}
@@ -903,9 +911,9 @@ function renderBackupList(){
   keys.forEach(k=>{try{const b=JSON.parse(localStorage.getItem(k));const d=b.data||b;const sa=b.savedAt||d.lastModified||'不明';const r=d.repairs?.length||0,p=d.products?.length||0,cu=d.customers?.length||0;if(!r&&!p&&!cu)return;const label=k==='agri_emergency_backup'?'🔴 最新緊急バックアップ':'🕐 '+k.replace('agri_backup_','').replace('_',' ')+'時';const ke=k.replace(/'/g,"\\'");html+=`<div class="card" style="margin-bottom:8px;border-left:4px solid ${k==='agri_emergency_backup'?'#e74c3c':'#3498db'};"><div style="font-weight:bold;font-size:13px;">${label}</div><div style="font-size:11px;color:var(--text-sub);margin:4px 0;">保存: ${new Date(sa).toLocaleString('ja-JP')}</div><div style="font-size:11px;color:var(--text-sub);">修理 ${r}件 / 製品 ${p}件 / 顧客 ${cu}件</div><button onclick="restoreBackup('${ke}')" style="margin-top:8px;background:#e67e22;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;width:100%;">⬆️ このバックアップに復元</button></div>`;}catch(e){}});
   c.innerHTML=html||'<div style="text-align:center;color:var(--text-sub);padding:20px;font-size:12px;">有効なバックアップなし</div>';
 }
-function restoreBackup(key){if(!confirm('このバックアップに復元しますか？\n現在のデータは上書きされます。'))return;try{const b=JSON.parse(localStorage.getItem(key));const d=b.data||b;['customers','repairs','demos','parts','products','settings','quotes','memos','machines'].forEach(k=>{if(Array.isArray(d[k]))DB[k]=d[k];});if(d.lastModified)DB.lastModified=d.lastModified;try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}saveEmergencyBackup();renderAll();closeBackupModal();showSyncBar('✅ バックアップから復元しました','ok');}catch(e){alert('復元エラー: '+e.message);}}
+function restoreBackup(key){if(!confirm('このバックアップに復元しますか？\n現在のデータは上書きされます。'))return;try{const b=JSON.parse(localStorage.getItem(key));const d=b.data||b;['customers','repairs','demos','parts','products','settings','quotes','memos','machines','used'].forEach(k=>{if(Array.isArray(d[k]))DB[k]=d[k];});if(d.lastModified)DB.lastModified=d.lastModified;try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}saveEmergencyBackup();renderAll();closeBackupModal();showSyncBar('✅ バックアップから復元しました','ok');}catch(e){alert('復元エラー: '+e.message);}}
 function exportJSON(){const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`農機管理PRO_バックアップ_${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),2000);}
-function importJSON(){const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.onchange=(e)=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=(ev)=>{try{const d=JSON.parse(ev.target.result);if(!confirm(`JSONファイルを読み込みます。\n修理 ${d.repairs?.length||0}件 / 製品 ${d.products?.length||0}件\n現在のデータは上書きされます。よろしいですか？`))return;saveEmergencyBackup();['customers','repairs','demos','parts','products','settings','quotes','memos','machines'].forEach(k=>{if(Array.isArray(d[k]))DB[k]=d[k];});DB.lastModified=new Date().toISOString();saveDB();renderAll();closeBackupModal();showSyncBar('✅ JSONファイルから復元しました','ok');}catch(e){alert('読み込みエラー: '+e.message);}};r.readAsText(f);};inp.click();}
+function importJSON(){const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.onchange=(e)=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=(ev)=>{try{const d=JSON.parse(ev.target.result);if(!confirm(`JSONファイルを読み込みます。\n修理 ${d.repairs?.length||0}件 / 製品 ${d.products?.length||0}件\n現在のデータは上書きされます。よろしいですか？`))return;saveEmergencyBackup();['customers','repairs','demos','parts','products','settings','quotes','memos','machines','used'].forEach(k=>{if(Array.isArray(d[k]))DB[k]=d[k];});DB.lastModified=new Date().toISOString();saveDB();renderAll();closeBackupModal();showSyncBar('✅ JSONファイルから復元しました','ok');}catch(e){alert('読み込みエラー: '+e.message);}};r.readAsText(f);};inp.click();}
 function _nameKey(s){return String(s||'').replace(/[\s　]+/g,'');}
 function dedupeData(){
   // 1) 顧客：同名を1件に統合（電話/住所/メモは保持）
@@ -925,16 +933,16 @@ function dedupeData(){
     });
     return{kept,removed};
   }
-  const R=dedupExact(DB.repairs),D=dedupExact(DB.demos),P=dedupExact(DB.parts),PR=dedupExact(DB.products),M=dedupExact(DB.machines);
-  const other=R.removed+D.removed+P.removed+PR.removed+M.removed;
+  const R=dedupExact(DB.repairs),D=dedupExact(DB.demos),P=dedupExact(DB.parts),PR=dedupExact(DB.products),M=dedupExact(DB.machines),U=dedupExact(DB.used);
+  const other=R.removed+D.removed+P.removed+PR.removed+M.removed+U.removed;
   if(!mergedC&&!other){alert('重複は見つかりませんでした。');return;}
   if(!confirm('重複データを整理します。\n\n・同名の顧客 '+mergedC+'件を統合（電話/住所/メモは保持）\n・完全に重複したレコード '+other+'件を削除\n　（修理'+R.removed+'/実演'+D.removed+'/部品'+P.removed+'/製品'+PR.removed+'/機械'+M.removed+'）\n\n※修理・製品等は顧客名で紐付くため、顧客の統合で履歴が消えることはありません。\n\n実行しますか？'))return;
   saveEmergencyBackup();
-  DB.customers=keptCustomers;DB.repairs=R.kept;DB.demos=D.kept;DB.parts=P.kept;DB.products=PR.kept;DB.machines=M.kept;
+  DB.customers=keptCustomers;DB.repairs=R.kept;DB.demos=D.kept;DB.parts=P.kept;DB.products=PR.kept;DB.machines=M.kept;DB.used=U.kept;
   DB.lastModified=new Date().toISOString();saveDB();renderAll();closeBackupModal();
   showSyncBar('✅ 重複を整理しました（顧客'+mergedC+'件統合・他'+other+'件削除）','ok');
 }
-function loadSeedData(){if(!confirm('サンプルデータを読み込みます。\n現在のデータは上書きされます。\n本当によろしいですか？'))return;saveEmergencyBackup();DB.repairs=SCREENSHOT_REPAIRS;DB.demos=SCREENSHOT_DEMOS;DB.parts=SCREENSHOT_PARTS;DB.products=SCREENSHOT_PRODUCTS;DB.customers=SCREENSHOT_CUSTOMERS;DB.quotes=SCREENSHOT_QUOTES;DB.lastModified=new Date().toISOString();saveDB();renderAll();closeBackupModal();showSyncBar('✅ サンプルデータを読み込みました','ok');}
+function loadSeedData(){if(!confirm('サンプルデータを読み込みます。\n現在のデータは上書きされます。\n本当によろしいですか？'))return;saveEmergencyBackup();DB.repairs=SCREENSHOT_REPAIRS;DB.demos=SCREENSHOT_DEMOS;DB.parts=SCREENSHOT_PARTS;DB.products=SCREENSHOT_PRODUCTS;DB.customers=SCREENSHOT_CUSTOMERS;DB.quotes=SCREENSHOT_QUOTES;DB.used=[];DB.lastModified=new Date().toISOString();saveDB();renderAll();closeBackupModal();showSyncBar('✅ サンプルデータを読み込みました','ok');}
 
 /* ========== 出力関数 ========== */
 function getStyles(){return '*{box-sizing:border-box;margin:0;padding:0;}body{font-family:"MS Mincho","Hiragino Mincho Pro",serif;}@page{size:A4 portrait;margin:0;}@media print{html,body{width:210mm;}body{margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}';}
@@ -1972,12 +1980,14 @@ async function runScanQuote(event){
 function updateSearch(v){const was=!!searchQuery;searchQuery=v.trim().toLowerCase();if(!was&&searchQuery)pushBack();const cb=document.getElementById('srchClearBtn');if(cb)cb.style.display=searchQuery?'block':'none';renderAll();}
 function clearSearch(){searchQuery='';const gi=document.getElementById('globalSearch');if(gi)gi.value='';const cb=document.getElementById('srchClearBtn');if(cb)cb.style.display='none';renderAll();}
 function renderAll(){
-  // メモ(末尾index)を視覚的に左から2番目へ。内部のタブindexは変えない（既存の数値結合を壊さない）
-  const order=[0,TABS.length-1];for(let i=1;i<TABS.length-1;i++)order.push(i);
+  // メモ(末尾)を視覚的に左から2番目へ。中古は製品の直後へ。内部のタブindexは変えない（既存の数値結合を壊さない）
+  const _memo=TABS.indexOf('メモ'),_used=TABS.indexOf('中古'),_prod=TABS.indexOf('製品');
+  const order=[0];if(_memo>0)order.push(_memo);
+  for(let i=1;i<TABS.length;i++){if(i===_memo||i===_used)continue;order.push(i);if(i===_prod&&_used>=0)order.push(_used);}
   let h='';order.forEach(i=>{h+='<button class="tab-btn '+(currentTab===i?'active':'')+'" onclick="changeTab('+i+')">'+TABS[i]+'</button>';});
   document.getElementById('tabBar').innerHTML=h;
   const main=document.getElementById('content_main');const qe=document.getElementById('content_quote_editor');qe.style.display='none';main.style.display='block';
-  if(currentTab===0)main.innerHTML=renderHome();else if(currentTab===1)main.innerHTML=renderCustomers();else if(currentTab===2)main.innerHTML=renderRepairs();else if(currentTab===3)main.innerHTML=renderDemos();else if(currentTab===4)main.innerHTML=renderPartsTab();else if(currentTab===5)main.innerHTML=renderProducts();else if(currentTab===6)main.innerHTML=renderQuotesList();else if(currentTab===7)main.innerHTML=renderMachines();else if(currentTab===8)main.innerHTML=renderMemosTab();
+  if(currentTab===0)main.innerHTML=renderHome();else if(currentTab===1)main.innerHTML=renderCustomers();else if(currentTab===2)main.innerHTML=renderRepairs();else if(currentTab===3)main.innerHTML=renderDemos();else if(currentTab===4)main.innerHTML=renderPartsTab();else if(currentTab===5)main.innerHTML=renderProducts();else if(currentTab===6)main.innerHTML=renderQuotesList();else if(currentTab===7)main.innerHTML=renderMachines();else if(currentTab===8)main.innerHTML=renderMemosTab();else if(currentTab===9)main.innerHTML=renderUsed();
   try{_updateFab();}catch(e){}
 }
 function changeTab(i){
@@ -2992,6 +3002,25 @@ function renderProducts(){
   });
   return html;
 }
+function renderUsed(){
+  let html='<button onclick="openNew(9)" class="save-btn" style="margin-bottom:10px;width:100%;">＋ 中古車を新規登録</button>';
+  html+='<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--text-sub);">ステータス: <b style="color:#e74c3c;">仕入れ</b>→<b style="color:#e67e22;">整備</b>→<b style="color:#f39c12;">販売準備</b>→<b style="color:#9b59b6;">商談中</b>→<b style="color:#e67e22;">受注</b>→<b style="color:#3498db;">納品(納車)済</b>→<b style="color:#27ae60;">完了</b>→請求済</div>';
+  let items=(DB.used||[]).slice().sort((a,b)=>(a.deliveryDate||'9999').localeCompare(b.deliveryDate||'9999'));
+  if(searchQuery)items=items.filter(x=>[x.customer,x.productName,x.maker,x.model,x.serialNo,x.supplier].some(f=>(f||'').toLowerCase().includes(searchQuery)));
+  if(!items.length)return html+'<div style="text-align:center;color:var(--text-sub);padding:30px 0;">'+(searchQuery?'検索結果なし':'中古車はありません')+'</div>';
+  items.forEach(item=>{
+    const sub=[];if(item.modelYear)sub.push('年式:'+item.modelYear);if(item.hourMeter)sub.push('稼働:'+item.hourMeter+'h');if(item.supplier)sub.push('仕入先:'+item.supplier);
+    html+='<div class="card" data-swid="'+item.id+'" data-swtab="9" onclick="openEdit(\''+item.id+'\',9)" style="border-left:4px solid '+(STATUS_COLORS[item.status]||'#95a5a6')+';margin-bottom:7px;">'
+      +'<div style="font-weight:bold;font-size:14px;margin-bottom:3px;">🔄 '+esc(item.productName||'中古車')+'</div>'
+      +'<div style="font-size:11px;color:var(--text-sub);">👤 '+esc(item.customer||'顧客未設定')+' 様</div>'
+      +(item.serialNo?'<div style="font-size:11px;color:var(--text-sub);">製造番号: '+esc(item.serialNo)+'</div>':'')
+      +'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;">メーカー: '+esc(item.maker||'-')+' / 型式: '+esc(item.model||'-')+' / 販売額: ¥'+Number(item.price||0).toLocaleString()+'</div>'
+      +(sub.length?'<div style="font-size:11px;color:#8e44ad;margin-bottom:4px;">'+esc(sub.join(' / '))+'</div>':'')
+      +'<div style="display:flex;justify-content:space-between;align-items:center;"><span class="badge" style="background:'+(STATUS_COLORS[item.status]||'#95a5a6')+';display:inline-block;">'+esc(item.status||'仕入れ')+'</span>'
+      +'<span style="font-size:10px;color:var(--text-sub);">納品予定: '+esc(item.deliveryDate||'未定')+'</span></div></div>';
+  });
+  return html;
+}
 function renderQuotesList(){
   let html='<div style="display:flex;gap:8px;margin-bottom:15px;">';
   html+='<button onclick="openQuoteEditor(\'\')" class="save-btn" style="flex:2;">＋ 新規作成</button>';
@@ -3009,7 +3038,7 @@ function buildQuickRegBox(tab,it){let btns='';const cN=(it.name||it.customerName
 
 let modalState=null;
 function openNew(tab){modalState={tab,mode:'new',item:Object.assign({},quickDefaults)};quickDefaults={};showModal();}
-function openEdit(id,tab){const keys=['','customers','repairs','demos','parts','products'];const item=DB[keys[tab]].find(x=>String(x.id)===String(id));if(!item){alert('データが見つかりません');return;}modalState={tab,mode:'edit',item:JSON.parse(JSON.stringify(item))};showModal();}
+function openEdit(id,tab){const keys=['','customers','repairs','demos','parts','products','','','','used'];const item=DB[keys[tab]].find(x=>String(x.id)===String(id));if(!item){alert('データが見つかりません');return;}modalState={tab,mode:'edit',item:JSON.parse(JSON.stringify(item))};showModal();}
 function showModal(){
   document.getElementById('modalTitle').innerText=TABS[modalState.tab]+' 詳細';let form='';const it=modalState.item;
   if(modalState.tab===1){form+=inp('name','顧客名',it.name)+inp('phone','電話番号',it.phone)+inp('address','住所',it.address);form+='<label class="field-label">メモ・備考</label><textarea id="f_memo" class="field-textarea" rows="2">'+esc(it.memo)+'</textarea>';form+=buildQuickRegBox(1,it);}
@@ -3027,6 +3056,14 @@ function showModal(){
   else if(modalState.tab===3){form+=inp('customerName','対象顧客',it.customerName);[['','🚜 実演機 1',''],['2','🚜 実演機 2 (任意)','var(--text-sub)'],['3','🚜 実演機 3 (任意)','var(--text-sub)']].forEach(([n,label,color])=>{form+='<div style="padding:10px;background:var(--input-bg);border-radius:10px;margin-bottom:12px;"><div style="font-size:12px;font-weight:bold;color:'+(color||'var(--text)')+';margin-bottom:8px;">'+label+'</div>'+inp('targetMachine'+n,'対象機械 (品名)',it['targetMachine'+n])+'<div class="fl" style="margin-bottom:0;"><div class="fg">'+inp('maker'+n,'メーカー',it['maker'+n])+'</div><div class="fg">'+inp('model'+n,'型式',it['model'+n])+'</div></div></div>';});form+='<div class="fl"><div class="fg">'+sel('status','ステータス',['実演予定','実施済','見積提示中','成約'],it.status)+'</div><div class="fg">'+inp('date','予定日/実施日',it.date,'date')+'</div></div>';form+='<button onclick="regToCalendar(\'demo\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに予定を登録</button><button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 見積書を作成</button>';form+=buildQuickRegBox(3,it);}
   else if(modalState.tab===4){form+='<button type="button" onclick="openPartsOCR()" style="background:#2980b9;color:#fff;border:none;border-radius:10px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;width:100%;margin-bottom:12px;">📷 納品伝票・部品ラベルを読取→自動入力</button>';form+=inp('customerName','顧客名（任意）',it.customerName)+inp('name','部品名① (必須)',it.name)+'<div class="fl"><div class="fg">'+inp('maker','メーカー',it.maker)+'</div><div class="fg">'+inp('partNo','品番・型式①',it.partNo)+'</div></div><div class="fl"><div class="fg">'+inp('qty','数量',it.qty,'number')+'</div><div class="fg">'+inp('price','仕入・販売単価',it.price,'number')+'</div></div>';form+='<div style="background:var(--input-bg);border-radius:10px;padding:10px;margin-bottom:10px;"><div style="font-size:11px;color:var(--text-sub);font-weight:700;margin-bottom:8px;">➕ 追加部品②〜⑩（任意）</div>';for(let i=2;i<=10;i++){form+=inp('name'+i,'部品名'+i,it['name'+i])+inp('partNo'+i,'品番'+i,it['partNo'+i])+'<div class="fl"><div class="fg">'+inp('qty'+i,'数量'+i,it['qty'+i],'number')+'</div><div class="fg">'+inp('price'+i,'単価'+i,it['price'+i],'number')+'</div></div>';}form+='</div><div class="fl"><div class="fg">'+sel('status','ステータス',['発注前','発注済','入荷済','納品済','完了','請求済'],it.status)+'</div><div class="fg">'+inp('orderDate','発注日',it.orderDate,'date')+'</div></div>';form+=inp('billedDate','請求日',it.billedDate,'date');form+='<button onclick="regToCalendar(\'part\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに発注日を登録</button><button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 この部品で見積書を作成</button>';form+=buildQuickRegBox(4,it);}
   else if(modalState.tab===5){form+=inp('customer','顧客名',it.customer)+inp('productName','製品名① (必須)',it.productName)+'<div class="fl"><div class="fg">'+inp('maker','メーカー',it.maker)+'</div><div class="fg">'+inp('model','型式①',it.model)+'</div></div>'+inp('serialNo','製造番号①',it.serialNo);form+='<div style="background:var(--input-bg);border-radius:10px;padding:10px;margin-bottom:10px;"><div style="font-size:11px;color:var(--text-sub);font-weight:700;margin-bottom:8px;">➕ 追加品目②〜⑩（任意）</div>';for(let i=2;i<=10;i++){form+=inp('productName'+i,'製品名'+i,it['productName'+i])+inp('model'+i,'型式'+i,it['model'+i])+inp('serialNo'+i,'製造番号'+i,it['serialNo'+i]);}form+='</div><div class="fl"><div class="fg">'+sel('status','ステータス',['商談中','受注','発注済','入荷済','納品(納車)済','完了','請求済'],it.status)+'</div><div class="fg">'+inp('deliveryDate','納品予定日',it.deliveryDate,'date')+'</div></div>'+inp('billedDate','請求日',it.billedDate,'date')+inp('price','販売額',it.price,'number');form+='<button type="button" onclick="importQuotePrice()" class="save-btn" style="background:#8e44ad;width:100%;margin:0 0 10px;padding:11px;font-size:13px;">📄 見積から金額を取込</button><button onclick="regToCalendar(\'product\')" class="save-btn" style="background:#4285f4;width:100%;margin-bottom:10px;">📅 Googleカレンダーに納品予定を登録</button><button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 この製品で見積書を作成</button><button type="button" onclick="notifyComplete(\'product\')" class="save-btn" style="background:#06C755;width:100%;margin:0 0 10px;">💬 入荷・準備完了をLINEで通知</button>';form+=buildQuickRegBox(5,it);}
+  else if(modalState.tab===9){
+    form+='<div style="display:flex;gap:8px;margin-bottom:12px;"><label style="flex:1;text-align:center;background:#16a085;color:#fff;border-radius:10px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;">📷 銘板読取<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="repairScanNameplate(event)"></label><label style="flex:1;text-align:center;background:#16a085;color:#fff;border-radius:10px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;">📷 稼働時間<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="repairScanMeter(event)"></label></div>';
+    form+=inp('customer','顧客名',it.customer)+inp('productName','製品名 (必須)',it.productName)+'<div class="fl"><div class="fg">'+inp('maker','メーカー',it.maker)+'</div><div class="fg">'+inp('model','型式',it.model)+'</div></div>'+inp('serialNo','製造番号',it.serialNo);
+    form+='<div class="fl"><div class="fg">'+inp('modelYear','年式',it.modelYear)+'</div><div class="fg">'+inp('hourMeter','稼働時間(h)',it.hourMeter,'number')+'</div></div>';
+    form+='<div style="background:var(--input-bg);border-radius:10px;padding:10px;margin-bottom:10px;"><div style="font-size:11px;color:var(--text-sub);font-weight:700;margin-bottom:8px;">🏷 中古情報（仕入れ）</div><div class="fl"><div class="fg">'+inp('costPrice','仕入れ値',it.costPrice,'number')+'</div><div class="fg">'+inp('supplier','仕入れ先',it.supplier)+'</div></div><label class="field-label">車体状態メモ</label><div style="position:relative;"><button type="button" onclick="fieldVoice(\'f_conditionMemo\',this)" style="position:absolute;right:6px;top:6px;background:#e67e22;border:none;border-radius:6px;width:26px;height:26px;font-size:12px;cursor:pointer;color:#fff;padding:0;line-height:1;z-index:1;">🎙</button><textarea id="f_conditionMemo" class="field-textarea" rows="2" data-voicefix="format" style="padding-right:38px;">'+esc(it.conditionMemo||'')+'</textarea></div></div>';
+    form+='<div class="fl"><div class="fg">'+sel('status','ステータス',['仕入れ','整備','販売準備','商談中','受注','納品(納車)済','完了','請求済'],it.status)+'</div><div class="fg">'+inp('deliveryDate','納品予定日',it.deliveryDate,'date')+'</div></div>'+inp('billedDate','請求日',it.billedDate,'date')+inp('price','販売額',it.price,'number');
+    form+='<button type="button" onclick="importQuotePrice()" class="save-btn" style="background:#8e44ad;width:100%;margin:0 0 10px;padding:11px;font-size:13px;">📄 見積から金額を取込</button><button onclick="jumpToQuote()" class="save-btn" style="background:#8e44ad;width:100%;margin:10px 0;padding:11px;font-size:13px;">📄 この中古車で見積書を作成</button>';
+  }
   form+='<div class="fl" style="margin-top:15px;"><button class="save-btn" onclick="saveItem()">💾 保存する</button>'+(modalState.mode==='edit'?'<button class="save-btn" style="background:#e74c3c;" onclick="delItem()">削除</button>':'')+'</div>';
   document.getElementById('modalBody').innerHTML=form;document.getElementById('modalOverlay').style.display='flex';ensureSentinel();
 }
@@ -3064,7 +3101,7 @@ function saveItem(){
   _finalizeSaveItem(item);
 }
 function _finalizeSaveItem(item){
-  const keys=['','customers','repairs','demos','parts','products'];const dbKey=keys[modalState.tab];
+  const keys=['','customers','repairs','demos','parts','products','','','','used'];const dbKey=keys[modalState.tab];
   if(modalState.tab===1&&modalState.mode==='new'){const _nk=_nameKey(item.name);if(_nk&&(DB.customers||[]).some(c=>_nameKey(c.name)===_nk)){if(!confirm('「'+(item.name||'')+'」は既に顧客に登録されています。\n重複して登録しますか？')){closeModal();return;}}}
   // 製品：顧客名が未登録なら新規顧客として登録するか確認（重複作成は避ける）
   if(modalState.tab===5){const cn=String(item.customer||'').trim();if(cn){const _ck=_nameKey(cn);if(!(DB.customers||[]).some(c=>_nameKey(c.name)===_ck)){if(confirm('「'+cn+'」は顧客に未登録です。\n顧客としても新規登録しますか？')){if(!DB.customers)DB.customers=[];DB.customers.push({id:'ID_'+(Date.now()+Math.random()),name:cn,phone:'',address:'',memo:''});}}}}
@@ -3104,7 +3141,7 @@ function quoteToProduct(id){
   document.getElementById('content_quote_editor').style.display='none';
   quickReg(5,{customer:toName,productName:subject||first.name||'',maker:first.brand||'',model:first.model||'',price:total||'',status:'商談中'});
 }
-function delItem(){if(!confirm('削除しますか？'))return;const keys=['','customers','repairs','demos','parts','products'];DB[keys[modalState.tab]]=DB[keys[modalState.tab]].filter(x=>String(x.id)!==String(modalState.item.id));saveDB();closeModal();renderAll();}
+function delItem(){if(!confirm('削除しますか？'))return;const keys=['','customers','repairs','demos','parts','products','','','','used'];DB[keys[modalState.tab]]=DB[keys[modalState.tab]].filter(x=>String(x.id)!==String(modalState.item.id));saveDB();closeModal();renderAll();}
 
 // ===== 見積書→製品 販売額 反映 =====
 // 顧客名一致（trim・全角空白も除去）で total>0 の見積を抽出（発行日降順）
@@ -3176,12 +3213,12 @@ resetQItems();
 function jumpToQuote(){
   const it=modalState.item,tab=modalState.tab;closeModal();openQuoteEditor('');
   if(tab===2||tab===3||tab===4)document.getElementById('toName').value=it.customerName||'';
-  if(tab===5)document.getElementById('toName').value=it.customer||'';
+  if(tab===5||tab===9)document.getElementById('toName').value=it.customer||'';
   resetQItems();
   if(tab===2)qItems[0]={name:it.machine||'',brand:it.maker||'',model:it.model||'',qty:1,price:'',note:it.serialNo?'製造番号:'+it.serialNo:''};
   else if(tab===3){let l=0;[['targetMachine','maker','model'],['targetMachine2','maker2','model2'],['targetMachine3','maker3','model3']].forEach(([t,m,mo])=>{if(it[t]||it[m]||it[mo])qItems[l++]={name:it[t]||'',brand:it[m]||'',model:it[mo]||'',qty:1,price:'',note:''};});}
   else if(tab===4)qItems[0]={name:it.name||'',brand:it.maker||'',model:it.partNo||'',qty:1,price:it.price||'',note:''};
-  else if(tab===5)qItems[0]={name:it.productName||'',brand:it.maker||'',model:it.model||'',qty:1,price:it.price||'',note:it.serialNo?'製造番号:'+it.serialNo:''};
+  else if(tab===5||tab===9)qItems[0]={name:it.productName||'',brand:it.maker||'',model:it.model||'',qty:1,price:it.price||'',note:it.serialNo?'製造番号:'+it.serialNo:''};
   buildTable();
 }
 function openQuoteEditor(id){
@@ -3557,7 +3594,7 @@ window.onload=async function(){
     if(gasUrl){if(lm)lm.textContent='☁️ クラウドから最新データを確認中...';try{await syncToCloud(false);}catch(e){console.error('起動時同期エラー:',e);}}
     if(!hasAnyData()){
       const er=localStorage.getItem('agri_emergency_backup');
-      if(er){try{const eb=JSON.parse(er),ed=eb.data||eb;const eHas=['customers','repairs','demos','parts','products'].some(k=>Array.isArray(ed[k])&&ed[k].length>0);if(eHas){const sa=eb.savedAt?new Date(eb.savedAt).toLocaleString('ja-JP'):'不明',rc=ed.repairs?.length||0;if(confirm(`⚠️ データが見つかりません！\n\n緊急バックアップが見つかりました。\n保存日時: ${sa}\n修理 ${rc}件\n\n復元しますか？`)){['customers','repairs','demos','parts','products','settings','quotes','memos','machines'].forEach(k=>{if(Array.isArray(ed[k]))DB[k]=ed[k];});if(ed.lastModified)DB.lastModified=ed.lastModified;try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}}};}catch(e){console.error('緊急バックアップ読込エラー:',e);}}
+      if(er){try{const eb=JSON.parse(er),ed=eb.data||eb;const eHas=['customers','repairs','demos','parts','products'].some(k=>Array.isArray(ed[k])&&ed[k].length>0);if(eHas){const sa=eb.savedAt?new Date(eb.savedAt).toLocaleString('ja-JP'):'不明',rc=ed.repairs?.length||0;if(confirm(`⚠️ データが見つかりません！\n\n緊急バックアップが見つかりました。\n保存日時: ${sa}\n修理 ${rc}件\n\n復元しますか？`)){['customers','repairs','demos','parts','products','settings','quotes','memos','machines','used'].forEach(k=>{if(Array.isArray(ed[k]))DB[k]=ed[k];});if(ed.lastModified)DB.lastModified=ed.lastModified;try{localStorage.setItem('agri_db',JSON.stringify(DB));}catch(e){}}};}catch(e){console.error('緊急バックアップ読込エラー:',e);}}
     }
     document.getElementById('app').style.display='block';
     // 新スプラッシュ(FULL IGNITION)は独立オーバーレイで自動再生・自動消滅。本体処理はブロックしない
@@ -4374,5 +4411,58 @@ if('serviceWorker' in navigator){
 })();
 </script>
 <!-- ===== /WORK RECORD TYPES ===== -->
+<!-- ===== 中古移行ツール（使い捨て・独立JSブロック／撤去時はこのブロックとバックアップ画面のUIブロックを削除）ここから ===== -->
+<script>
+(function(){
+  "use strict";
+  function norm(s){return String(s==null?'':s).normalize('NFKC').toLowerCase();}
+  function isUsedCand(p){return norm(p&&p.productName).indexOf('中古')>=0;}
+  window.usedMigrateScan=function(){
+    var box=document.getElementById('usedMigrateBox'); if(!box)return;
+    var cands=(DB.products||[]).filter(isUsedCand);
+    if(!cands.length){ box.innerHTML='<div style="font-size:12px;color:#555;padding:8px 0;">移動できる中古品は見つかりませんでした。</div>'; return; }
+    var h='<div style="font-size:11px;color:#555;margin:4px 0 8px;">'+cands.length+'件の候補（チェックしたものを移動）</div>';
+    cands.forEach(function(p){
+      h+='<label style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer;">'
+        +'<input type="checkbox" class="usedMigChk" value="'+esc(p.id)+'" checked style="margin-top:3px;">'
+        +'<span style="flex:1;font-size:12px;color:var(--text);"><b>'+esc(p.productName||'(製品名なし)')+'</b><br>'
+        +'<span style="font-size:11px;color:var(--text-sub);">👤'+esc(p.customer||'-')+' / 型式:'+esc(p.model||'-')+' / ¥'+Number(p.price||0).toLocaleString()+'</span></span></label>';
+    });
+    h+='<button onclick="usedMigrateApply()" style="margin-top:10px;background:#8e44ad;color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:12px;font-weight:800;cursor:pointer;width:100%;">選択した中古品を中古タブへ移動</button>';
+    box.innerHTML=h;
+  };
+  window.usedMigrateApply=function(){
+    var chks=Array.prototype.slice.call(document.querySelectorAll('.usedMigChk')).filter(function(c){return c.checked;});
+    var ids=chks.map(function(c){return c.value;});
+    if(!ids.length){ alert('移動する中古品を選択してください。'); return; }
+    if(typeof saveEmergencyBackup==='function')saveEmergencyBackup(); // 移行前スナップショット（必ず先に）
+    if(!Array.isArray(DB.used))DB.used=[];
+    var movedUsedIds=[], removedProducts=[];
+    ids.forEach(function(id){
+      var idx=-1,i; for(i=0;i<DB.products.length;i++){ if(String(DB.products[i].id)===String(id)){idx=i;break;} }
+      if(idx<0)return;
+      var p=DB.products[idx];
+      var u={ id:'ID_'+(Date.now()+Math.floor(Math.random()*100000)),
+        customer:p.customer||'', productName:p.productName||'', maker:p.maker||'', model:p.model||'', serialNo:p.serialNo||'',
+        status:p.status||'', deliveryDate:p.deliveryDate||'', price:p.price||'', billedDate:p.billedDate||'',
+        modelYear:'', hourMeter:'', costPrice:'', supplier:'', conditionMemo:'' };
+      DB.used.push(u); movedUsedIds.push(u.id);
+      removedProducts.push(p); DB.products.splice(idx,1);
+    });
+    if(typeof saveDB==='function')saveDB(); if(typeof renderAll==='function')renderAll();
+    var box=document.getElementById('usedMigrateBox'); if(box)box.innerHTML='<div style="font-size:12px;color:#27ae60;padding:8px 0;font-weight:800;">'+movedUsedIds.length+'件を中古タブへ移動しました。</div>';
+    if(typeof vibe==='function')vibe('done');
+    if(typeof showToast==='function')showToast(movedUsedIds.length+'件を中古タブへ移動しました',function(){
+      // 元に戻す：pushしたusedを除去し、削除したproductsを復元
+      var mv={}; movedUsedIds.forEach(function(x){mv[x]=1;});
+      DB.used=(DB.used||[]).filter(function(u){return !mv[u.id];});
+      removedProducts.forEach(function(p){ DB.products.push(p); });
+      if(typeof saveDB==='function')saveDB(); if(typeof renderAll==='function')renderAll();
+      if(typeof vibe==='function')vibe('ok');
+    });
+  };
+})();
+</script>
+<!-- ===== 中古移行ツール ここまで ===== -->
 </body>
 </html>
