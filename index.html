@@ -2184,6 +2184,7 @@ function openMachineCard(id){
   h+='<button onclick="repairFromMachine(\''+m.id+'\')" class="save-btn" style="flex:1;margin:0;background:#e67e22;">🔧 この機械で修理登録</button>';
   h+='<button onclick="openMachineEdit(\''+m.id+'\')" class="save-btn" style="flex:0 0 auto;margin:0;background:#2980b9;padding:0 18px;">編集</button>';
   h+='</div>';
+  h+='<button onclick="openMachineTimeline(\''+m.id+'\')" class="save-btn" style="width:100%;margin:0 0 12px;background:linear-gradient(180deg,#2ecc71,#1f9d55);">🕐 作業履歴を時系列で見る</button>';
   h+='<div style="font-weight:800;font-size:14px;margin:8px 0;">🔧 修理履歴（型式一致 '+reps.length+'件）</div>';
   if(!reps.length)h+='<div style="color:var(--text-sub);font-size:12px;padding:10px 0;">関連する修理履歴はありません</div>';
   else reps.forEach(r=>{
@@ -2707,14 +2708,27 @@ function _mhRepAmount(r){return Number(r.amount)||Number(r.price)||0;}
 function _mhParts(r){var u=r.usedParts;if(Array.isArray(u)&&u.length)return u.map(function(p){return (p&&typeof p==='object')?(p.name||p.partName||p.partNo||''):String(p||'');}).filter(Boolean).join('、');return '';}
 function buildMachineGroups(){
   var map={},order=[];
-  (DB.repairs||[]).forEach(function(r){
-    var key=normalizeMachineKey(r.maker,r.model,r.serialNo);
+  function ensure(maker,model,serialNo){
+    var key=normalizeMachineKey(maker,model,serialNo);
     var g=map[key];
-    if(!g){g={key:key,maker:'',model:'',serialNo:'',count:0,total:0,lastDate:'',repairs:[],custs:{}};map[key]=g;order.push(key);}
+    if(!g){g={key:key,maker:'',model:'',serialNo:'',count:0,total:0,lastDate:'',repairs:[],entries:[],custs:{}};map[key]=g;order.push(key);}
+    if(!g.maker&&maker)g.maker=maker;if(!g.model&&model)g.model=model;if(!g.serialNo&&serialNo)g.serialNo=serialNo;
+    return g;
+  }
+  (DB.repairs||[]).forEach(function(r){
+    var g=ensure(r.maker,r.model,r.serialNo);
     g.repairs.push(r);g.count++;g.total+=_mhRepAmount(r);
     var d=_mhRepDate(r);if(String(d)>String(g.lastDate))g.lastDate=String(d);
-    if(!g.maker&&r.maker)g.maker=r.maker;if(!g.model&&r.model)g.model=r.model;if(!g.serialNo&&r.serialNo)g.serialNo=r.serialNo;
     if(r.customerName)g.custs[r.customerName]=1;
+    g.entries.push({kind:(r.type||'repair'),rec:r,date:_mhRepDate(r)}); // 修理/点検/オイル
+  });
+  // 中古販売(DB.used)を型式・製番一致で同一機械へ合流（used 未定義/空でも安全）。用の金額は price を採用。
+  (DB.used||[]).forEach(function(u){
+    var g=ensure(u.maker,u.model,u.serialNo);
+    g.count++;g.total+=(Number(u.price)||0);
+    var d=(u.deliveryDate||u.billedDate||'');if(String(d)>String(g.lastDate))g.lastDate=String(d);
+    if(u.customer)g.custs[u.customer]=1;
+    g.entries.push({kind:'used',rec:u,date:d}); // 中古販売
   });
   return order.map(function(k){return map[k];});
 }
@@ -2748,7 +2762,7 @@ function renderMachineList(){
     h+='<div style="font-weight:bold;font-size:14px;color:var(--text);">'+esc(_mhLabel(g))+'</div>';
     h+='<div style="font-size:11px;color:var(--text-sub);margin-top:2px;font-family:ui-monospace,monospace;">機番: '+esc(_mhSerial(g))+'</div>';
     h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:11px;color:var(--text-sub);">';
-    h+='<span>🔧 '+g.count+'回 / 最終 '+esc(g.lastDate||'-')+'</span>';
+    h+='<span>📋 '+g.count+'件 / 最終 '+esc(g.lastDate||'-')+'</span>';
     h+='<span style="font-weight:800;color:#2ecc71;">¥'+Number(g.total||0).toLocaleString()+'</span></div></div>';
   });
   return h;
@@ -2763,19 +2777,38 @@ function renderMachineDetail(key){
   h+='<div style="background:linear-gradient(135deg,#1f9d55,#16232e);color:#fff;border-radius:14px;padding:16px;margin-bottom:14px;">';
   h+='<div style="font-size:17px;font-weight:900;">'+esc(_mhLabel(g))+'</div>';
   h+='<div style="font-size:12px;opacity:.92;margin-top:3px;font-family:ui-monospace,monospace;">機番: '+esc(_mhSerial(g))+'</div>';
-  h+='<div style="display:flex;gap:16px;margin-top:10px;font-size:12px;"><span>🔧 修理 '+g.count+'回</span><span>累計 ¥'+Number(g.total||0).toLocaleString()+'</span><span>最終 '+esc(g.lastDate||'-')+'</span></div></div>';
-  var reps=g.repairs.slice().sort(function(a,b){return String(_mhRepDate(b)).localeCompare(String(_mhRepDate(a)));});
-  reps.forEach(function(r){
-    var parts=_mhParts(r),amt=_mhRepAmount(r);
-    h+='<div class="card" onclick="openEdit(\''+r.id+'\',2)" style="border-left:4px solid '+(STATUS_COLORS[r.status]||'#2ecc71')+';margin-bottom:8px;">';
-    h+='<div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-weight:800;font-size:13px;color:var(--text);font-family:ui-monospace,monospace;">'+(typeof _wrtBadge==='function'?_wrtBadge(r.type):'')+esc(_mhRepDate(r)||'日付なし')+'</span><span class="badge" style="background:'+(STATUS_COLORS[r.status]||'#95a5a6')+';display:inline-block;">'+esc(r.status||'')+'</span></div>';
-    h+='<div style="font-size:12px;color:var(--text-sub);margin-top:3px;">👤 '+esc(r.customerName||'-')+'</div>';
-    if(typeof _wrtHistoryDetail==='function'){h+=_wrtHistoryDetail(r);}
-    if(r.issue)h+='<div style="font-size:12px;color:var(--text);margin-top:4px;"><b style="color:#e67e22;">症状:</b> '+esc(r.issue)+'</div>';
-    if(r.repairWork||'')h+='<div style="font-size:12px;color:var(--text);margin-top:2px;"><b style="color:#2ecc71;">修理:</b> '+esc(r.repairWork||'')+'</div>';
-    if(parts)h+='<div style="font-size:11px;color:var(--text-sub);margin-top:2px;">⚙️ 部品: '+esc(parts)+'</div>';
-    if(amt)h+='<div style="text-align:right;font-size:12px;font-weight:800;color:#2ecc71;margin-top:4px;">¥'+amt.toLocaleString()+'</div>';
-    h+='</div>';
+  h+='<div style="display:flex;gap:16px;margin-top:10px;font-size:12px;"><span>📋 作業 '+g.count+'件</span><span>累計 ¥'+Number(g.total||0).toLocaleString()+'</span><span>最終 '+esc(g.lastDate||'-')+'</span></div></div>';
+  // 種別フィルタ（表示のみ・データ不変）
+  var flt=(typeof _mtlGetFilter==='function')?_mtlGetFilter():'all';
+  var chips=[['all','全て'],['repair','🔧修理'],['inspect','🛠点検'],['oil','🛢オイル'],['used','🚜中古']];
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">';
+  chips.forEach(function(c){var on=(flt===c[0]);h+='<button type="button" onclick="_mtlSetFilter(\''+c[0]+'\')" style="border:1.5px solid '+(on?'#2ecc71':'var(--border)')+';background:'+(on?'#2ecc71':'var(--card-bg)')+';color:'+(on?'#fff':'var(--text)')+';border-radius:12px;padding:6px 11px;font-size:11px;font-weight:800;cursor:pointer;">'+c[1]+'</button>';});
+  h+='</div>';
+  var ents=(g.entries||[]).slice().sort(function(a,b){return String(b.date).localeCompare(String(a.date));});
+  if(flt!=='all')ents=ents.filter(function(e){return e.kind===flt;});
+  if(!ents.length)return h+'<div style="text-align:center;color:var(--text-sub);padding:24px 0;">該当する作業記録はありません</div>';
+  ents.forEach(function(e){
+    var r=e.rec;
+    if(e.kind==='used'){
+      var sub=[];if(r.modelYear)sub.push('年式:'+r.modelYear);if(r.hourMeter)sub.push('稼働:'+r.hourMeter+'h');
+      h+='<div class="card" onclick="openEdit(\''+r.id+'\',9)" style="border-left:4px solid '+(STATUS_COLORS[r.status]||'#8e44ad')+';margin-bottom:8px;">';
+      h+='<div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-weight:800;font-size:13px;color:var(--text);font-family:ui-monospace,monospace;"><span title="中古販売" style="margin-right:5px;">🚜</span>'+esc(e.date||'日付なし')+'</span><span class="badge" style="background:'+(STATUS_COLORS[r.status]||'#95a5a6')+';display:inline-block;">'+esc(r.status||'')+'</span></div>';
+      h+='<div style="font-size:12px;color:var(--text-sub);margin-top:3px;">👤 '+esc(r.customer||'-')+'</div>';
+      h+='<div style="font-size:12px;color:var(--text);margin-top:4px;"><b style="color:#8e44ad;">中古販売:</b> '+esc(r.productName||'-')+(sub.length?'（'+esc(sub.join(' / '))+'）':'')+'</div>';
+      h+='<div style="text-align:right;font-size:12px;font-weight:800;color:#8e44ad;margin-top:4px;">販売額 ¥'+Number(r.price||0).toLocaleString()+'</div>';
+      h+='</div>';
+    }else{
+      var parts=_mhParts(r),amt=_mhRepAmount(r);
+      h+='<div class="card" onclick="openEdit(\''+r.id+'\',2)" style="border-left:4px solid '+(STATUS_COLORS[r.status]||'#2ecc71')+';margin-bottom:8px;">';
+      h+='<div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-weight:800;font-size:13px;color:var(--text);font-family:ui-monospace,monospace;">'+(typeof _wrtBadge==='function'?_wrtBadge(r.type):'')+esc(_mhRepDate(r)||'日付なし')+'</span><span class="badge" style="background:'+(STATUS_COLORS[r.status]||'#95a5a6')+';display:inline-block;">'+esc(r.status||'')+'</span></div>';
+      h+='<div style="font-size:12px;color:var(--text-sub);margin-top:3px;">👤 '+esc(r.customerName||'-')+'</div>';
+      if(typeof _wrtHistoryDetail==='function'){h+=_wrtHistoryDetail(r);}
+      if(r.issue)h+='<div style="font-size:12px;color:var(--text);margin-top:4px;"><b style="color:#e67e22;">症状:</b> '+esc(r.issue)+'</div>';
+      if(r.repairWork||'')h+='<div style="font-size:12px;color:var(--text);margin-top:2px;"><b style="color:#2ecc71;">修理:</b> '+esc(r.repairWork||'')+'</div>';
+      if(parts)h+='<div style="font-size:11px;color:var(--text-sub);margin-top:2px;">⚙️ 部品: '+esc(parts)+'</div>';
+      if(amt)h+='<div style="text-align:right;font-size:12px;font-weight:800;color:#2ecc71;margin-top:4px;">¥'+amt.toLocaleString()+'</div>';
+      h+='</div>';
+    }
   });
   return h;
 }
@@ -4464,5 +4497,27 @@ if('serviceWorker' in navigator){
 })();
 </script>
 <!-- ===== 中古移行ツール ここまで ===== -->
+<!-- ===== 機械履歴タイムライン（種別フィルタ＋機械カルテ導線）ここから ===== -->
+<script>
+(function(){
+  "use strict";
+  // 既存識別子流用: renderAll / showToast / normalizeMachineKey / openMachineDetail / closeMachineModal
+  var _mtlFilter='all'; // 機械履歴詳細の種別フィルタ（表示のみ・データ不変。dashViewActive相当のローカルフラグ）
+  window._mtlGetFilter=function(){return _mtlFilter;};
+  window._mtlSetFilter=function(f){ _mtlFilter=f||'all'; if(typeof renderAll==='function')renderAll(); };
+  window.openMachineTimeline=function(id){
+    var db=(typeof DB!=='undefined')?DB:{};
+    var m=(db.machines||[]).filter(function(x){return String(x.id)===String(id);})[0]; if(!m)return;
+    var key=normalizeMachineKey(m.maker,m.model,m.serialNo);
+    var has=(db.repairs||[]).some(function(r){return normalizeMachineKey(r.maker,r.model,r.serialNo)===key;})
+          ||(db.used||[]).some(function(u){return normalizeMachineKey(u.maker,u.model,u.serialNo)===key;});
+    if(!has){ if(typeof showToast==='function')showToast('この機械の作業履歴はありません'); return; }
+    _mtlFilter='all';
+    try{ if(typeof closeMachineModal==='function')closeMachineModal(); }catch(e){}
+    if(typeof openMachineDetail==='function')openMachineDetail(key);
+  };
+})();
+</script>
+<!-- ===== 機械履歴タイムライン ここまで ===== -->
 </body>
 </html>
