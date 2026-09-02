@@ -2704,6 +2704,8 @@ function normalizeMachineKey(maker,model,serial){
   return norm(maker)+'|'+norm(model)+'|'+norm(serial);
 }
 function _mhRepDate(r){return r.date||r.billedDate||r.dueDate||'';}
+// 受付日の代用表示（データは書き換えない）：receivedDate が空なら date を代用、それも無ければ空
+function _receivedOf(rec){rec=rec||{};return rec.receivedDate||rec.date||'';}
 function _mhRepAmount(r){return Number(r.amount)||Number(r.price)||0;}
 function _mhParts(r){var u=r.usedParts;if(Array.isArray(u)&&u.length)return u.map(function(p){return (p&&typeof p==='object')?(p.name||p.partName||p.partNo||''):String(p||'');}).filter(Boolean).join('、');return '';}
 function buildMachineGroups(){
@@ -2802,6 +2804,7 @@ function renderMachineDetail(key){
       h+='<div class="card" onclick="openEdit(\''+r.id+'\',2)" style="border-left:4px solid '+(STATUS_COLORS[r.status]||'#2ecc71')+';margin-bottom:8px;">';
       h+='<div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-weight:800;font-size:13px;color:var(--text);font-family:ui-monospace,monospace;">'+(typeof _wrtBadge==='function'?_wrtBadge(r.type):'')+esc(_mhRepDate(r)||'日付なし')+'</span><span class="badge" style="background:'+(STATUS_COLORS[r.status]||'#95a5a6')+';display:inline-block;">'+esc(r.status||'')+'</span></div>';
       h+='<div style="font-size:12px;color:var(--text-sub);margin-top:3px;">👤 '+esc(r.customerName||'-')+'</div>';
+      if(_receivedOf(r))h+='<div style="font-size:11px;color:var(--text-sub);margin-top:2px;">受付: '+esc(_receivedOf(r))+'</div>';
       if(typeof _wrtHistoryDetail==='function'){h+=_wrtHistoryDetail(r);}
       if(r.issue)h+='<div style="font-size:12px;color:var(--text);margin-top:4px;"><b style="color:#e67e22;">症状:</b> '+esc(r.issue)+'</div>';
       if(r.repairWork||'')h+='<div style="font-size:12px;color:var(--text);margin-top:2px;"><b style="color:#2ecc71;">修理:</b> '+esc(r.repairWork||'')+'</div>';
@@ -2971,6 +2974,7 @@ function renderRepairs(){
         +(item.hourMeter?'<div style="font-size:11px;color:var(--text-sub);">稼働: '+item.hourMeter+'h</div>':'')
         +(item.issue?'<div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+item.issue+'</div>':'')
         +((item.repairWork||'')?'<div style="font-size:12px;color:#2ecc71;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🔧 '+item.repairWork+'</div>':'')
+        +(_receivedOf(item)?'<div style="font-size:10px;color:var(--text-sub);margin-bottom:3px;">受付: '+_receivedOf(item)+'</div>':'')
         +'<div style="display:flex;justify-content:space-between;align-items:center;"><span class="badge" style="background:'+(STATUS_COLORS[item.status]||'#95a5a6')+';display:inline-block;">'+item.status+'</span>'
         +(item.dueDate?'<span style="font-size:10px;color:var(--text-sub);">納期: '+item.dueDate+'</span>':'')+'</div></div>';
     });
@@ -3078,7 +3082,8 @@ function showModal(){
   else if(modalState.tab===2){form+='<button type="button" onclick="openRecall(\'repair\')" style="width:100%;background:#2980b9;color:#fff;border:none;border-radius:10px;padding:11px 0;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:10px;">📋 お客様・機械を呼び出して入力</button><div style="display:flex;gap:8px;margin-bottom:12px;"><label style="flex:1;text-align:center;background:#16a085;color:#fff;border-radius:10px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;">📷 銘板読取<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="repairScanNameplate(event)"></label><label style="flex:1;text-align:center;background:#16a085;color:#fff;border-radius:10px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;">📷 稼働時間<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="repairScanMeter(event)"></label></div><input type="hidden" id="f_machineId" value="'+esc(it.machineId||'')+'">'+machineBadgeHTML(it.machineId);form+=inp('customerName','顧客名',it.customerName)+inp('machine','機械名 (品名)',it.machine)+'<div class="fl"><div class="fg">'+inp('maker','メーカー',it.maker)+'</div><div class="fg">'+inp('model','型式',it.model)+'</div></div>'+inp('serialNo','製造番号',it.serialNo)+'<div class="fl"><div class="fg">'+inp('attachment','アタッチメント',it.attachment)+'</div><div class="fg">'+inp('hourMeter','稼働時間(h)',it.hourMeter,'number')+'</div></div>';
   form+='<label class="field-label">不具合内容・依頼事項</label><div style="position:relative;"><button type="button" onclick="fieldVoice(\'f_issue\',this)" style="position:absolute;right:6px;top:6px;background:#e67e22;border:none;border-radius:6px;width:26px;height:26px;font-size:12px;cursor:pointer;color:#fff;padding:0;line-height:1;z-index:1;">🎙</button><textarea id="f_issue" class="field-textarea" rows="2" data-voicefix="format" style="padding-right:38px;">'+esc(it.issue)+'</textarea></div>';
   form+='<label class="field-label">修理内容（実施した作業）</label><div style="position:relative;"><button type="button" onclick="fieldVoice(\'f_repairWork\',this)" style="position:absolute;right:6px;top:6px;background:#e67e22;border:none;border-radius:6px;width:26px;height:26px;font-size:12px;cursor:pointer;color:#fff;padding:0;line-height:1;z-index:1;">🎙</button><textarea id="f_repairWork" class="field-textarea" rows="2" data-voicefix="format" style="padding-right:38px;">'+esc(it.repairWork||'')+'</textarea></div>';
-  form+='<div class="fl"><div class="fg">'+sel('status','ステータス',['修理依頼','見積中','部品待ち','修理中','完了(未請求)','請求済'],it.status)+'</div><div class="fg">'+inp('dueDate','納期・予定日',it.dueDate,'date')+'</div></div>';form+=inp('billedDate','請求日',it.billedDate,'date');
+  form+='<div class="fl"><div class="fg">'+inp('receivedDate','受付日',(it.receivedDate||(modalState.mode==='new'?new Date().toISOString().slice(0,10):'')),'date')+'</div><div class="fg">'+inp('dueDate','納期・予定日',it.dueDate,'date')+'</div></div>';
+  form+='<div class="fl"><div class="fg">'+sel('status','ステータス',['修理依頼','見積中','部品待ち','修理中','完了(未請求)','請求済'],it.status)+'</div><div class="fg">'+inp('billedDate','請求日',it.billedDate,'date')+'</div></div>';
   form+=inp('amount','売上金額（税抜・任意）',it.amount,'number');
   // --- 修理写真エリア ---
   currentRepairPhotos=JSON.parse(JSON.stringify(it.photos||[]));
@@ -3124,6 +3129,8 @@ function saveItem(){
     return !!(m&&Number(m[2])>=2);
   };
   document.querySelectorAll('#modalBody input,#modalBody select,#modalBody textarea').forEach(el=>{const key=el.id.replace('f_','');if(key&&el.type!=='file'&&!_isExtra(key))item[key]=el.value;});
+  // 作業レコード(tab2)：新規保存で受付日が空なら今日を自動セット（手入力/既存値は尊重・書き換えない）
+  if(modalState.tab===2&&modalState.mode==='new'&&!String(item.receivedDate||'').trim())item.receivedDate=new Date().toISOString().slice(0,10);
   // 修理写真を保存
   if(modalState.tab===2)item.photos=currentRepairPhotos;
   if(modalState.tab===2){const _pv=(modalState.mode==='edit'&&modalState.item)?modalState.item.status:undefined;if(modalState.mode==='new'||item.status!==_pv)_stampRepairStatus(item);}
