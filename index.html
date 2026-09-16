@@ -3320,8 +3320,11 @@ function buildEstHTML(){
     else if(!isEmpty)emptyStartIdx=-1;
   }
 
+  // 末尾の余白は「最後の非空行＋5行」までに制限（余白削減）。全行空なら0..4の5行。
+  const lastUsed=(emptyStartIdx===-1)?(qItems.length-1):(emptyStartIdx-1);
+  const maxRow=Math.min(qItems.length-1,lastUsed+5);
   let sub=0,rowsHTML='';
-  for(let i=0;i<qItems.length;i++){
+  for(let i=0;i<=maxRow;i++){
     const it=qItems[i];
     const qty=Number(it.qty)||0,price=Number(it.price)||0,amt=qty*price;
     sub+=amt;
@@ -3348,7 +3351,7 @@ function buildEstHTML(){
   }
   const tax=Math.floor(sub*.1),total=sub+tax;
 
-    const thS=`border:1px solid #000;font-size:9px;font-weight:normal;text-align:center;height:${rowH}mm;`;
+    const thS=`border:1px solid #000;font-size:9px;font-weight:bold;text-align:center;height:${rowH}mm;`;
 
   let h=`<div style="width:210mm;min-height:296mm;padding:10mm 18mm;background:#fff;font-family:'MS Mincho',serif;color:#000;box-sizing:border-box;font-weight:${estFontWeight||400};">`;
 
